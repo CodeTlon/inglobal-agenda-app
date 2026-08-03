@@ -1,56 +1,55 @@
-# Welcome to your Expo app 👋
+# InGlobal Agenda (mobile)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+App Expo (React Native, Expo Router, NativeWind) para Grúas InGlobal — gestiona la Agenda
+(eventos, grúas, empresas, operarios) y el CMS del sitio (clientes, servicios) desde el celular.
+Es un cliente HTTP puro de la API en `app/api/**` del repo `inglobal-site` (Route Handlers que
+reexportan la misma lógica de negocio que usa el dashboard web — ver `lib/agenda-business.ts`
+allá), autenticado con la sesión de Supabase Auth del propio dispositivo (Bearer JWT).
 
-## Get started
+No hay pantalla de registro: las cuentas se crean a mano desde `/dashboard/usuarios` en el
+sitio web, igual que hoy.
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Setup
 
 ```bash
-npm run reset-project
+npm install
+cp .env.example .env.local   # completar con los mismos valores que inglobal-site (dev o prod)
+npx expo start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Variables (`EXPO_PUBLIC_*`, van al bundle — mismo nivel de confianza que `NEXT_PUBLIC_*` en el sitio):
 
-### Other setup steps
+- `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` — mismos valores que `inglobal-site` (dev o prod según con qué Supabase quieras probar).
+- `EXPO_PUBLIC_API_BASE_URL` — origin del sitio Next.js desplegado (ej. rama `dev` en Vercel Preview, o `https://gruasinglobal.com` en prod).
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+## Estructura
 
-## Learn more
+```
+src/
+  app/
+    (auth)/login.tsx              Login (Supabase Auth, sin registro)
+    (tabs)/
+      agenda/                      Calendario (día seleccionado + tira semanal) + alta/edición de eventos
+      catalogos/                   Grúas / Empresas / Operarios (alta, edición, activo/inactivo, borrado)
+      clientes/                    CRUD de clientes destacados del sitio (con logo)
+      servicios/                   CRUD de servicios del sitio (con imagen)
+      perfil/                      Sesión + "Vincular TV" (pairing QR)
+  lib/
+    supabase.ts                    Cliente Supabase con sesión persistida en expo-secure-store
+    api.ts                         Wrapper fetch + Bearer JWT hacia app/api/** de inglobal-site
+    agenda-view.ts                 Copiado 1:1 de inglobal-site/lib/agenda-view.ts (mismo criterio de semana/estado visual que web y TV)
+    agenda-api.ts / clientes-api.ts / servicios-api.ts   Wrappers tipados por entidad
+    upload.ts                      Sube imágenes directo al bucket `media` de Supabase (bypass del API para el binario)
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+## Pairing QR (vincular una TV)
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+`Perfil → Vincular TV` abre la cámara y escanea el QR que muestra `/agenda-tv/pair` en el
+sitio web. Aprobar el código desde el celular loguea esa TV automáticamente (sin escribir
+usuario/contraseña) — ver `app/api/tv-pair/**` en `inglobal-site` para el flujo completo.
 
-## Join the community
+## Pendiente / no incluido en esta primera versión
 
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- Trabajos (mini-blog por cliente, contenido rico TipTap) — sigue editándose solo desde el dashboard web.
+- Cambio de contraseña in-app (si el usuario tiene `must_change_password`, la app le pide que lo haga desde el panel web).
+- Build de producción (EAS) — falta configurar `eas.json` con perfiles dev/preview/production.

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "inglobal-agenda-app",
+    "name": "InGlobal Agenda",
     "slug": "inglobal-agenda-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -32,7 +32,21 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
-      ]
+      ],
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "InGlobal Agenda usa la cámara para escanear el código QR de una TV y vincularla a tu sesión."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "InGlobal Agenda usa tus fotos para subir imágenes de clientes y servicios."
+        }
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,
