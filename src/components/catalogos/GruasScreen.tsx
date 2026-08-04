@@ -1,6 +1,8 @@
 import { useCallback, useState } from 'react'
-import { View, Text, TextInput, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native'
+import { View, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native'
 import { Picker } from '@react-native-picker/picker'
+import { Text } from '@/components/Text'
+import { TextInput } from '@/components/TextInput'
 import { useFocusEffect } from 'expo-router'
 import { getGruas, createGrua, updateGrua, toggleGrua, deleteGrua } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
@@ -56,8 +58,7 @@ export default function GruasScreen() {
 
   async function handleToggle(g: Grua) {
     try {
-      const res = await toggleGrua(g.id, g.activo)
-      if (res.warning) Alert.alert('Atención', res.warning)
+      await toggleGrua(g.id, g.activo)
       load()
     } catch (e) {
       Alert.alert('Error', e instanceof ApiError ? e.message : 'No se pudo actualizar.')
@@ -113,6 +114,7 @@ export default function GruasScreen() {
           {gruas.map((g) => (
             <CatalogRow
               key={g.id}
+              icon="car-outline"
               title={g.nombre}
               subtitle={`${g.tipo} — ${g.patente ?? 'sin patente'} — ${g.capacidad_toneladas ?? '?'}t`}
               activo={g.activo}

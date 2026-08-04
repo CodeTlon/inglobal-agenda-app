@@ -1,6 +1,8 @@
 import { useState } from 'react'
-import { View, Text, Pressable, ActivityIndicator } from 'react-native'
+import { View, Pressable, ActivityIndicator } from 'react-native'
 import { CameraView, useCameraPermissions } from 'expo-camera'
+import { Ionicons } from '@expo/vector-icons'
+import { Text } from '@/components/Text'
 import { api, ApiError } from '@/lib/api'
 
 function extractToken(scanned: string): string | null {
@@ -58,7 +60,7 @@ export default function PairTvScreen() {
   if (result === 'ok') {
     return (
       <View className="flex-1 items-center justify-center bg-igb-surface p-8">
-        <Text className="text-4xl mb-4">✅</Text>
+        <Ionicons name="checkmark-circle" size={48} color="#16a34a" style={{ marginBottom: 16 }} />
         <Text className="text-igb-on-surface font-semibold text-lg mb-2 text-center">TV vinculada</Text>
         <Text className="text-igb-secondary text-center mb-6">La televisión ya debería mostrar la agenda.</Text>
         <Pressable onPress={reset} className="bg-igb-yellow rounded-lg px-6 py-3">
@@ -71,7 +73,7 @@ export default function PairTvScreen() {
   if (scannedToken) {
     return (
       <View className="flex-1 items-center justify-center bg-igb-surface p-8">
-        <Text className="text-4xl mb-4">📺</Text>
+        <Ionicons name="tv-outline" size={48} color="#1C357F" style={{ marginBottom: 16 }} />
         <Text className="text-igb-on-surface font-semibold text-lg mb-2 text-center">¿Aprobar el inicio de sesión en esta TV?</Text>
         {result === 'error' && <Text className="text-red-600 text-center mb-4">{errorMsg}</Text>}
         <Pressable onPress={handleApprove} disabled={approving} className="bg-igb-yellow rounded-lg px-6 py-3 mb-3 w-full items-center disabled:opacity-60">

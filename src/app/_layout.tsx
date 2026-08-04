@@ -1,9 +1,16 @@
 import '../global.css'
+import { useCallback } from 'react'
 import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
-import { View, ActivityIndicator, Text } from 'react-native'
+import { View, ActivityIndicator } from 'react-native'
+import * as SplashScreen from 'expo-splash-screen'
+import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter'
+import { Manrope_700Bold } from '@expo-google-fonts/manrope'
 import { useSession } from '@/lib/session'
+import { Text } from '@/components/Text'
+
+SplashScreen.preventAutoHideAsync()
 
 function CenteredMessage({ children }: { children: React.ReactNode }) {
   return (
@@ -15,9 +22,22 @@ function CenteredMessage({ children }: { children: React.ReactNode }) {
 
 export default function RootLayout() {
   const { session, loading, mustChangePassword } = useSession()
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    Manrope_700Bold,
+  })
+
+  const onLayout = useCallback(() => {
+    if (fontsLoaded) SplashScreen.hideAsync()
+  }, [fontsLoaded])
+
+  if (!fontsLoaded) return null
 
   return (
-    <SafeAreaProvider>
+    <SafeAreaProvider onLayout={onLayout}>
       <StatusBar style="dark" />
       {loading ? (
         <CenteredMessage>

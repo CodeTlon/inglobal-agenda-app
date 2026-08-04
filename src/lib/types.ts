@@ -58,30 +58,3 @@ export interface EventoAgenda {
   empresa: { nombre: string } | null
   operarios: { id: string; nombre: string }[]
 }
-
-export interface Cliente {
-  id: string
-  slug: string
-  name: string
-  logo: string
-  logo_focal: string | null
-  logo_focal_mobile: string | null
-  bio: string | null
-  content: string | null
-  featured: boolean
-  work_rank: number
-  published: boolean
-}
-
-export interface Servicio {
-  id: string
-  slug: string
-  title: string
-  desc: string
-  excerpt: string
-  specs: string[]
-  img: string
-  icon: string
-  display_order: number
-  published: boolean
-}

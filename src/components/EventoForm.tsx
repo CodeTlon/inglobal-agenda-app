@@ -1,7 +1,10 @@
-import { useEffect, useState } from 'react'
-import { View, Text, TextInput, ScrollView, Pressable, ActivityIndicator, Platform } from 'react-native'
+import { useEffect, useState, type ReactNode } from 'react'
+import { View, ScrollView, Pressable, ActivityIndicator, Platform } from 'react-native'
 import DateTimePicker from '@react-native-community/datetimepicker'
 import { Picker } from '@react-native-picker/picker'
+import { Ionicons } from '@expo/vector-icons'
+import { Text } from '@/components/Text'
+import { TextInput } from '@/components/TextInput'
 import {
   getGruas,
   getEmpresasAgenda,
@@ -12,7 +15,7 @@ import {
   type EventoPayload,
 } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
-import { toDateInput } from '@/lib/agenda-view'
+import { toDateInput, formatEstado } from '@/lib/agenda-view'
 import { TRANSICIONES_VALIDAS, type EstadoEvento, type EventoAgenda, type Grua, type EmpresaAgenda, type Operario } from '@/lib/types'
 
 function parseTime(t: string): Date {
@@ -25,7 +28,15 @@ function formatTime(d: Date): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-export function EventoForm({ initial, onDone }: { initial?: EventoAgenda; onDone: () => void }) {
+export function EventoForm({
+  initial,
+  onDone,
+  footer,
+}: {
+  initial?: EventoAgenda
+  onDone: () => void
+  footer?: ReactNode
+}) {
   const isEdit = !!initial
   const locked = isEdit && initial.estado === 'en_curso'
 
@@ -214,7 +225,7 @@ export function EventoForm({ initial, onDone }: { initial?: EventoAgenda; onDone
                 className="flex-row items-center py-2 px-1"
               >
                 <View className={`w-5 h-5 rounded border mr-3 items-center justify-center ${selected ? 'bg-igb-yellow border-igb-yellow' : 'border-igb-outline'}`}>
-                  {selected && <Text className="text-igb-on-yellow text-xs">✓</Text>}
+                  {selected && <Ionicons name="checkmark" size={14} color="#221b00" />}
                 </View>
                 <Text className={ocupado ? 'text-red-600' : 'text-igb-on-surface'}>
                   {o.nombre}{ocupado ? ' (ocupado)' : ''}
@@ -252,7 +263,7 @@ export function EventoForm({ initial, onDone }: { initial?: EventoAgenda; onDone
           <View className="border border-igb-outline rounded-lg bg-white">
             <Picker selectedValue={estado} onValueChange={(v) => setEstado(v as EstadoEvento)}>
               {opcionesEstado.map((e) => (
-                <Picker.Item key={e} label={e} value={e} />
+                <Picker.Item key={e} label={formatEstado(e)} value={e} />
               ))}
             </Picker>
           </View>
@@ -268,6 +279,7 @@ export function EventoForm({ initial, onDone }: { initial?: EventoAgenda; onDone
       >
         {saving ? <ActivityIndicator color="#221b00" /> : <Text className="text-igb-on-yellow font-bold">{isEdit ? 'Guardar cambios' : 'Crear evento'}</Text>}
       </Pressable>
+      {footer}
     </ScrollView>
   )
 }

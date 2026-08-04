@@ -1,6 +1,8 @@
 import { useCallback, useState } from 'react'
-import { View, Text, TextInput, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native'
+import { View, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native'
 import { useFocusEffect } from 'expo-router'
+import { Text } from '@/components/Text'
+import { TextInput } from '@/components/TextInput'
 import { getEmpresasAgenda, createEmpresaAgenda, updateEmpresaAgenda, toggleEmpresaAgenda, deleteEmpresaAgenda } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
 import type { EmpresaAgenda } from '@/lib/types'
@@ -55,8 +57,7 @@ export default function EmpresasScreen() {
 
   async function handleToggle(e: EmpresaAgenda) {
     try {
-      const res = await toggleEmpresaAgenda(e.id, e.activo)
-      if (res.warning) Alert.alert('Atención', res.warning)
+      await toggleEmpresaAgenda(e.id, e.activo)
       load()
     } catch (err) {
       Alert.alert('Error', err instanceof ApiError ? err.message : 'No se pudo actualizar.')
@@ -108,6 +109,7 @@ export default function EmpresasScreen() {
           {empresas.map((e) => (
             <CatalogRow
               key={e.id}
+              icon="business-outline"
               title={e.nombre}
               subtitle={[e.contacto, e.telefono].filter(Boolean).join(' — ')}
               activo={e.activo}

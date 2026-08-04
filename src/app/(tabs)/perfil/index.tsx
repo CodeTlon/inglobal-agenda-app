@@ -1,5 +1,7 @@
-import { View, Text, Pressable } from 'react-native'
+import { View, Pressable } from 'react-native'
 import { useRouter } from 'expo-router'
+import { Ionicons } from '@expo/vector-icons'
+import { Text } from '@/components/Text'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/lib/session'
 
@@ -18,7 +20,7 @@ export default function PerfilScreen() {
         onPress={() => router.push('/perfil/pair-tv')}
         className="bg-white border border-igb-outline rounded-xl p-4 mb-3 flex-row items-center"
       >
-        <Text className="text-2xl mr-3">📺</Text>
+        <Ionicons name="tv-outline" size={24} color="#1C357F" style={{ marginRight: 12 }} />
         <View className="flex-1">
           <Text className="text-lg font-semibold text-igb-on-surface">Vincular TV</Text>
           <Text className="text-igb-secondary text-sm">Escaneá el QR de una TV para loguearla</Text>

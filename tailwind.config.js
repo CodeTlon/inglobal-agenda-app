@@ -4,6 +4,14 @@ module.exports = {
   presets: [require('nativewind/preset')],
   theme: {
     extend: {
+      fontFamily: {
+        // Misma tipografía que inglobal-site (Manrope headline / Inter cuerpo) —
+        // cargadas en src/app/_layout.tsx vía @expo-google-fonts. Sin peso "bold" acá:
+        // en RN cada peso es un archivo de fuente distinto, no se sintetiza con
+        // font-weight — por eso font-headline siempre es el Manrope 700 (bold-only).
+        sans: ['Inter_400Regular'],
+        headline: ['Manrope_700Bold'],
+      },
       colors: {
         // Mismos tokens que inglobal-site/tailwind.config.ts — InGlobal Design System.
         'igb-yellow': '#f5d100',

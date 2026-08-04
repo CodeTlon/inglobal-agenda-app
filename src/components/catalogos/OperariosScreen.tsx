@@ -1,6 +1,8 @@
 import { useCallback, useState } from 'react'
-import { View, Text, TextInput, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native'
+import { View, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native'
 import { useFocusEffect } from 'expo-router'
+import { Text } from '@/components/Text'
+import { TextInput } from '@/components/TextInput'
 import { getOperarios, createOperario, updateOperario, toggleOperario, deleteOperario } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
 import type { Operario } from '@/lib/types'
@@ -54,8 +56,7 @@ export default function OperariosScreen() {
 
   async function handleToggle(o: Operario) {
     try {
-      const res = await toggleOperario(o.id, o.activo)
-      if (res.warning) Alert.alert('Atención', res.warning)
+      await toggleOperario(o.id, o.activo)
       load()
     } catch (err) {
       Alert.alert('Error', err instanceof ApiError ? err.message : 'No se pudo actualizar.')
@@ -101,6 +102,7 @@ export default function OperariosScreen() {
           {operarios.map((o) => (
             <CatalogRow
               key={o.id}
+              icon="people-outline"
               title={o.nombre}
               subtitle={o.telefono}
               activo={o.activo}

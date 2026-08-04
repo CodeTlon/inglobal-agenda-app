@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { View, Text, ActivityIndicator, Pressable, Alert } from 'react-native'
+import { View, ActivityIndicator, Pressable, Alert } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
+import { Text } from '@/components/Text'
 import { EventoForm } from '@/components/EventoForm'
 import { getEventoAgendaById, deleteEvento } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
@@ -57,13 +58,16 @@ export default function EditarEventoScreen() {
   const puedeBorrar = evento.estado === 'programado'
 
   return (
-    <View className="flex-1">
-      <EventoForm initial={evento} onDone={() => router.back()} />
-      {puedeBorrar && (
-        <Pressable onPress={handleDelete} className="absolute bottom-6 left-6">
-          <Text className="text-red-600 font-medium">Eliminar evento</Text>
-        </Pressable>
-      )}
-    </View>
+    <EventoForm
+      initial={evento}
+      onDone={() => router.back()}
+      footer={
+        puedeBorrar ? (
+          <Pressable onPress={handleDelete} className="items-center py-3 mt-3">
+            <Text className="text-red-600 font-medium">Eliminar evento</Text>
+          </Pressable>
+        ) : undefined
+      }
+    />
   )
 }

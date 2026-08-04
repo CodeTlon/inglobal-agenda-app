@@ -1,26 +1,43 @@
-import { View, Text, Pressable } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useState } from 'react'
+import { View, Pressable } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
+import { Text } from '@/components/Text'
+import type { ComponentProps } from 'react'
+import GruasScreen from '@/components/catalogos/GruasScreen'
+import EmpresasScreen from '@/components/catalogos/EmpresasScreen'
+import OperariosScreen from '@/components/catalogos/OperariosScreen'
 
-const ITEMS = [
-  { href: '/catalogos/gruas', label: 'Grúas', emoji: '🚚' },
-  { href: '/catalogos/empresas', label: 'Empresas', emoji: '🏢' },
-  { href: '/catalogos/operarios', label: 'Operarios', emoji: '👷' },
-] as const
+const TABS = [
+  { key: 'gruas', label: 'Grúas', icon: 'car-outline' },
+  { key: 'empresas', label: 'Empresas', icon: 'business-outline' },
+  { key: 'operarios', label: 'Operarios', icon: 'people-outline' },
+] as const satisfies { key: string; label: string; icon: ComponentProps<typeof Ionicons>['name'] }[]
+
+type TabKey = (typeof TABS)[number]['key']
 
 export default function CatalogosScreen() {
-  const router = useRouter()
+  const [tab, setTab] = useState<TabKey>('gruas')
+
   return (
-    <View className="flex-1 bg-igb-surface p-4">
-      {ITEMS.map((item) => (
-        <Pressable
-          key={item.href}
-          onPress={() => router.push(item.href)}
-          className="bg-white border border-igb-outline rounded-xl p-4 mb-3 flex-row items-center"
-        >
-          <Text className="text-2xl mr-3">{item.emoji}</Text>
-          <Text className="text-lg font-semibold text-igb-on-surface">{item.label}</Text>
-        </Pressable>
-      ))}
+    <View className="flex-1 bg-igb-surface">
+      <View className="flex-row bg-white border-b border-igb-outline px-2 pt-2">
+        {TABS.map((t) => {
+          const active = t.key === tab
+          return (
+            <Pressable
+              key={t.key}
+              onPress={() => setTab(t.key)}
+              className={`flex-1 flex-row items-center justify-center gap-1.5 pb-2.5 border-b-2 ${active ? 'border-igb-navy' : 'border-transparent'}`}
+            >
+              <Ionicons name={t.icon} size={16} color={active ? '#1C357F' : '#575d78'} />
+              <Text className={`text-sm font-semibold ${active ? 'text-igb-navy' : 'text-igb-secondary'}`}>{t.label}</Text>
+            </Pressable>
+          )
+        })}
+      </View>
+      {tab === 'gruas' && <GruasScreen />}
+      {tab === 'empresas' && <EmpresasScreen />}
+      {tab === 'operarios' && <OperariosScreen />}
     </View>
   )
 }

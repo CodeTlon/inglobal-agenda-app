@@ -64,7 +64,7 @@ export function updateGrua(id: string, payload: GruaPayload) {
   return api.patch<{ id: string }>(`/agenda/gruas/${id}`, payload)
 }
 export function toggleGrua(id: string, activo: boolean) {
-  return api.patch<{ id: string; warning?: string }>(`/agenda/gruas/${id}`, { activo })
+  return api.patch<{ id: string }>(`/agenda/gruas/${id}`, { activo })
 }
 export function deleteGrua(id: string) {
   return api.delete<{ id: string }>(`/agenda/gruas/${id}`)
@@ -81,7 +81,7 @@ export function updateEmpresaAgenda(id: string, payload: EmpresaPayload) {
   return api.patch<{ id: string }>(`/agenda/empresas/${id}`, payload)
 }
 export function toggleEmpresaAgenda(id: string, activo: boolean) {
-  return api.patch<{ id: string; warning?: string }>(`/agenda/empresas/${id}`, { activo })
+  return api.patch<{ id: string }>(`/agenda/empresas/${id}`, { activo })
 }
 export function deleteEmpresaAgenda(id: string) {
   return api.delete<{ id: string }>(`/agenda/empresas/${id}`)
@@ -98,7 +98,7 @@ export function updateOperario(id: string, payload: OperarioPayload) {
   return api.patch<{ id: string }>(`/agenda/operarios/${id}`, payload)
 }
 export function toggleOperario(id: string, activo: boolean) {
-  return api.patch<{ id: string; warning?: string }>(`/agenda/operarios/${id}`, { activo })
+  return api.patch<{ id: string }>(`/agenda/operarios/${id}`, { activo })
 }
 export function deleteOperario(id: string) {
   return api.delete<{ id: string }>(`/agenda/operarios/${id}`)
