@@ -7,7 +7,8 @@ Estado real verificado el 2026-08-05. Esto documenta lo que hay, no un plan aspi
 La app no tiene backend propio — pega contra `inglobal-site` (Next.js, repo separado: `CodeTlon/inglobal-site`), endpoints `/api/agenda/*` y `/api/tv-pair/*`.
 
 - **Producción:** `EXPO_PUBLIC_API_BASE_URL=https://inglobal-site-theta.vercel.app` (ver `.env.local`, no está trackeado en git).
-- Ese deploy es **manual** (`vercel --prod` desde el repo de `inglobal-site`, no hay integración Git↔Vercel conectada) — si cambiaste algo del backend, no asumas que ya está en producción. Detalle en `inglobal-site/docs/deployment-guide.md`.
+- El repo **sí** está conectado a Vercel (`productionBranch: main`) — cada push a `main` dispara un deploy a producción solo. Verificado el 05/08/2026 contra la API de Vercel (`GET /v9/projects/inglobal-site` → `link.type: github`, y varios deploys recientes con `source: git`). La nota anterior de "deploy manual, sin integración" estaba desactualizada. Detalle en `inglobal-site/docs/deployment-guide.md`.
+- Ojo con las env vars (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`): el auto-deploy sube el código, pero **no** te avisa si las env vars de Vercel quedaron apuntando a un proyecto de Supabase viejo — eso pasó el 05/08/2026 y rompió el login de la app mobile en silencio (401 en todos los endpoints autenticados) hasta que se corrigieron a mano. Si algo empieza a dar 401 en prod sin razón aparente, comparar `vercel env pull` contra el `.env.local` del repo mobile.
 
 ## EAS — identidad del proyecto
 
@@ -22,7 +23,7 @@ bundleId/pkg:  com.gruasinglobal.agenda   (mismo para iOS y Android)
 
 ## Camino 1 — Testing remoto sin build nativo (EAS Update)
 
-Esto es lo que hay activo hoy. Publica el JS a los servers de Expo; cualquiera con **Expo Go** (gratis, App Store/Play Store) lo abre desde cualquier lado, sin depender de que corra nada localmente.
+Esto es lo que hay activo hoy. Publica el JS a los servers de Expo, se abre desde **Expo Go** (gratis, App Store/Play Store) sin depender de que corra nada localmente.
 
 - Canal: **`preview`** (creado y linkeado a la branch `preview` con `eas channel:create`).
 - Link fijo para el equipo (no cambia entre publicaciones):
@@ -33,8 +34,9 @@ Esto es lo que hay activo hoy. Publica el JS a los servers de Expo; cualquiera c
   ```bash
   eas update --branch preview --message "descripción del cambio"
   ```
-- **Límite:** solo sirve mientras no se agregue un módulo nativo fuera del set que trae Expo Go de fábrica. El día que haga falta uno, esto deja de alcanzar y hay que pasar al Camino 2.
-- El dashboard de EAS (`expo.dev/accounts/codetlon/projects/inglobal-app/...`) pide login — no es compartible con gente sin cuenta en el org `codetlon`. El link `exp://u.expo.dev/...` de arriba sí es público, es el que hay que compartir.
+- **Límite 1:** solo sirve mientras no se agregue un módulo nativo fuera del set que trae Expo Go de fábrica. El día que haga falta uno, esto deja de alcanzar y hay que pasar al Camino 2.
+- **Límite 2 (desde el 12/05/2026, cambio de Expo):** Expo Go ya **no** deja abrir un proyecto de EAS Update a cualquiera — quien abre el link tiene que estar logueado en la app de Expo Go con una cuenta que sea dueña o **miembro de la org `codetlon`** en expo.dev. Sin eso tira un error genérico ("Something went wrong / Sorry about that...") que no dice nada sobre permisos — fácil de confundir con un bug de red o de la app. O sea: ya **no es un link público para cualquiera**, hay que invitar a cada persona a `expo.dev/accounts/codetlon/settings/members` antes de que pueda probar.
+- El dashboard de EAS (`expo.dev/accounts/codetlon/projects/inglobal-app/...`) también pide esa misma membresía.
 
 ## Camino 2 — Build nativo real, sin tienda (para cuando Camino 1 no alcance)
 

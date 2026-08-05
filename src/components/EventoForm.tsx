@@ -79,7 +79,7 @@ export function EventoForm({
       .catch(() => {})
   }, [fecha, fechaHasta, horaInicio, horaFin])
 
-  const opcionesEstado: EstadoEvento[] = isEdit ? [initial.estado, ...TRANSICIONES_VALIDAS[initial.estado]] : ['programado']
+  const opcionesEstado: EstadoEvento[] = isEdit ? [initial.estado, ...TRANSICIONES_VALIDAS[initial.estado]] : ['reserva', 'programado']
 
   function toggleOperario(id: string) {
     setOperarioIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
@@ -258,17 +258,15 @@ export function EventoForm({
         />
       </Field>
 
-      {isEdit && (
-        <Field label="Estado">
-          <View className="border border-igb-outline rounded-lg bg-white">
-            <Picker selectedValue={estado} onValueChange={(v) => setEstado(v as EstadoEvento)}>
-              {opcionesEstado.map((e) => (
-                <Picker.Item key={e} label={formatEstado(e)} value={e} />
-              ))}
-            </Picker>
-          </View>
-        </Field>
-      )}
+      <Field label="Estado">
+        <View className="border border-igb-outline rounded-lg bg-white">
+          <Picker selectedValue={estado} onValueChange={(v) => setEstado(v as EstadoEvento)}>
+            {opcionesEstado.map((e) => (
+              <Picker.Item key={e} label={formatEstado(e)} value={e} />
+            ))}
+          </Picker>
+        </View>
+      </Field>
 
       {error && <Text className="text-red-600 mb-3">{error}</Text>}
 

@@ -55,7 +55,7 @@ export default function EditarEventoScreen() {
     )
   }
 
-  const puedeBorrar = evento.estado === 'programado'
+  const puedeBorrar = evento.estado === 'reserva' || evento.estado === 'programado'
 
   return (
     <EventoForm
