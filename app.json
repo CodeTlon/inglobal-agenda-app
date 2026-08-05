@@ -8,9 +8,11 @@
     "scheme": "inglobalagendaapp",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/images/icon.png"
+      "icon": "./assets/images/icon.png",
+      "bundleIdentifier": "com.gruasinglobal.agenda"
     },
     "android": {
+      "package": "com.gruasinglobal.agenda",
       "adaptiveIcon": {
         "backgroundColor": "#1C357F",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -18,8 +20,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.CAMERA"
       ]
     },
     "web": {
@@ -40,7 +41,9 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "InGlobal Agenda usa la cámara para escanear el código QR de una TV y vincularla a tu sesión."
+          "cameraPermission": "InGlobal Agenda usa la cámara para escanear el código QR de una TV y vincularla a tu sesión.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
         }
       ],
       "@react-native-community/datetimepicker"
