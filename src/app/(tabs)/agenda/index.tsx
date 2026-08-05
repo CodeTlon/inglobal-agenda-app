@@ -3,6 +3,7 @@ import { View, ScrollView, Pressable, ActivityIndicator, RefreshControl } from '
 import { useFocusEffect, useRouter } from 'expo-router'
 import { Text } from '@/components/Text'
 import { getEventosAgenda } from '@/lib/agenda-api'
+import { ApiError } from '@/lib/api'
 import { getWeekStart, getWeekDays, addDays, toDateInput, estadoStripColor, layoutDayEvents, formatEstado } from '@/lib/agenda-view'
 import type { EventoAgenda } from '@/lib/types'
 
@@ -45,8 +46,10 @@ export default function AgendaScreen() {
       const hasta = toDateInput(addDays(weekStart, 6))
       const data = await getEventosAgenda(desde, hasta)
       setEventos(data)
-    } catch {
-      setError('No se pudieron cargar los eventos.')
+    } catch (e) {
+      // ponytail: mensaje crudo del backend en vez de uno genérico, útil
+      // mientras se depura el flujo — cambiar a algo más lindo cuando esté estable.
+      setError(e instanceof ApiError ? `Error ${e.status}: ${e.message}` : `Error de red: ${String(e)}`)
     } finally {
       setLoading(false)
     }
