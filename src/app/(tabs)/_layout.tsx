@@ -4,7 +4,7 @@ import type { ComponentProps } from 'react'
 import { useSession } from '@/lib/session'
 
 function TabIcon({ name, focused }: { name: ComponentProps<typeof Ionicons>['name']; focused: boolean }) {
-  return <Ionicons name={name} size={22} color={focused ? '#221b00' : '#22190080'} />
+  return <Ionicons name={name} size={22} color={focused ? '#1C357F' : '#1C357F80'} />
 }
 
 export default function TabsLayout() {
@@ -20,7 +20,8 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#221b00',
+        tabBarActiveTintColor: '#1C357F',
+        tabBarInactiveTintColor: '#1C357F80',
         tabBarStyle: { backgroundColor: '#f5d100' },
       }}
     >
