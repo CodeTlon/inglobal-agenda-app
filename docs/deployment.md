@@ -22,7 +22,7 @@ bundleId/pkg:  com.gruasinglobal.agenda   (mismo para iOS y Android)
 
 ## Camino 1 — Testing remoto sin build nativo (EAS Update)
 
-Esto es lo que hay activo hoy. Publica el JS a los servers de Expo; cualquiera con **Expo Go** (gratis, App Store/Play Store) lo abre desde cualquier lado, sin depender de que corra nada localmente.
+Esto es lo que hay activo hoy. Publica el JS a los servers de Expo, se abre desde **Expo Go** (gratis, App Store/Play Store) sin depender de que corra nada localmente.
 
 - Canal: **`preview`** (creado y linkeado a la branch `preview` con `eas channel:create`).
 - Link fijo para el equipo (no cambia entre publicaciones):
@@ -33,8 +33,9 @@ Esto es lo que hay activo hoy. Publica el JS a los servers de Expo; cualquiera c
   ```bash
   eas update --branch preview --message "descripción del cambio"
   ```
-- **Límite:** solo sirve mientras no se agregue un módulo nativo fuera del set que trae Expo Go de fábrica. El día que haga falta uno, esto deja de alcanzar y hay que pasar al Camino 2.
-- El dashboard de EAS (`expo.dev/accounts/codetlon/projects/inglobal-app/...`) pide login — no es compartible con gente sin cuenta en el org `codetlon`. El link `exp://u.expo.dev/...` de arriba sí es público, es el que hay que compartir.
+- **Límite 1:** solo sirve mientras no se agregue un módulo nativo fuera del set que trae Expo Go de fábrica. El día que haga falta uno, esto deja de alcanzar y hay que pasar al Camino 2.
+- **Límite 2 (desde el 12/05/2026, cambio de Expo):** Expo Go ya **no** deja abrir un proyecto de EAS Update a cualquiera — quien abre el link tiene que estar logueado en la app de Expo Go con una cuenta que sea dueña o **miembro de la org `codetlon`** en expo.dev. Sin eso tira un error genérico ("Something went wrong / Sorry about that...") que no dice nada sobre permisos — fácil de confundir con un bug de red o de la app. O sea: ya **no es un link público para cualquiera**, hay que invitar a cada persona a `expo.dev/accounts/codetlon/settings/members` antes de que pueda probar.
+- El dashboard de EAS (`expo.dev/accounts/codetlon/projects/inglobal-app/...`) también pide esa misma membresía.
 
 ## Camino 2 — Build nativo real, sin tienda (para cuando Camino 1 no alcance)
 
