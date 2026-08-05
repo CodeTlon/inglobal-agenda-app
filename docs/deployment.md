@@ -7,7 +7,8 @@ Estado real verificado el 2026-08-05. Esto documenta lo que hay, no un plan aspi
 La app no tiene backend propio — pega contra `inglobal-site` (Next.js, repo separado: `CodeTlon/inglobal-site`), endpoints `/api/agenda/*` y `/api/tv-pair/*`.
 
 - **Producción:** `EXPO_PUBLIC_API_BASE_URL=https://inglobal-site-theta.vercel.app` (ver `.env.local`, no está trackeado en git).
-- Ese deploy es **manual** (`vercel --prod` desde el repo de `inglobal-site`, no hay integración Git↔Vercel conectada) — si cambiaste algo del backend, no asumas que ya está en producción. Detalle en `inglobal-site/docs/deployment-guide.md`.
+- El repo **sí** está conectado a Vercel (`productionBranch: main`) — cada push a `main` dispara un deploy a producción solo. Verificado el 05/08/2026 contra la API de Vercel (`GET /v9/projects/inglobal-site` → `link.type: github`, y varios deploys recientes con `source: git`). La nota anterior de "deploy manual, sin integración" estaba desactualizada. Detalle en `inglobal-site/docs/deployment-guide.md`.
+- Ojo con las env vars (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`): el auto-deploy sube el código, pero **no** te avisa si las env vars de Vercel quedaron apuntando a un proyecto de Supabase viejo — eso pasó el 05/08/2026 y rompió el login de la app mobile en silencio (401 en todos los endpoints autenticados) hasta que se corrigieron a mano. Si algo empieza a dar 401 en prod sin razón aparente, comparar `vercel env pull` contra el `.env.local` del repo mobile.
 
 ## EAS — identidad del proyecto
 
