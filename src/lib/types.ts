@@ -1,10 +1,11 @@
 // Mismas formas que lib/agenda.ts / lib/validations/agenda.ts en inglobal-site —
 // la API (app/api/agenda/**) devuelve estos objetos tal cual.
 
-export const ESTADOS_EVENTO = ['programado', 'en_curso', 'finalizado', 'cancelado'] as const
+export const ESTADOS_EVENTO = ['reserva', 'programado', 'en_curso', 'finalizado', 'cancelado'] as const
 export type EstadoEvento = (typeof ESTADOS_EVENTO)[number]
 
 export const TRANSICIONES_VALIDAS: Record<EstadoEvento, EstadoEvento[]> = {
+  reserva: ['programado', 'cancelado'],
   programado: ['en_curso', 'cancelado'],
   en_curso: ['finalizado', 'cancelado'],
   finalizado: [],
