@@ -18,15 +18,13 @@ import { ApiError } from '@/lib/api'
 import { toDateInput, formatEstado } from '@/lib/agenda-view'
 import { TRANSICIONES_VALIDAS, type EstadoEvento, type EventoAgenda, type Grua, type EmpresaAgenda, type Operario } from '@/lib/types'
 
-function parseTime(t: string): Date {
-  const [h, m] = t.split(':').map(Number)
-  const d = new Date()
-  d.setHours(h, m, 0, 0)
-  return d
-}
-function formatTime(d: Date): string {
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
+// Lista de horarios en pasos de 15' (00:00..23:45) para elegir hora rápido
+// tipeando/scrolleando en vez de girar la rueda del picker nativo.
+const TIME_OPTIONS = Array.from({ length: 24 * 4 }, (_, i) => {
+  const h = String(Math.floor(i / 4)).padStart(2, '0')
+  const m = String((i % 4) * 15).padStart(2, '0')
+  return `${h}:${m}`
+})
 
 export function EventoForm({
   initial,
@@ -57,7 +55,7 @@ export function EventoForm({
   const [operarioIds, setOperarioIds] = useState<string[]>(initial?.operarios.map((o) => o.id) ?? [])
 
   const [ocupados, setOcupados] = useState<{ gruaIds: string[]; operarioIds: string[] }>({ gruaIds: [], operarioIds: [] })
-  const [showPicker, setShowPicker] = useState<null | 'fecha' | 'fechaHasta' | 'horaInicio' | 'horaFin'>(null)
+  const [showPicker, setShowPicker] = useState<null | 'fecha' | 'fechaHasta'>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -150,37 +148,39 @@ export function EventoForm({
       <View className="flex-row gap-3">
         <View className="flex-1">
           <Field label="Hora de inicio">
-            <Pressable disabled={locked} onPress={() => setShowPicker('horaInicio')} className="border border-igb-outline rounded-lg px-4 py-3 bg-white">
-              <Text className="text-igb-on-surface">{horaInicio}</Text>
-            </Pressable>
+            <View className="border border-igb-outline rounded-lg bg-white">
+              <Picker enabled={!locked} selectedValue={horaInicio} onValueChange={setHoraInicio}>
+                {TIME_OPTIONS.map((t) => (
+                  <Picker.Item key={t} label={t} value={t} />
+                ))}
+              </Picker>
+            </View>
           </Field>
         </View>
         <View className="flex-1">
           <Field label="Hora de fin (opcional)">
-            <Pressable disabled={locked} onPress={() => setShowPicker('horaFin')} className="border border-igb-outline rounded-lg px-4 py-3 bg-white">
-              <Text className="text-igb-on-surface">{horaFin || 'Sin definir'}</Text>
-            </Pressable>
+            <View className="border border-igb-outline rounded-lg bg-white">
+              <Picker enabled={!locked} selectedValue={horaFin} onValueChange={setHoraFin}>
+                <Picker.Item label="Sin definir" value="" />
+                {TIME_OPTIONS.map((t) => (
+                  <Picker.Item key={t} label={t} value={t} />
+                ))}
+              </Picker>
+            </View>
           </Field>
         </View>
       </View>
 
       {showPicker && (
         <DateTimePicker
-          value={
-            showPicker === 'fecha' ? new Date(fecha)
-            : showPicker === 'fechaHasta' ? new Date(fechaHasta || fecha)
-            : showPicker === 'horaInicio' ? parseTime(horaInicio)
-            : parseTime(horaFin || horaInicio)
-          }
-          mode={showPicker === 'fecha' || showPicker === 'fechaHasta' ? 'date' : 'time'}
+          value={showPicker === 'fecha' ? new Date(fecha) : new Date(fechaHasta || fecha)}
+          mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           onChange={(_, date) => {
             setShowPicker(null)
             if (!date) return
             if (showPicker === 'fecha') setFecha(toDateInput(date))
-            else if (showPicker === 'fechaHasta') setFechaHasta(toDateInput(date))
-            else if (showPicker === 'horaInicio') setHoraInicio(formatTime(date))
-            else setHoraFin(formatTime(date))
+            else setFechaHasta(toDateInput(date))
           }}
         />
       )}

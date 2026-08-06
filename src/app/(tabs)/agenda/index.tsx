@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native'
 import type { NativeSyntheticEvent, NativeScrollEvent } from 'react-native'
 import { useFocusEffect, useRouter } from 'expo-router'
@@ -15,53 +15,77 @@ const HOURS = Array.from({ length: 24 }, (_, i) => i)
 const DAY_HEIGHT = 24 * PX_PER_HOUR
 const DEFAULT_DURATION_MIN = 60
 const MIN_CARD_HEIGHT = 44
-
-function eventoOcurreEn(ev: EventoAgenda, fecha: string): boolean {
-  const fin = ev.fecha_hasta ?? ev.fecha
-  return ev.fecha <= fecha && fecha <= fin
-}
+// Ventana de días renderizada como una única lista continua: bajar de un día
+// a otro es scroll normal, no un salto de pantalla. La ventana arranca con
+// este tamaño y crece sola (ver `extend`) al acercarse al borde del scroll,
+// para atrás o para adelante, sin techo.
+const INITIAL_BEFORE = 7
+const INITIAL_AFTER = 23
+const EXTEND_CHUNK = 14
+const EDGE_TRIGGER = DAY_HEIGHT * 3
 
 function toMinutes(hhmmss: string): number {
   const [h, m] = hhmmss.split(':').map(Number)
   return h * 60 + m
 }
-
 function nowMinutes(): number {
   const n = new Date()
   return n.getHours() * 60 + n.getMinutes()
 }
+function eventoOcurreEn(ev: EventoAgenda, fecha: string): boolean {
+  return ev.fecha <= fecha && fecha <= (ev.fecha_hasta ?? ev.fecha)
+}
+
+type Positioned = { ev: EventoAgenda; top: number; height: number; lane: number; lanes: number }
 
 export default function AgendaScreen() {
   const router = useRouter()
-  const [selected, setSelected] = useState(() => new Date())
+  const [days, setDays] = useState(() =>
+    Array.from({ length: INITIAL_BEFORE + INITIAL_AFTER + 1 }, (_, i) => addDays(new Date(), i - INITIAL_BEFORE)),
+  )
+  const [focused, setFocused] = useState(() => new Date()) // día resaltado en el header, sigue el scroll
   const [eventos, setEventos] = useState<EventoAgenda[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const timelineRef = useRef<ScrollView>(null)
-  // Transición de día al llegar al borde del scroll: ver comentarios junto al
-  // efecto de scroll y a handleScroll más abajo.
-  const pendingEdgeRef = useRef<'top' | 'bottom' | null>(null)
-  const draggingRef = useRef(false)
-  const transitioningRef = useRef(false)
+  const scrollYRef = useRef(0)
+  const extendingRef = useRef<'past' | 'future' | null>(null)
+  const daysRef = useRef(days)
+  daysRef.current = days
+  const pendingScrollRef = useRef<{ dateStr: string; animated: boolean } | null>({
+    dateStr: toDateInput(new Date()),
+    animated: false,
+  })
 
-  const weekStart = getWeekStart(selected)
+  const windowStart = days[0]
+  const windowEnd = days[days.length - 1]
+  const focusedStr = toDateInput(focused)
+  const todayStr = toDateInput(new Date())
+  const todayIdx = days.findIndex((d) => toDateInput(d) === todayStr)
+  const weekStart = getWeekStart(focused)
   const weekDays = getWeekDays(weekStart)
 
-  const load = useCallback(async () => {
-    setError(null)
+  async function fetchEventos(desde: string, hasta: string): Promise<EventoAgenda[]> {
     try {
-      const desde = toDateInput(weekStart)
-      const hasta = toDateInput(addDays(weekStart, 6))
-      const data = await getEventosAgenda(desde, hasta)
-      setEventos(data)
+      return await getEventosAgenda(desde, hasta)
     } catch (e) {
-      // ponytail: mensaje crudo del backend en vez de uno genérico, útil
-      // mientras se depura el flujo — cambiar a algo más lindo cuando esté estable.
       setError(e instanceof ApiError ? `Error ${e.status}: ${e.message}` : `Error de red: ${String(e)}`)
-    } finally {
-      setLoading(false)
+      return []
     }
-  }, [weekStart.getTime()])
+  }
+
+  // Refetch completo de toda la ventana visible al volver a la pantalla. No
+  // depende de `days` (usa el ref) para no reejecutarse cada vez que
+  // `extend` hace crecer la ventana mientras scrolleás — solo en focus real.
+  const load = useCallback(() => {
+    setError(null)
+    const d = daysRef.current
+    fetchEventos(toDateInput(d[0]), toDateInput(d[d.length - 1])).then((data) => {
+      setEventos(data)
+      setLoading(false)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useFocusEffect(
     useCallback(() => {
@@ -70,88 +94,126 @@ export default function AgendaScreen() {
     }, [load]),
   )
 
-  const selectedStr = toDateInput(selected)
-  const isToday = selectedStr === toDateInput(new Date())
-  const eventosDelDia = eventos
-    .filter((ev) => eventoOcurreEn(ev, selectedStr))
-    .sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio))
-
-  // Al cambiar de día (o terminar de cargar), arranca el scroll un poco antes
-  // del primer evento en vez de mostrar medianoche — si no hay eventos, cerca
-  // de la hora actual (o las 7am si el día no es hoy).
+  // Consume el scroll pendiente (posición inicial o navegación explícita a un
+  // día fuera de todo lo ya renderizado) recién cuando terminó de cargar.
   useEffect(() => {
-    if (loading) return
-    const edge = pendingEdgeRef.current
-    pendingEdgeRef.current = null
-    let y: number
-    if (edge === 'bottom') {
-      // Llegamos acá arrastrando hacia arriba desde el día siguiente — entramos por abajo.
-      y = DAY_HEIGHT - 1
-    } else if (edge === 'top') {
-      y = 0
-    } else {
-      const anchorMin = eventosDelDia.length > 0 ? Math.min(...eventosDelDia.map((ev) => toMinutes(ev.hora_inicio))) : isToday ? nowMinutes() : 7 * 60
-      y = Math.max(0, (anchorMin / 60 - 1) * PX_PER_HOUR)
-    }
-    timelineRef.current?.scrollTo({ y, animated: false })
-    transitioningRef.current = false
-  }, [selectedStr, loading])
+    if (loading || !pendingScrollRef.current) return
+    const { dateStr, animated } = pendingScrollRef.current
+    pendingScrollRef.current = null
+    scrollToDate(dateStr, animated)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading])
 
-  // Al arrastrar hasta el borde del día (00:00 arriba, 23:59 abajo) y SOLTAR
-  // ahí, salta al día contiguo entrando por el borde opuesto — como un
-  // pull-to-refresh: llegar al borde no dispara nada solo, hace falta soltar
-  // el dedo estando ahí. Antes disparaba en cada frame de scroll mientras
-  // tocaba el borde, y como el aterrizaje en el día siguiente podía volver a
-  // tocar y=0 en pleno gesto, se armaba un ping-pong entre días.
-  // El de abajo también estaba roto: comparaba contra contentSize.height, que
-  // incluye el paddingBottom de 96 — para "tocar el borde" según ese cálculo
-  // había que scrollear más allá de lo que se ve (las 23hs ya estaban fuera
-  // de pantalla). Ahora compara contra la altura real del día (24 * PX_PER_HOUR),
-  // sin el padding, así "llegar a las 23" alcanza. También sacamos el
-  // pull-to-refresh nativo (RefreshControl) del scroll: competía por el mismo
-  // gesto de "tirar hacia abajo estando arriba" y lo hacía errático — los
-  // datos ya se refrescan solos al volver a la pantalla (useFocusEffect).
-  // ponytail: es un salto de día completo, no un scroll virtualizado
-  // multi-día de verdad — si cruza de semana además refetchea y se ve un
-  // parpadeo de loading. Suficiente para el caso pedido; upgrade si hace falta
-  // que sea 100% fluido, con una lista virtualizada de días.
-  const EDGE_TOLERANCE = 8
-
-  function handleScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
-    if (!draggingRef.current || transitioningRef.current) return
-    const { contentOffset, layoutMeasurement } = e.nativeEvent
-    if (contentOffset.y <= EDGE_TOLERANCE) {
-      pendingEdgeRef.current = 'bottom'
-    } else if (contentOffset.y + layoutMeasurement.height >= DAY_HEIGHT - EDGE_TOLERANCE) {
-      pendingEdgeRef.current = 'top'
-    } else {
-      pendingEdgeRef.current = null
-    }
+  function scrollToDate(dateStr: string, animated: boolean) {
+    const idx = days.findIndex((d) => toDateInput(d) === dateStr)
+    if (idx === -1) return
+    const eventosDelDia = eventos.filter((ev) => eventoOcurreEn(ev, dateStr))
+    const anchorMin = eventosDelDia.length > 0
+      ? Math.min(...eventosDelDia.map((ev) => toMinutes(ev.hora_inicio)))
+      : dateStr === todayStr ? nowMinutes() : 7 * 60
+    const y = idx * DAY_HEIGHT + Math.max(0, (anchorMin / 60 - 1) * PX_PER_HOUR)
+    timelineRef.current?.scrollTo({ y, animated })
   }
 
-  function handleScrollEndDrag() {
-    draggingRef.current = false
-    if (transitioningRef.current || !pendingEdgeRef.current) {
-      pendingEdgeRef.current = null
+  // Navegación explícita (flechas de semana, tap en un día). Si el destino ya
+  // está entre los días renderizados, solo scrollea — sin refetch ni
+  // parpadeo. Si está más lejos de lo que se llegó a renderizar scrolleando,
+  // arma una ventana nueva centrada ahí (esto sí es un salto, pero es a
+  // pedido explícito, no arrastrando el dedo).
+  function goTo(date: Date, animated = true) {
+    const dateStr = toDateInput(date)
+    setFocused(date)
+    if (date >= windowStart && date <= windowEnd) {
+      scrollToDate(dateStr, animated)
       return
     }
-    transitioningRef.current = true
-    setSelected((d) => addDays(d, pendingEdgeRef.current === 'bottom' ? -1 : 1))
+    const newDays = Array.from({ length: INITIAL_BEFORE + INITIAL_AFTER + 1 }, (_, i) => addDays(date, i - INITIAL_BEFORE))
+    setDays(newDays)
+    pendingScrollRef.current = { dateStr, animated }
+    setLoading(true)
+    fetchEventos(toDateInput(newDays[0]), toDateInput(newDays[newDays.length - 1])).then((data) => {
+      setEventos(data)
+      setLoading(false)
+    })
   }
 
-  const layout = layoutDayEvents(eventosDelDia)
+  // Scroll infinito: al acercarse a cualquiera de los dos bordes de lo ya
+  // renderizado, suma más días de ese lado (sin tocar el otro extremo). Para
+  // atrás hay que compensar el scroll — el contenido de arriba creció, así
+  // que sin corregir la posición la pantalla "saltaría" para abajo.
+  async function extend(direction: 'past' | 'future') {
+    if (extendingRef.current) return
+    extendingRef.current = direction
+    const chunk = Array.from({ length: EXTEND_CHUNK }, (_, i) =>
+      direction === 'future' ? addDays(windowEnd, i + 1) : addDays(windowStart, i - EXTEND_CHUNK),
+    )
+    const data = await fetchEventos(toDateInput(chunk[0]), toDateInput(chunk[chunk.length - 1]))
+    setEventos((prev) => [...prev, ...data])
+    setDays((prev) => (direction === 'future' ? [...prev, ...chunk] : [...chunk, ...prev]))
+    if (direction === 'past') {
+      requestAnimationFrame(() => {
+        timelineRef.current?.scrollTo({ y: scrollYRef.current + EXTEND_CHUNK * DAY_HEIGHT, animated: false })
+      })
+    }
+    extendingRef.current = null
+  }
+
+  // Qué día está centrado en el scroll actual, para resaltar el header — no
+  // mueve el scroll, la lista ya es continua. También dispara `extend`
+  // cuando el scroll se acerca a un borde de lo renderizado.
+  function handleScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent
+    scrollYRef.current = contentOffset.y
+    const idx = Math.min(days.length - 1, Math.max(0, Math.round(contentOffset.y / DAY_HEIGHT)))
+    const d = days[idx]
+    setFocused((prev) => (toDateInput(prev) === toDateInput(d) ? prev : d))
+
+    if (contentOffset.y < EDGE_TRIGGER) extend('past')
+    else if (contentOffset.y + layoutMeasurement.height > contentSize.height - EDGE_TRIGGER) extend('future')
+  }
+
+  // Carriles side-by-side para eventos que se solapan en horario, en
+  // coordenadas globales (no por día) — así un trabajo que cruza medianoche
+  // (22:00-04:00) es una sola card continua entre los dos bloques de día, sin
+  // costura. layoutDayEvents compara strings, y "fecha+hora" ISO ordena
+  // cronológicamente igual que solo "hora", así que se reutiliza tal cual.
+  const positioned = useMemo<Positioned[]>(() => {
+    const dayIndex = new Map(days.map((d, i) => [toDateInput(d), i]))
+    const windowStartStr = toDateInput(windowStart)
+    const windowEndStr = toDateInput(windowEnd)
+    const relevant = eventos.filter((ev) => (ev.fecha_hasta ?? ev.fecha) >= windowStartStr && ev.fecha <= windowEndStr)
+    const withKeys = relevant.map((ev) => ({
+      ev,
+      hora_inicio: `${ev.fecha}T${ev.hora_inicio}`,
+      hora_fin: `${ev.fecha_hasta ?? ev.fecha}T${ev.hora_fin ?? ev.hora_inicio}`,
+    }))
+    const layout = layoutDayEvents(withKeys)
+    return withKeys.map((item) => {
+      const slot = layout.get(item)!
+      const startMin = toMinutes(item.ev.hora_inicio)
+      const endMin = item.ev.hora_fin ? toMinutes(item.ev.hora_fin) : startMin + DEFAULT_DURATION_MIN
+      const startDayIdx = dayIndex.get(item.ev.fecha) ?? 0
+      // Si hora_fin <= hora_inicio y no se cargó fecha_hasta, asumimos que
+      // cruza a la madrugada del día siguiente (caso típico 22:00-04:00).
+      const endsNextDay = endMin <= startMin && !item.ev.fecha_hasta
+      const endDayIdx = endsNextDay ? startDayIdx + 1 : dayIndex.get(item.ev.fecha_hasta ?? item.ev.fecha) ?? startDayIdx
+      const top = Math.max(0, startDayIdx * DAY_HEIGHT + (startMin / 60) * PX_PER_HOUR)
+      const bottom = Math.min(days.length * DAY_HEIGHT, endDayIdx * DAY_HEIGHT + (endMin / 60) * PX_PER_HOUR)
+      return { ev: item.ev, top, height: Math.max(bottom - top, MIN_CARD_HEIGHT), lane: slot.lane, lanes: slot.lanes }
+    })
+  }, [eventos, days])
 
   return (
     <View className="flex-1 bg-igb-surface">
       <View className="bg-white border-b border-igb-outline pb-2">
         <View className="flex-row justify-between items-center px-4 pt-3 pb-1">
-          <Pressable onPress={() => setSelected(addDays(selected, -7))} className="p-2">
+          <Pressable onPress={() => goTo(addDays(focused, -7))} className="p-2">
             <Text className="text-lg">‹</Text>
           </Pressable>
           <Text className="font-semibold text-igb-on-surface">
             {weekStart.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })} - {addDays(weekStart, 6).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
           </Text>
-          <Pressable onPress={() => setSelected(addDays(selected, 7))} className="p-2">
+          <Pressable onPress={() => goTo(addDays(focused, 7))} className="p-2">
             <Text className="text-lg">›</Text>
           </Pressable>
           <EstadoLegend />
@@ -159,13 +221,13 @@ export default function AgendaScreen() {
         <View className="flex-row px-2">
           {weekDays.map((d, i) => {
             const dStr = toDateInput(d)
-            const isSelected = dStr === selectedStr
-            const isTodayPill = dStr === toDateInput(new Date())
+            const isSelected = dStr === focusedStr
+            const isTodayPill = dStr === todayStr
             const count = eventos.filter((ev) => eventoOcurreEn(ev, dStr)).length
             return (
               <Pressable
                 key={dStr}
-                onPress={() => setSelected(d)}
+                onPress={() => goTo(d)}
                 className={`flex-1 items-center mx-0.5 py-2 rounded-xl ${isSelected ? 'bg-igb-yellow' : isTodayPill ? 'bg-igb-yellow/10' : ''}`}
               >
                 <Text className={`text-xs ${isSelected ? 'text-igb-on-yellow' : 'text-igb-secondary'}`}>{DIAS[i]}</Text>
@@ -185,56 +247,68 @@ export default function AgendaScreen() {
         <View className="flex-1 items-center px-4 pt-8">
           <Text className="text-red-600 text-center">{error}</Text>
         </View>
-      ) : eventosDelDia.length === 0 ? (
-        <ScrollView>
-          <Text className="text-igb-secondary text-center mt-8">Sin eventos este día.</Text>
-        </ScrollView>
       ) : (
         <ScrollView
           ref={timelineRef}
           className="flex-1"
           contentContainerStyle={{ paddingBottom: 96 }}
           onScroll={handleScroll}
-          onScrollBeginDrag={() => { draggingRef.current = true }}
-          onScrollEndDrag={handleScrollEndDrag}
-          scrollEventThrottle={16}
+          scrollEventThrottle={100}
         >
-          <View className="flex-row" style={{ height: DAY_HEIGHT }}>
-            <View style={{ width: 48 }}>
-              {HOURS.map((h) => (
-                <View key={h} style={{ height: PX_PER_HOUR }}>
-                  <Text className="text-[10px] text-igb-secondary pl-1" style={{ marginTop: h === 0 ? 0 : -6 }}>
-                    {String(h).padStart(2, '0')}:00
-                  </Text>
+          <View style={{ height: days.length * DAY_HEIGHT }}>
+            {days.map((d, i) => {
+              const dStr = toDateInput(d)
+              return (
+                <View key={dStr} className="absolute left-0 right-0 flex-row" style={{ top: i * DAY_HEIGHT, height: DAY_HEIGHT }}>
+                  <View style={{ width: 48 }}>
+                    {HOURS.map((h) => (
+                      <View key={h} style={{ height: PX_PER_HOUR }}>
+                        {h === 0 && (
+                          <Text
+                            className={`text-[10px] font-bold pl-1 ${dStr === todayStr ? 'text-igb-yellow-dark' : 'text-igb-on-surface'}`}
+                            numberOfLines={1}
+                          >
+                            {d.toLocaleDateString('es-AR', { weekday: 'short', day: '2-digit', month: 'short' })}
+                          </Text>
+                        )}
+                        <Text className="text-[10px] text-igb-secondary pl-1" style={{ marginTop: h === 0 ? 0 : -6 }}>
+                          {String(h).padStart(2, '0')}:00
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                  <View className="flex-1 relative border-l border-igb-outline mr-3">
+                    {HOURS.map((h) => (
+                      <View key={h} className="absolute left-0 right-0 border-t border-igb-outline" style={{ top: h * PX_PER_HOUR }} />
+                    ))}
+                  </View>
                 </View>
-              ))}
-            </View>
-            <View className="flex-1 relative border-l border-igb-outline mr-3">
-              {HOURS.map((h) => (
-                <View key={h} className="absolute left-0 right-0 border-t border-igb-outline" style={{ top: h * PX_PER_HOUR }} />
-              ))}
-              {isToday && (
-                <View className="absolute left-0 right-0 h-[2px] bg-red-500 z-10" style={{ top: (nowMinutes() / 60) * PX_PER_HOUR }} />
-              )}
-              {eventosDelDia.map((ev) => {
-                const startMin = toMinutes(ev.hora_inicio)
-                const endMin = ev.hora_fin ? toMinutes(ev.hora_fin) : startMin + DEFAULT_DURATION_MIN
-                const slot = layout.get(ev) ?? { lane: 0, lanes: 1 }
-                const widthPct = 100 / slot.lanes
-                const heightPx = Math.max(((endMin - startMin) / 60) * PX_PER_HOUR, MIN_CARD_HEIGHT)
-                const hasRoomForDetail = heightPx >= 56
-                const hasRoomForOperarios = heightPx >= 76 && ev.operarios.length > 0
+              )
+            })}
+
+            {todayIdx !== -1 && (
+              <View
+                className="absolute left-[48px] right-3 h-[2px] bg-red-500 z-10"
+                style={{ top: todayIdx * DAY_HEIGHT + (nowMinutes() / 60) * PX_PER_HOUR }}
+              />
+            )}
+
+            <View className="absolute top-0" style={{ left: 48, right: 12, height: days.length * DAY_HEIGHT }}>
+              {positioned.map(({ ev, top, height, lane, lanes }) => {
+                const widthPct = 100 / lanes
+                const hasRoomForDetail = height >= 56
+                const hasRoomForOperarios = height >= 76 && ev.operarios.length > 0
                 return (
                   <Pressable
                     key={ev.id}
                     onPress={() => router.push(`/agenda/evento/${ev.id}`)}
                     className="absolute bg-white border border-igb-outline rounded-lg overflow-hidden flex-row"
                     style={{
-                      top: (startMin / 60) * PX_PER_HOUR,
-                      height: heightPx,
-                      left: `${slot.lane * widthPct}%`,
+                      top,
+                      height,
+                      left: `${lane * widthPct}%`,
                       width: `${widthPct}%`,
-                      paddingRight: slot.lanes > 1 ? 3 : 0,
+                      paddingRight: lanes > 1 ? 3 : 0,
                     }}
                   >
                     <View className={`w-1 ${estadoStripColor(ev.estado)}`} />
