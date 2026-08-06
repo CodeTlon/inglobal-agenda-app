@@ -1,6 +1,8 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: ['./src/app/**/*.{ts,tsx}', './src/components/**/*.{ts,tsx}'],
+  // src/lib incluido: agenda-view.ts arma classNames de estado (bg-blue-500, bg-zinc-300, ...)
+  // que si no, no se escanean y NativeWind no genera el CSS para esas clases.
+  content: ['./src/app/**/*.{ts,tsx}', './src/components/**/*.{ts,tsx}', './src/lib/**/*.ts'],
   presets: [require('nativewind/preset')],
   theme: {
     extend: {
