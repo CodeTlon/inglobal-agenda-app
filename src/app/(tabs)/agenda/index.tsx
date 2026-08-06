@@ -96,25 +96,38 @@ export default function AgendaScreen() {
     transitioningRef.current = false
   }, [selectedStr, loading])
 
-  // Al arrastrar hasta el borde del día (00:00 arriba, 23:59 abajo) salta al
-  // día contiguo y entra por el borde opuesto, para que se sienta como un
-  // scroll continuo entre días en vez de un límite duro.
+  // Al arrastrar hasta el borde del día (00:00 arriba, 23:59 abajo) y SOLTAR
+  // ahí, salta al día contiguo entrando por el borde opuesto — como un
+  // pull-to-refresh: llegar al tope no dispara nada solo, hace falta soltar
+  // el dedo estando ahí. Antes disparaba en cada frame de scroll mientras
+  // tocaba el borde, y como el aterrizaje en el día siguiente podía volver a
+  // tocar y=0 en pleno gesto, se armaba un ping-pong entre días.
   // ponytail: es un salto de día completo, no un scroll virtualizado
   // multi-día de verdad — si cruza de semana además refetchea y se ve un
   // parpadeo de loading. Suficiente para el caso pedido; upgrade si hace falta
   // que sea 100% fluido, con una lista virtualizada de días.
+  const EDGE_TOLERANCE = 4
+
   function handleScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
     if (!draggingRef.current || transitioningRef.current) return
     const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent
-    if (contentOffset.y <= 0) {
-      transitioningRef.current = true
+    if (contentOffset.y <= EDGE_TOLERANCE) {
       pendingEdgeRef.current = 'bottom'
-      setSelected((d) => addDays(d, -1))
-    } else if (contentOffset.y + layoutMeasurement.height >= contentSize.height - 1) {
-      transitioningRef.current = true
+    } else if (contentOffset.y + layoutMeasurement.height >= contentSize.height - EDGE_TOLERANCE) {
       pendingEdgeRef.current = 'top'
-      setSelected((d) => addDays(d, 1))
+    } else {
+      pendingEdgeRef.current = null
     }
+  }
+
+  function handleScrollEndDrag() {
+    draggingRef.current = false
+    if (transitioningRef.current || !pendingEdgeRef.current) {
+      pendingEdgeRef.current = null
+      return
+    }
+    transitioningRef.current = true
+    setSelected((d) => addDays(d, pendingEdgeRef.current === 'bottom' ? -1 : 1))
   }
 
   const layout = layoutDayEvents(eventosDelDia)
@@ -175,7 +188,7 @@ export default function AgendaScreen() {
           contentContainerStyle={{ paddingBottom: 96 }}
           onScroll={handleScroll}
           onScrollBeginDrag={() => { draggingRef.current = true }}
-          onScrollEndDrag={() => { draggingRef.current = false }}
+          onScrollEndDrag={handleScrollEndDrag}
           scrollEventThrottle={16}
         >
           <View className="flex-row" style={{ height: 24 * PX_PER_HOUR }}>
