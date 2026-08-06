@@ -1,18 +1,35 @@
-import { View } from 'react-native'
+import { useState } from 'react'
+import { View, Pressable, Modal } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { Text } from '@/components/Text'
 import { ESTADOS_EVENTO } from '@/lib/types'
 import { estadoStripColor, formatEstado } from '@/lib/agenda-view'
 
-/** Leyenda de colores de estado — misma fuente (estadoStripColor/formatEstado) que usa cada card, no puede desincronizarse. */
+/** Ícono de info que despliega, en un modal, qué significa cada color de estado. */
 export function EstadoLegend() {
+  const [open, setOpen] = useState(false)
+
   return (
-    <View className="flex-row flex-wrap gap-x-3 gap-y-1 px-4 py-2">
-      {ESTADOS_EVENTO.map((estado) => (
-        <View key={estado} className="flex-row items-center gap-1.5">
-          <View className={`w-2.5 h-2.5 rounded-full ${estadoStripColor(estado)}`} />
-          <Text className="text-xs text-igb-secondary">{formatEstado(estado)}</Text>
-        </View>
-      ))}
-    </View>
+    <>
+      <View className="items-center py-1">
+        <Pressable onPress={() => setOpen(true)} hitSlop={8}>
+          <Ionicons name="information-circle-outline" size={20} color="#575d78" />
+        </Pressable>
+      </View>
+
+      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+        <Pressable className="flex-1 bg-black/40 items-center justify-center px-10" onPress={() => setOpen(false)}>
+          <Pressable className="bg-white rounded-2xl p-5 w-full max-w-xs gap-3" onPress={(e) => e.stopPropagation()}>
+            <Text className="font-semibold text-igb-on-surface text-center mb-1">Estados del calendario</Text>
+            {ESTADOS_EVENTO.map((estado) => (
+              <View key={estado} className="flex-row items-center gap-2">
+                <View className={`w-3 h-3 rounded-full ${estadoStripColor(estado)}`} />
+                <Text className="text-sm text-igb-secondary">{formatEstado(estado)}</Text>
+              </View>
+            ))}
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
   )
 }
