@@ -11,11 +11,9 @@ export function EstadoLegend() {
 
   return (
     <>
-      <View className="items-center py-1">
-        <Pressable onPress={() => setOpen(true)} hitSlop={8}>
-          <Ionicons name="information-circle-outline" size={20} color="#575d78" />
-        </Pressable>
-      </View>
+      <Pressable onPress={() => setOpen(true)} hitSlop={8}>
+        <Ionicons name="information-circle-outline" size={18} color="#9aa0b4" />
+      </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <Pressable className="flex-1 bg-black/40 items-center justify-center px-10" onPress={() => setOpen(false)}>

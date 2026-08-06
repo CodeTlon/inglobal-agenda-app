@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, ScrollView, Pressable, ActivityIndicator, RefreshControl } from 'react-native'
+import type { NativeSyntheticEvent, NativeScrollEvent } from 'react-native'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { Text } from '@/components/Text'
 import { getEventosAgenda } from '@/lib/agenda-api'
@@ -36,6 +37,11 @@ export default function AgendaScreen() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const timelineRef = useRef<ScrollView>(null)
+  // Transición de día al llegar al borde del scroll: ver comentarios junto al
+  // efecto de scroll y a handleScroll más abajo.
+  const pendingEdgeRef = useRef<'top' | 'bottom' | null>(null)
+  const draggingRef = useRef(false)
+  const transitioningRef = useRef(false)
 
   const weekStart = getWeekStart(selected)
   const weekDays = getWeekDays(weekStart)
@@ -74,10 +80,42 @@ export default function AgendaScreen() {
   // de la hora actual (o las 7am si el día no es hoy).
   useEffect(() => {
     if (loading) return
-    const anchorMin = eventosDelDia.length > 0 ? Math.min(...eventosDelDia.map((ev) => toMinutes(ev.hora_inicio))) : isToday ? nowMinutes() : 7 * 60
-    const y = Math.max(0, (anchorMin / 60 - 1) * PX_PER_HOUR)
+    const edge = pendingEdgeRef.current
+    pendingEdgeRef.current = null
+    let y: number
+    if (edge === 'bottom') {
+      // Llegamos acá arrastrando hacia arriba desde el día siguiente — entramos por abajo.
+      y = 24 * PX_PER_HOUR - 1
+    } else if (edge === 'top') {
+      y = 0
+    } else {
+      const anchorMin = eventosDelDia.length > 0 ? Math.min(...eventosDelDia.map((ev) => toMinutes(ev.hora_inicio))) : isToday ? nowMinutes() : 7 * 60
+      y = Math.max(0, (anchorMin / 60 - 1) * PX_PER_HOUR)
+    }
     timelineRef.current?.scrollTo({ y, animated: false })
+    transitioningRef.current = false
   }, [selectedStr, loading])
+
+  // Al arrastrar hasta el borde del día (00:00 arriba, 23:59 abajo) salta al
+  // día contiguo y entra por el borde opuesto, para que se sienta como un
+  // scroll continuo entre días en vez de un límite duro.
+  // ponytail: es un salto de día completo, no un scroll virtualizado
+  // multi-día de verdad — si cruza de semana además refetchea y se ve un
+  // parpadeo de loading. Suficiente para el caso pedido; upgrade si hace falta
+  // que sea 100% fluido, con una lista virtualizada de días.
+  function handleScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
+    if (!draggingRef.current || transitioningRef.current) return
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent
+    if (contentOffset.y <= 0) {
+      transitioningRef.current = true
+      pendingEdgeRef.current = 'bottom'
+      setSelected((d) => addDays(d, -1))
+    } else if (contentOffset.y + layoutMeasurement.height >= contentSize.height - 1) {
+      transitioningRef.current = true
+      pendingEdgeRef.current = 'top'
+      setSelected((d) => addDays(d, 1))
+    }
+  }
 
   const layout = layoutDayEvents(eventosDelDia)
 
@@ -94,6 +132,7 @@ export default function AgendaScreen() {
           <Pressable onPress={() => setSelected(addDays(selected, 7))} className="p-2">
             <Text className="text-lg">›</Text>
           </Pressable>
+          <EstadoLegend />
         </View>
         <View className="flex-row px-2">
           {weekDays.map((d, i) => {
@@ -114,7 +153,6 @@ export default function AgendaScreen() {
             )
           })}
         </View>
-        <EstadoLegend />
       </View>
 
       {loading ? (
@@ -135,12 +173,16 @@ export default function AgendaScreen() {
           className="flex-1"
           refreshControl={<RefreshControl refreshing={false} onRefresh={load} />}
           contentContainerStyle={{ paddingBottom: 96 }}
+          onScroll={handleScroll}
+          onScrollBeginDrag={() => { draggingRef.current = true }}
+          onScrollEndDrag={() => { draggingRef.current = false }}
+          scrollEventThrottle={16}
         >
           <View className="flex-row" style={{ height: 24 * PX_PER_HOUR }}>
             <View style={{ width: 48 }}>
               {HOURS.map((h) => (
                 <View key={h} style={{ height: PX_PER_HOUR }}>
-                  <Text className="text-[10px] text-igb-secondary pl-1" style={{ marginTop: -6 }}>
+                  <Text className="text-[10px] text-igb-secondary pl-1" style={{ marginTop: h === 0 ? 0 : -6 }}>
                     {String(h).padStart(2, '0')}:00
                   </Text>
                 </View>
