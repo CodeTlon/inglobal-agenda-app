@@ -6,6 +6,7 @@ import { getEventosAgenda } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
 import { getWeekStart, getWeekDays, addDays, toDateInput, estadoStripColor, layoutDayEvents, formatEstado } from '@/lib/agenda-view'
 import type { EventoAgenda } from '@/lib/types'
+import { EstadoLegend } from '@/components/EstadoLegend'
 
 const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const PX_PER_HOUR = 60
@@ -113,6 +114,7 @@ export default function AgendaScreen() {
             )
           })}
         </View>
+        <EstadoLegend />
       </View>
 
       {loading ? (
