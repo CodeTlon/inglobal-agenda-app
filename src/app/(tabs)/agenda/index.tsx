@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { View, ScrollView, Pressable, ActivityIndicator, RefreshControl } from 'react-native'
+import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native'
 import type { NativeSyntheticEvent, NativeScrollEvent } from 'react-native'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { Text } from '@/components/Text'
@@ -12,6 +12,7 @@ import { EstadoLegend } from '@/components/EstadoLegend'
 const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const PX_PER_HOUR = 60
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
+const DAY_HEIGHT = 24 * PX_PER_HOUR
 const DEFAULT_DURATION_MIN = 60
 const MIN_CARD_HEIGHT = 44
 
@@ -85,7 +86,7 @@ export default function AgendaScreen() {
     let y: number
     if (edge === 'bottom') {
       // Llegamos acá arrastrando hacia arriba desde el día siguiente — entramos por abajo.
-      y = 24 * PX_PER_HOUR - 1
+      y = DAY_HEIGHT - 1
     } else if (edge === 'top') {
       y = 0
     } else {
@@ -98,22 +99,30 @@ export default function AgendaScreen() {
 
   // Al arrastrar hasta el borde del día (00:00 arriba, 23:59 abajo) y SOLTAR
   // ahí, salta al día contiguo entrando por el borde opuesto — como un
-  // pull-to-refresh: llegar al tope no dispara nada solo, hace falta soltar
+  // pull-to-refresh: llegar al borde no dispara nada solo, hace falta soltar
   // el dedo estando ahí. Antes disparaba en cada frame de scroll mientras
   // tocaba el borde, y como el aterrizaje en el día siguiente podía volver a
   // tocar y=0 en pleno gesto, se armaba un ping-pong entre días.
+  // El de abajo también estaba roto: comparaba contra contentSize.height, que
+  // incluye el paddingBottom de 96 — para "tocar el borde" según ese cálculo
+  // había que scrollear más allá de lo que se ve (las 23hs ya estaban fuera
+  // de pantalla). Ahora compara contra la altura real del día (24 * PX_PER_HOUR),
+  // sin el padding, así "llegar a las 23" alcanza. También sacamos el
+  // pull-to-refresh nativo (RefreshControl) del scroll: competía por el mismo
+  // gesto de "tirar hacia abajo estando arriba" y lo hacía errático — los
+  // datos ya se refrescan solos al volver a la pantalla (useFocusEffect).
   // ponytail: es un salto de día completo, no un scroll virtualizado
   // multi-día de verdad — si cruza de semana además refetchea y se ve un
   // parpadeo de loading. Suficiente para el caso pedido; upgrade si hace falta
   // que sea 100% fluido, con una lista virtualizada de días.
-  const EDGE_TOLERANCE = 4
+  const EDGE_TOLERANCE = 8
 
   function handleScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
     if (!draggingRef.current || transitioningRef.current) return
-    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent
+    const { contentOffset, layoutMeasurement } = e.nativeEvent
     if (contentOffset.y <= EDGE_TOLERANCE) {
       pendingEdgeRef.current = 'bottom'
-    } else if (contentOffset.y + layoutMeasurement.height >= contentSize.height - EDGE_TOLERANCE) {
+    } else if (contentOffset.y + layoutMeasurement.height >= DAY_HEIGHT - EDGE_TOLERANCE) {
       pendingEdgeRef.current = 'top'
     } else {
       pendingEdgeRef.current = null
@@ -177,21 +186,20 @@ export default function AgendaScreen() {
           <Text className="text-red-600 text-center">{error}</Text>
         </View>
       ) : eventosDelDia.length === 0 ? (
-        <ScrollView refreshControl={<RefreshControl refreshing={false} onRefresh={load} />}>
+        <ScrollView>
           <Text className="text-igb-secondary text-center mt-8">Sin eventos este día.</Text>
         </ScrollView>
       ) : (
         <ScrollView
           ref={timelineRef}
           className="flex-1"
-          refreshControl={<RefreshControl refreshing={false} onRefresh={load} />}
           contentContainerStyle={{ paddingBottom: 96 }}
           onScroll={handleScroll}
           onScrollBeginDrag={() => { draggingRef.current = true }}
           onScrollEndDrag={handleScrollEndDrag}
           scrollEventThrottle={16}
         >
-          <View className="flex-row" style={{ height: 24 * PX_PER_HOUR }}>
+          <View className="flex-row" style={{ height: DAY_HEIGHT }}>
             <View style={{ width: 48 }}>
               {HOURS.map((h) => (
                 <View key={h} style={{ height: PX_PER_HOUR }}>
