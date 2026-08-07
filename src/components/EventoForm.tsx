@@ -173,7 +173,11 @@ export function EventoForm({
 
       {showPicker && (
         <DateTimePicker
-          value={showPicker === 'fecha' ? new Date(fecha) : new Date(fechaHasta || fecha)}
+          // new Date("YYYY-MM-DD") sin hora parsea como medianoche UTC, no
+          // local — con Argentina en UTC-3 el picker terminaba abriendo (y a
+          // veces guardando) un día antes/después del que tenía el string.
+          // Con "T00:00:00" el motor de JS lo toma como hora local.
+          value={showPicker === 'fecha' ? new Date(`${fecha}T00:00:00`) : new Date(`${fechaHasta || fecha}T00:00:00`)}
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           onChange={(_, date) => {

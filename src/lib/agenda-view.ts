@@ -6,8 +6,15 @@
 
 import type { EventoAgenda } from './types'
 
+// Fecha local en formato YYYY-MM-DD. OJO: d.toISOString() pasa a UTC — con
+// Argentina en UTC-3 eso corre la fecha "hoy" un día para adelante entre las
+// 21:00 y las 23:59 locales (el reloj UTC ya cruzó medianoche). Por eso se arma
+// con los componentes locales de `d`, nunca con toISOString().
 export function toDateInput(d: Date): string {
-  return d.toISOString().slice(0, 10)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 export function addDays(d: Date, days: number): Date {
