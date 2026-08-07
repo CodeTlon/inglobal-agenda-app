@@ -83,13 +83,22 @@ export default function AgendaScreen() {
     fetchEventos(toDateInput(d[0]), toDateInput(d[d.length - 1])).then((data) => {
       setEventos(data)
       setLoading(false)
+      hasLoadedOnceRef.current = true
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Bug: useFocusEffect disparaba setLoading(true) en CADA foco de pantalla,
+  // no solo la primera vez. Como el ScrollView solo se monta cuando
+  // !loading, volver de crear/editar un evento desmontaba el ScrollView y lo
+  // volvía a montar de cero — perdiendo la posición de scroll (arrancaba
+  // arriba del todo de la ventana cargada, no en el día que estabas mirando).
+  // Solo mostramos el spinner de pantalla completa la primera vez; los
+  // refetches por refoco pasan en silencio con el ScrollView ya montado.
+  const hasLoadedOnceRef = useRef(false)
   useFocusEffect(
     useCallback(() => {
-      setLoading(true)
+      if (!hasLoadedOnceRef.current) setLoading(true)
       load()
     }, [load]),
   )
