@@ -89,14 +89,26 @@ export function formatEstado(estado: string): string {
 }
 
 /**
- * Estado *visual*: un evento "programado" cuya hora de fin (o inicio, si no cargó fin) ya
- * pasó se muestra como "finalizado" sin tocar la DB — el campo real sigue siendo manual
- * (EventoForm), esto solo afecta cómo se pinta en las vistas de solo lectura.
+ * Estado *visual* según la hora actual, sin tocar la DB — red de seguridad para la
+ * ventana entre un fetch y el siguiente (el server ya persiste lo mismo al leer, ver
+ * `estadoTransicionado` en inglobal-site/lib/agenda-business.ts, una sola fuente de
+ * reglas repetida acá solo porque el fetch pudo haber pasado hace rato).
+ *  - `reserva` nunca confirmada cuya ventana ya pasó -> `cancelado` (no avanza sola a
+ *    `programado`/`en_curso`, una reserva sin confirmar que venció está cancelada).
+ *  - `programado` que ya arrancó pero no terminó -> `en_curso`.
+ *  - `programado` cuya ventana ya terminó -> `finalizado`.
+ *  - `en_curso` se cierra a mano (finalizarlo es una decisión, no algo automático).
  */
 export function getEstadoVisual(evento: EventoAgenda, now = new Date()): string {
-  if (evento.estado === 'programado') {
-    const fin = new Date(`${evento.fecha}T${(evento.hora_fin ?? evento.hora_inicio).slice(0, 8)}`)
+  const inicio = new Date(`${evento.fecha}T${evento.hora_inicio.slice(0, 8)}`)
+  // Sin hora_fin, el evento queda "abierto" hasta el final del día de fecha_hasta
+  // (no duración 0) — mismo criterio que rangosSeSolapan en inglobal-site.
+  const fin = new Date(`${evento.fecha_hasta ?? evento.fecha}T${(evento.hora_fin ?? '23:59:59').slice(0, 8)}`)
+  if (evento.estado === 'reserva') {
+    if (fin < now) return 'cancelado'
+  } else if (evento.estado === 'programado') {
     if (fin < now) return 'finalizado'
+    if (inicio <= now) return 'en_curso'
   }
   return evento.estado
 }

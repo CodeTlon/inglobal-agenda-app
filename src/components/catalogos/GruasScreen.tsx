@@ -1,11 +1,12 @@
 import { useCallback, useState } from 'react'
-import { View, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native'
+import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native'
 import { Picker } from '@react-native-picker/picker'
 import { Text } from '@/components/Text'
 import { TextInput } from '@/components/TextInput'
 import { useFocusEffect } from 'expo-router'
 import { getGruas, createGrua, updateGrua, toggleGrua, deleteGrua } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
+import { showApiError } from '@/lib/alert'
 import { TIPOS_GRUA, type Grua } from '@/lib/types'
 import { CatalogRow } from '@/components/CatalogRow'
 
@@ -40,7 +41,22 @@ export default function GruasScreen() {
     setShowForm(true)
   }
 
+  function validate(): string | null {
+    if (!form.nombre.trim()) return 'El nombre es obligatorio.'
+    if (!form.patente.trim()) return 'La patente es obligatoria.'
+    const capacidad = Number(form.capacidad_toneladas)
+    if (!form.capacidad_toneladas.trim() || !Number.isFinite(capacidad) || capacidad <= 0) {
+      return 'La capacidad debe ser un número mayor a 0.'
+    }
+    return null
+  }
+
   async function handleSave() {
+    const validationError = validate()
+    if (validationError) {
+      setError(validationError)
+      return
+    }
     setSaving(true)
     setError(null)
     try {
@@ -61,7 +77,7 @@ export default function GruasScreen() {
       await toggleGrua(g.id, g.activo)
       load()
     } catch (e) {
-      Alert.alert('Error', e instanceof ApiError ? e.message : 'No se pudo actualizar.')
+      showApiError(e, 'No se pudo actualizar.', 'No se pudo actualizar la grúa')
     }
   }
 
@@ -70,7 +86,7 @@ export default function GruasScreen() {
       await deleteGrua(g.id)
       load()
     } catch (e) {
-      Alert.alert('Error', e instanceof ApiError ? e.message : 'No se pudo eliminar.')
+      showApiError(e, 'No se pudo eliminar.', 'No se pudo eliminar la grúa')
     }
   }
 

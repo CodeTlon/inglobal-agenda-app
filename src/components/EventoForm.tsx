@@ -16,7 +16,7 @@ import {
 } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
 import { toDateInput, formatEstado } from '@/lib/agenda-view'
-import { TRANSICIONES_VALIDAS, type EstadoEvento, type EventoAgenda, type Grua, type EmpresaAgenda, type Operario } from '@/lib/types'
+import { type EstadoEvento, type EventoAgenda, type Grua, type EmpresaAgenda, type Operario } from '@/lib/types'
 
 // Lista de horarios en pasos de 15' (00:00..23:45) para elegir hora rápido
 // tipeando/scrolleando en vez de girar la rueda del picker nativo.
@@ -60,7 +60,10 @@ export function EventoForm({
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    Promise.all([getGruas(false), getEmpresasAgenda(false), getOperarios(false)])
+    // Al editar hay que traer también los inactivos: si la grúa/empresa/operario
+    // asignado al evento fue desactivado después, con solo activos desaparecía
+    // del picker/checklist sin que se note, sin forma de verlo ni desasignarlo.
+    Promise.all([getGruas(isEdit), getEmpresasAgenda(isEdit), getOperarios(isEdit)])
       .then(([g, e, o]) => {
         setGruas(g)
         setEmpresas(e)
@@ -68,6 +71,7 @@ export function EventoForm({
       })
       .catch(() => setError('No se pudieron cargar los catálogos.'))
       .finally(() => setLoadingCatalogos(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- isEdit fijo por instancia, solo debe correr al montar
   }, [])
 
   useEffect(() => {
@@ -77,7 +81,10 @@ export function EventoForm({
       .catch(() => {})
   }, [fecha, fechaHasta, horaInicio, horaFin])
 
-  const opcionesEstado: EstadoEvento[] = isEdit ? [initial.estado, ...TRANSICIONES_VALIDAS[initial.estado]] : ['reserva', 'programado']
+  // El estado solo se elige acá al crear (reserva vs. programado). Al editar, el
+  // cambio de estado se hace desde el control rápido en la pantalla de detalle
+  // (evento/[id].tsx) — no compite con los datos específicos del evento.
+  const opcionesEstado: EstadoEvento[] = ['reserva', 'programado']
 
   function toggleOperario(id: string) {
     setOperarioIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
@@ -196,9 +203,9 @@ export function EventoForm({
             {gruas.map((g) => (
               <Picker.Item
                 key={g.id}
-                label={ocupados.gruaIds.includes(g.id) ? `${g.nombre} (ocupada)` : g.nombre}
+                label={`${g.nombre}${ocupados.gruaIds.includes(g.id) ? ' (ocupada)' : ''}${!g.activo ? ' (inactiva)' : ''}`}
                 value={g.id}
-                color={ocupados.gruaIds.includes(g.id) ? '#b91c1c' : undefined}
+                color={ocupados.gruaIds.includes(g.id) ? '#b91c1c' : !g.activo ? '#575d78' : undefined}
               />
             ))}
           </Picker>
@@ -210,7 +217,7 @@ export function EventoForm({
           <Picker enabled={!locked} selectedValue={empresaId} onValueChange={setEmpresaId}>
             <Picker.Item label="Seleccioná una empresa" value="" />
             {empresas.map((e) => (
-              <Picker.Item key={e.id} label={e.nombre} value={e.id} />
+              <Picker.Item key={e.id} label={`${e.nombre}${!e.activo ? ' (inactiva)' : ''}`} value={e.id} color={!e.activo ? '#575d78' : undefined} />
             ))}
           </Picker>
         </View>
@@ -231,8 +238,8 @@ export function EventoForm({
                 <View className={`w-5 h-5 rounded border mr-3 items-center justify-center ${selected ? 'bg-igb-yellow border-igb-yellow' : 'border-igb-outline'}`}>
                   {selected && <Ionicons name="checkmark" size={14} color="#221b00" />}
                 </View>
-                <Text className={ocupado ? 'text-red-600' : 'text-igb-on-surface'}>
-                  {o.nombre}{ocupado ? ' (ocupado)' : ''}
+                <Text className={ocupado ? 'text-red-600' : !o.activo ? 'text-igb-secondary' : 'text-igb-on-surface'}>
+                  {o.nombre}{ocupado ? ' (ocupado)' : ''}{!o.activo ? ' (inactivo)' : ''}
                 </Text>
               </Pressable>
             )
@@ -262,15 +269,17 @@ export function EventoForm({
         />
       </Field>
 
-      <Field label="Estado">
-        <View className="border border-igb-outline rounded-lg bg-white">
-          <Picker selectedValue={estado} onValueChange={(v) => setEstado(v as EstadoEvento)}>
-            {opcionesEstado.map((e) => (
-              <Picker.Item key={e} label={formatEstado(e)} value={e} />
-            ))}
-          </Picker>
-        </View>
-      </Field>
+      {!isEdit && (
+        <Field label="Estado">
+          <View className="border border-igb-outline rounded-lg bg-white">
+            <Picker selectedValue={estado} onValueChange={(v) => setEstado(v as EstadoEvento)}>
+              {opcionesEstado.map((e) => (
+                <Picker.Item key={e} label={formatEstado(e)} value={e} />
+              ))}
+            </Picker>
+          </View>
+        </Field>
+      )}
 
       {error && <Text className="text-red-600 mb-3">{error}</Text>}
 

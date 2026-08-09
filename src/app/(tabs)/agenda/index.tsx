@@ -5,7 +5,7 @@ import { useFocusEffect, useRouter } from 'expo-router'
 import { Text } from '@/components/Text'
 import { getEventosAgenda } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
-import { getWeekStart, getWeekDays, addDays, toDateInput, estadoStripColor, layoutDayEvents, formatEstado } from '@/lib/agenda-view'
+import { getWeekStart, getWeekDays, addDays, toDateInput, estadoStripColor, layoutDayEvents, formatEstado, getEstadoVisual } from '@/lib/agenda-view'
 import type { EventoAgenda } from '@/lib/types'
 import { EstadoLegend } from '@/components/EstadoLegend'
 
@@ -50,6 +50,13 @@ export default function AgendaScreen() {
   const timelineRef = useRef<ScrollView>(null)
   const scrollYRef = useRef(0)
   const extendingRef = useRef<'past' | 'future' | null>(null)
+  // Mientras un scrollTo animado está en vuelo, onScroll dispara en cada frame
+  // intermedio con offsets que todavía no llegaron al destino — sin esta guarda,
+  // ese onScroll pisaba el `focused` correcto que goTo ya había seteado (bug:
+  // tocar un día vecino lo mostraba resaltado un instante y volvía al elegido;
+  // en semana, 7x la distancia, el "rebote" se notaba mucho más).
+  const isProgrammaticScrollRef = useRef(false)
+  const programmaticScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const daysRef = useRef(days)
   daysRef.current = days
   const pendingScrollRef = useRef<{ dateStr: string; animated: boolean } | null>({
@@ -69,7 +76,7 @@ export default function AgendaScreen() {
     try {
       return await getEventosAgenda(desde, hasta)
     } catch (e) {
-      setError(e instanceof ApiError ? `Error ${e.status}: ${e.message}` : `Error de red: ${String(e)}`)
+      setError(e instanceof ApiError ? e.message : 'No se pudieron cargar los eventos. Revisá tu conexión.')
       return []
     }
   }
@@ -121,7 +128,25 @@ export default function AgendaScreen() {
       ? Math.min(...eventosDelDia.map((ev) => toMinutes(ev.hora_inicio)))
       : dateStr === todayStr ? nowMinutes() : 7 * 60
     const y = idx * DAY_HEIGHT + Math.max(0, (anchorMin / 60 - 1) * PX_PER_HOUR)
+    if (animated) {
+      isProgrammaticScrollRef.current = true
+      if (programmaticScrollTimeoutRef.current) clearTimeout(programmaticScrollTimeoutRef.current)
+      // Red de seguridad: si por lo que sea no llega onMomentumScrollEnd (pasa
+      // en algunos casos con scrollTo programático), no queremos que la guarda
+      // quede prendida para siempre e ignore el scroll real del usuario.
+      programmaticScrollTimeoutRef.current = setTimeout(() => {
+        isProgrammaticScrollRef.current = false
+      }, 800)
+    }
     timelineRef.current?.scrollTo({ y, animated })
+  }
+
+  function clearProgrammaticScroll() {
+    if (programmaticScrollTimeoutRef.current) {
+      clearTimeout(programmaticScrollTimeoutRef.current)
+      programmaticScrollTimeoutRef.current = null
+    }
+    isProgrammaticScrollRef.current = false
   }
 
   // Navegación explícita (flechas de semana, tap en un día). Si el destino ya
@@ -173,9 +198,11 @@ export default function AgendaScreen() {
   function handleScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
     const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent
     scrollYRef.current = contentOffset.y
-    const idx = Math.min(days.length - 1, Math.max(0, Math.round(contentOffset.y / DAY_HEIGHT)))
-    const d = days[idx]
-    setFocused((prev) => (toDateInput(prev) === toDateInput(d) ? prev : d))
+    if (!isProgrammaticScrollRef.current) {
+      const idx = Math.min(days.length - 1, Math.max(0, Math.round(contentOffset.y / DAY_HEIGHT)))
+      const d = days[idx]
+      setFocused((prev) => (toDateInput(prev) === toDateInput(d) ? prev : d))
+    }
 
     if (contentOffset.y < EDGE_TRIGGER) extend('past')
     else if (contentOffset.y + layoutMeasurement.height > contentSize.height - EDGE_TRIGGER) extend('future')
@@ -263,6 +290,8 @@ export default function AgendaScreen() {
           contentContainerStyle={{ paddingBottom: 96 }}
           onScroll={handleScroll}
           scrollEventThrottle={100}
+          onScrollBeginDrag={clearProgrammaticScroll}
+          onMomentumScrollEnd={clearProgrammaticScroll}
         >
           <View style={{ height: days.length * DAY_HEIGHT }}>
             {days.map((d, i) => {
@@ -307,6 +336,7 @@ export default function AgendaScreen() {
                 const widthPct = 100 / lanes
                 const hasRoomForDetail = height >= 56
                 const hasRoomForOperarios = height >= 76 && ev.operarios.length > 0
+                const estadoVisual = getEstadoVisual(ev)
                 return (
                   <Pressable
                     key={ev.id}
@@ -320,7 +350,7 @@ export default function AgendaScreen() {
                       paddingRight: lanes > 1 ? 3 : 0,
                     }}
                   >
-                    <View className={`w-1 ${estadoStripColor(ev.estado)}`} />
+                    <View className={`w-1 ${estadoStripColor(estadoVisual)}`} />
                     <View className="flex-1 px-2 py-1">
                       <Text className="text-[11px] font-bold text-igb-on-surface" numberOfLines={1}>
                         {ev.hora_inicio.slice(0, 5)}{ev.hora_fin ? `-${ev.hora_fin.slice(0, 5)}` : ''}
@@ -330,7 +360,7 @@ export default function AgendaScreen() {
                       </Text>
                       {hasRoomForDetail && (
                         <Text className="text-[11px] text-igb-secondary" numberOfLines={1}>
-                          {formatEstado(ev.estado)}{ev.ubicacion ? ` · ${ev.ubicacion}` : ''}
+                          {formatEstado(estadoVisual)}{ev.ubicacion ? ` · ${ev.ubicacion}` : ''}
                         </Text>
                       )}
                       {hasRoomForOperarios && (

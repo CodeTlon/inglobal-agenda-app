@@ -1,10 +1,11 @@
 import { useCallback, useState } from 'react'
-import { View, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native'
+import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native'
 import { useFocusEffect } from 'expo-router'
 import { Text } from '@/components/Text'
 import { TextInput } from '@/components/TextInput'
 import { getEmpresasAgenda, createEmpresaAgenda, updateEmpresaAgenda, toggleEmpresaAgenda, deleteEmpresaAgenda } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
+import { showApiError } from '@/lib/alert'
 import type { EmpresaAgenda } from '@/lib/types'
 import { CatalogRow } from '@/components/CatalogRow'
 
@@ -39,7 +40,19 @@ export default function EmpresasScreen() {
     setShowForm(true)
   }
 
+  function validate(): string | null {
+    if (!form.nombre.trim()) return 'El nombre es obligatorio.'
+    if (!form.contacto.trim()) return 'El contacto es obligatorio.'
+    if (!form.telefono.trim()) return 'El teléfono es obligatorio.'
+    return null
+  }
+
   async function handleSave() {
+    const validationError = validate()
+    if (validationError) {
+      setError(validationError)
+      return
+    }
     setSaving(true)
     setError(null)
     try {
@@ -60,7 +73,7 @@ export default function EmpresasScreen() {
       await toggleEmpresaAgenda(e.id, e.activo)
       load()
     } catch (err) {
-      Alert.alert('Error', err instanceof ApiError ? err.message : 'No se pudo actualizar.')
+      showApiError(err, 'No se pudo actualizar.', 'No se pudo actualizar la empresa')
     }
   }
 
@@ -69,7 +82,7 @@ export default function EmpresasScreen() {
       await deleteEmpresaAgenda(e.id)
       load()
     } catch (err) {
-      Alert.alert('Error', err instanceof ApiError ? err.message : 'No se pudo eliminar.')
+      showApiError(err, 'No se pudo eliminar.', 'No se pudo eliminar la empresa')
     }
   }
 
