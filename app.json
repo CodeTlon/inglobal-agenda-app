@@ -55,7 +55,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "3e7abcfa-9976-4f57-9960-e9983c066337"
+        "projectId": "d3b93c02-aadf-4f1a-acf5-a4920d5ef4fb"
       }
     },
     "owner": "codetlon",
@@ -63,7 +63,7 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/3e7abcfa-9976-4f57-9960-e9983c066337",
+      "url": "https://u.expo.dev/d3b93c02-aadf-4f1a-acf5-a4920d5ef4fb",
       "fallbackToCacheTimeout": 0
     }
   }
