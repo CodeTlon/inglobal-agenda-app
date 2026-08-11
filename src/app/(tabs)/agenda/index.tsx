@@ -5,7 +5,17 @@ import { useFocusEffect, useRouter } from 'expo-router'
 import { Text } from '@/components/Text'
 import { getEventosAgenda } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
-import { getWeekStart, getWeekDays, addDays, toDateInput, estadoStripColor, layoutDayEvents, formatEstado, getEstadoVisual } from '@/lib/agenda-view'
+import {
+  getWeekStart,
+  getWeekDays,
+  addDays,
+  toDateInput,
+  estadoStripColor,
+  estadoColorClassesLight,
+  layoutDayEvents,
+  formatEstado,
+  getEstadoVisual,
+} from '@/lib/agenda-view'
 import type { EventoAgenda } from '@/lib/types'
 import { EstadoLegend } from '@/components/EstadoLegend'
 
@@ -359,9 +369,18 @@ export default function AgendaScreen() {
                         {ev.grua?.nombre ?? 'Sin grúa'} — {ev.empresa?.nombre ?? 'Sin empresa'}
                       </Text>
                       {hasRoomForDetail && (
-                        <Text className="text-[11px] text-igb-secondary" numberOfLines={1}>
-                          {formatEstado(estadoVisual)}{ev.ubicacion ? ` · ${ev.ubicacion}` : ''}
-                        </Text>
+                        <View className="flex-row items-center gap-1.5 mt-0.5">
+                          <View className={`px-1.5 py-0.5 rounded ${estadoColorClassesLight(estadoVisual)}`}>
+                            <Text className={`text-[9px] font-semibold ${estadoColorClassesLight(estadoVisual)}`} numberOfLines={1}>
+                              {formatEstado(estadoVisual)}
+                            </Text>
+                          </View>
+                          {ev.ubicacion && (
+                            <Text className="text-[10px] text-igb-secondary flex-1" numberOfLines={1}>
+                              {ev.ubicacion}
+                            </Text>
+                          )}
+                        </View>
                       )}
                       {hasRoomForOperarios && (
                         <Text className="text-[11px] text-igb-secondary" numberOfLines={1}>

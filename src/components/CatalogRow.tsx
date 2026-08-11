@@ -21,7 +21,7 @@ export function CatalogRow({
   onDelete: () => void
 }) {
   return (
-    <View className="flex-row items-center bg-white border border-igb-outline rounded-xl px-3 py-3 mb-2.5">
+    <View className="flex-row items-center bg-white border border-igb-outline rounded-lg px-3 py-3 mb-2.5">
       <View className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${activo ? 'bg-igb-navy/10' : 'bg-igb-secondary/10'}`}>
         <Ionicons name={icon} size={20} color={activo ? '#1C357F' : '#575d78'} />
       </View>

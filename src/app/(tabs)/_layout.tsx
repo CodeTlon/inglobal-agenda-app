@@ -1,11 +1,6 @@
 import { Tabs } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
-import type { ComponentProps } from 'react'
 import { useSession } from '@/lib/session'
-
-function TabIcon({ name, focused }: { name: ComponentProps<typeof Ionicons>['name']; focused: boolean }) {
-  return <Ionicons name={name} size={22} color={focused ? '#1C357F' : '#1C357F80'} />
-}
+import { TabBarIcon } from '@/components/TabBarIcon'
 
 export default function TabsLayout() {
   // Rol "trabajador": solo agenda + perfil. Catálogos es gestión de contenido
@@ -20,26 +15,45 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#1C357F',
-        tabBarInactiveTintColor: '#1C357F80',
-        tabBarStyle: { backgroundColor: '#f5d100' },
+        tabBarShowLabel: false,
+        tabBarStyle: {
+          backgroundColor: '#fff',
+          borderTopColor: '#e7e8e9',
+          shadowColor: '#000',
+          shadowOpacity: 0.06,
+          shadowRadius: 16,
+          shadowOffset: { width: 0, height: -4 },
+          elevation: 8,
+        },
       }}
     >
       <Tabs.Screen
         name="agenda"
-        options={{ title: 'Agenda', tabBarIcon: ({ focused }) => <TabIcon name={focused ? 'calendar' : 'calendar-outline'} focused={focused} /> }}
+        options={{
+          title: 'Agenda',
+          tabBarIcon: ({ focused }) => (
+            <TabBarIcon focused={focused} label="Agenda" name={focused ? 'calendar' : 'calendar-outline'} />
+          ),
+        }}
       />
       <Tabs.Screen
         name="catalogos"
         options={{
           title: 'Catálogos',
           href: isTrabajador ? null : undefined,
-          tabBarIcon: ({ focused }) => <TabIcon name={focused ? 'file-tray-full' : 'file-tray-full-outline'} focused={focused} />,
+          tabBarIcon: ({ focused }) => (
+            <TabBarIcon focused={focused} label="Catálogos" name={focused ? 'file-tray-full' : 'file-tray-full-outline'} />
+          ),
         }}
       />
       <Tabs.Screen
         name="perfil"
-        options={{ title: 'Perfil', tabBarIcon: ({ focused }) => <TabIcon name={focused ? 'person' : 'person-outline'} focused={focused} /> }}
+        options={{
+          title: 'Perfil',
+          tabBarIcon: ({ focused }) => (
+            <TabBarIcon focused={focused} label="Perfil" name={focused ? 'person' : 'person-outline'} />
+          ),
+        }}
       />
     </Tabs>
   )
