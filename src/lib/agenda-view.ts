@@ -97,8 +97,12 @@ export function formatEstado(estado: string): string {
  *    `programado`/`en_curso`, una reserva sin confirmar que venció está cancelada).
  *  - `programado` se ve `en_curso` solo DENTRO de la ventana [hora_inicio, hora_fin)
  *    de cada día del rango (no las 24hs corridas) — se repite día a día desde
- *    `fecha` hasta `fecha_hasta`. Sin `hora_fin` la ventana cierra a las 18:00; sin
- *    `fecha_hasta` el rango es de un solo día.
+ *    `fecha` hasta `fecha_hasta`. Sin `hora_fin` la ventana cierra a las 18:00
+ *    (fin de jornada); sin `fecha_hasta` el rango es de un solo día.
+ *    OJO: el backend (`estadoTransicionado`/`rangosSeSolapan` en
+ *    inglobal-site/lib/agenda-business.ts, y el EXCLUDE constraint de la DB)
+ *    todavía usa 23:59 como default — mismatch pendiente de resolver ahí si
+ *    se quiere el mismo corte de las 18:00 también para conflictos/DB.
  *  - `programado` cuya ventana del último día ya terminó -> `finalizado`.
  *  - `en_curso` se cierra a mano (finalizarlo es una decisión, no algo automático).
  */

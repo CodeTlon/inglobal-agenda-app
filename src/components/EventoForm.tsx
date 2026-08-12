@@ -99,6 +99,14 @@ export function EventoForm({
       setError('Asigná al menos un operario.')
       return
     }
+    if (fechaHasta && fechaHasta < fecha) {
+      setError('La fecha de fin no puede ser anterior a la fecha de inicio.')
+      return
+    }
+    if (!fechaHasta && horaFin && horaFin <= horaInicio) {
+      setError('La hora de fin debe ser posterior a la hora de inicio.')
+      return
+    }
     setSaving(true)
     setError(null)
     const payload: EventoPayload = {

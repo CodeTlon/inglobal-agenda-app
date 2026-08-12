@@ -97,8 +97,6 @@ export default function EventoScreen() {
     )
   }
 
-  const puedeBorrar = evento.estado === 'reserva' || evento.estado === 'programado'
-
   if (editando) {
     return (
       <>
@@ -107,11 +105,9 @@ export default function EventoScreen() {
           initial={evento}
           onDone={() => router.back()}
           footer={
-            puedeBorrar ? (
-              <Pressable onPress={handleDelete} className="items-center py-3 mt-3">
-                <Text className="text-red-600 font-medium">Eliminar evento</Text>
-              </Pressable>
-            ) : undefined
+            <Pressable onPress={handleDelete} className="items-center py-3 mt-3">
+              <Text className="text-red-600 font-medium">Eliminar evento</Text>
+            </Pressable>
           }
         />
       </>
@@ -163,11 +159,9 @@ export default function EventoScreen() {
           <Text className="text-igb-on-yellow font-bold">Editar</Text>
         </Pressable>
 
-        {puedeBorrar && (
-          <Pressable onPress={handleDelete} className="items-center py-3">
-            <Text className="text-red-600 font-medium">Eliminar evento</Text>
-          </Pressable>
-        )}
+        <Pressable onPress={handleDelete} className="items-center py-3">
+          <Text className="text-red-600 font-medium">Eliminar evento</Text>
+        </Pressable>
       </ScrollView>
     </>
   )

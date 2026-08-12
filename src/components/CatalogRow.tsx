@@ -39,8 +39,8 @@ export function CatalogRow({
             {title}
           </Text>
           {estado && (
-            <View className={`px-1.5 py-0.5 rounded ${estado.kind === 'ocupado' ? 'bg-igb-navy/10' : 'bg-igb-success/10'}`}>
-              <Text className={`text-[9px] font-semibold ${estado.kind === 'ocupado' ? 'text-igb-navy' : 'text-igb-success'}`}>
+            <View className={`px-1.5 py-0.5 rounded ${estado.kind === 'ocupado' ? 'bg-igb-error/10' : 'bg-igb-success/10'}`}>
+              <Text className={`text-[9px] font-semibold ${estado.kind === 'ocupado' ? 'text-igb-error' : 'text-igb-success'}`}>
                 {estado.kind === 'ocupado' ? 'Ocupado' : 'Disponible'}
               </Text>
             </View>
@@ -52,7 +52,7 @@ export function CatalogRow({
           </Text>
         ) : null}
         {estado?.kind === 'ocupado' && estado.detail ? (
-          <Text className="text-igb-navy text-[11px] font-medium mt-0.5" numberOfLines={1}>
+          <Text className="text-igb-error text-[11px] font-medium mt-0.5" numberOfLines={1}>
             {estado.detail}
           </Text>
         ) : null}

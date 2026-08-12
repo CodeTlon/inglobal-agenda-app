@@ -24,7 +24,6 @@ const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const PX_PER_HOUR = 60
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
 const DAY_HEIGHT = 24 * PX_PER_HOUR
-const DEFAULT_DURATION_MIN = 60
 const MIN_CARD_HEIGHT = 44
 // Ventana de días renderizada como una única lista continua: bajar de un día
 // a otro es scroll normal, no un salto de pantalla. La ventana arranca con
@@ -47,7 +46,7 @@ function eventoOcurreEn(ev: EventoAgenda, fecha: string): boolean {
   return ev.fecha <= fecha && fecha <= (ev.fecha_hasta ?? ev.fecha)
 }
 
-type Positioned = { ev: EventoAgenda; top: number; height: number; lane: number; lanes: number }
+type Positioned = { key: string; ev: EventoAgenda; top: number; height: number; lane: number; lanes: number }
 
 export default function AgendaScreen() {
   const router = useRouter()
@@ -258,11 +257,6 @@ export default function AgendaScreen() {
     }
   }
 
-  // Carriles side-by-side para eventos que se solapan en horario, en
-  // coordenadas globales (no por día) — así un trabajo que cruza medianoche
-  // (22:00-04:00) es una sola card continua entre los dos bloques de día, sin
-  // costura. layoutDayEvents compara strings, y "fecha+hora" ISO ordena
-  // cronológicamente igual que solo "hora", así que se reutiliza tal cual.
   // Conteos del día enfocado para el summary strip — mismos 3 grupos que la
   // franja lateral/chip de estado ya usan (getEstadoVisual), sin fetch nuevo.
   const focusedCounts = useMemo(() => {
@@ -274,29 +268,50 @@ export default function AgendaScreen() {
     }
   }, [eventos, focusedStr])
 
+  // Un evento con fecha_hasta ocupa la MISMA ventana horaria [hora_inicio, hora_fin)
+  // cada día del rango (igual que getEstadoVisual) — acá se arma un segmento por día
+  // en vez de una sola card continua de punta a punta, que tapaba también las noches
+  // y madrugadas intermedias y se sentía como una columna sin fin. El cruce de
+  // medianoche explícito sin fecha_hasta (22:00-04:00) sigue siendo una sola card
+  // continua entre los dos bloques de día, sin costura.
   const positioned = useMemo<Positioned[]>(() => {
     const dayIndex = new Map(days.map((d, i) => [toDateInput(d), i]))
     const windowStartStr = toDateInput(windowStart)
     const windowEndStr = toDateInput(windowEnd)
     const relevant = eventos.filter((ev) => (ev.fecha_hasta ?? ev.fecha) >= windowStartStr && ev.fecha <= windowEndStr)
-    const withKeys = relevant.map((ev) => ({
-      ev,
-      hora_inicio: `${ev.fecha}T${ev.hora_inicio}`,
-      hora_fin: `${ev.fecha_hasta ?? ev.fecha}T${ev.hora_fin ?? ev.hora_inicio}`,
+
+    const segments: { ev: EventoAgenda; dayStr: string; horaInicio: string; horaFin: string; crossesMidnight: boolean }[] = []
+    for (const ev of relevant) {
+      const startMin = toMinutes(ev.hora_inicio)
+      const horaFinEfectiva = ev.hora_fin ?? '18:00'
+      const crossesMidnight = !ev.fecha_hasta && toMinutes(horaFinEfectiva) <= startMin
+      if (crossesMidnight) {
+        segments.push({ ev, dayStr: ev.fecha, horaInicio: ev.hora_inicio, horaFin: horaFinEfectiva, crossesMidnight: true })
+        continue
+      }
+      const ultimoDia = ev.fecha_hasta ?? ev.fecha
+      for (const d of days) {
+        const dStr = toDateInput(d)
+        if (dStr < ev.fecha || dStr > ultimoDia) continue
+        segments.push({ ev, dayStr: dStr, horaInicio: ev.hora_inicio, horaFin: horaFinEfectiva, crossesMidnight: false })
+      }
+    }
+
+    const withKeys = segments.map((s) => ({
+      ...s,
+      hora_inicio: `${s.dayStr}T${s.horaInicio}`,
+      hora_fin: `${s.dayStr}T${s.horaFin}`,
     }))
     const layout = layoutDayEvents(withKeys)
-    return withKeys.map((item) => {
-      const slot = layout.get(item)!
-      const startMin = toMinutes(item.ev.hora_inicio)
-      const endMin = item.ev.hora_fin ? toMinutes(item.ev.hora_fin) : startMin + DEFAULT_DURATION_MIN
-      const startDayIdx = dayIndex.get(item.ev.fecha) ?? 0
-      // Si hora_fin <= hora_inicio y no se cargó fecha_hasta, asumimos que
-      // cruza a la madrugada del día siguiente (caso típico 22:00-04:00).
-      const endsNextDay = endMin <= startMin && !item.ev.fecha_hasta
-      const endDayIdx = endsNextDay ? startDayIdx + 1 : dayIndex.get(item.ev.fecha_hasta ?? item.ev.fecha) ?? startDayIdx
-      const top = Math.max(0, startDayIdx * DAY_HEIGHT + (startMin / 60) * PX_PER_HOUR)
+    return withKeys.map((s) => {
+      const slot = layout.get(s)!
+      const startMin = toMinutes(s.horaInicio)
+      const endMin = toMinutes(s.horaFin)
+      const dayIdx = dayIndex.get(s.dayStr) ?? 0
+      const endDayIdx = s.crossesMidnight ? dayIdx + 1 : dayIdx
+      const top = Math.max(0, dayIdx * DAY_HEIGHT + (startMin / 60) * PX_PER_HOUR)
       const bottom = Math.min(days.length * DAY_HEIGHT, endDayIdx * DAY_HEIGHT + (endMin / 60) * PX_PER_HOUR)
-      return { ev: item.ev, top, height: Math.max(bottom - top, MIN_CARD_HEIGHT), lane: slot.lane, lanes: slot.lanes }
+      return { key: `${s.ev.id}-${s.dayStr}`, ev: s.ev, top, height: Math.max(bottom - top, MIN_CARD_HEIGHT), lane: slot.lane, lanes: slot.lanes }
     })
   }, [eventos, days])
 
@@ -407,14 +422,14 @@ export default function AgendaScreen() {
             )}
 
             <View className="absolute top-0" style={{ left: 48, right: 12, height: days.length * DAY_HEIGHT }}>
-              {positioned.map(({ ev, top, height, lane, lanes }) => {
+              {positioned.map(({ key, ev, top, height, lane, lanes }) => {
                 const widthPct = 100 / lanes
                 const hasRoomForDetail = height >= 56
                 const hasRoomForOperarios = height >= 76 && ev.operarios.length > 0
                 const estadoVisual = getEstadoVisual(ev)
                 return (
                   <Pressable
-                    key={ev.id}
+                    key={key}
                     onPress={() => router.push(`/agenda/evento/${ev.id}`)}
                     className="absolute bg-white border border-igb-outline rounded-lg overflow-hidden flex-row"
                     style={{
