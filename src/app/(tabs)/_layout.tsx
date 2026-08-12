@@ -1,4 +1,5 @@
 import { Tabs } from 'expo-router'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useSession } from '@/lib/session'
 import { TabBarIcon } from '@/components/TabBarIcon'
 
@@ -10,12 +11,18 @@ export default function TabsLayout() {
   // app_metadata (no user_metadata): solo lo escribe el service_role desde el
   // panel web, el propio usuario no puede reescribirlo vía supabase.auth.updateUser.
   const isTrabajador = session?.user.app_metadata?.role === 'trabajador'
+  const insets = useSafeAreaInsets()
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
+        // TabBarIcon dibuja ícono + label apilados (no el label nativo del
+        // tab bar, deshabilitado arriba) — un tabBarStyle custom sin height
+        // ni paddingBottom explícitos no reserva alto para eso ni para el
+        // inset inferior (barra de gestos de Android), y el contenido queda
+        // cortado contra el borde de la pantalla.
         tabBarStyle: {
           backgroundColor: '#fff',
           borderTopColor: '#e7e8e9',
@@ -24,7 +31,15 @@ export default function TabsLayout() {
           shadowRadius: 16,
           shadowOffset: { width: 0, height: -4 },
           elevation: 8,
+          height: 56 + insets.bottom,
+          paddingTop: 8,
+          paddingBottom: insets.bottom,
         },
+        // Sin esto, react-navigation le da al slot de tabBarIcon un ancho
+        // angosto pensado para un ícono solo (~7px medidos) — con label
+        // apilado adentro (tabBarShowLabel va en false, el label vive en
+        // TabBarIcon) el texto quedaba envuelto letra por letra, invisible.
+        tabBarIconStyle: { width: 96, height: 48 },
       }}
     >
       <Tabs.Screen

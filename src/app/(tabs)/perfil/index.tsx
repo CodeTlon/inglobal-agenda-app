@@ -1,9 +1,14 @@
-import { View, Pressable } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useCallback, useState } from 'react'
+import { View, Pressable, ScrollView } from 'react-native'
+import { useFocusEffect, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
+import Constants from 'expo-constants'
 import { Text } from '@/components/Text'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/lib/session'
+import { getEventosAgenda } from '@/lib/agenda-api'
+import { getEstadoVisual, toDateInput } from '@/lib/agenda-view'
+import type { EventoAgenda } from '@/lib/types'
 
 export default function PerfilScreen() {
   const router = useRouter()
@@ -12,18 +17,48 @@ export default function PerfilScreen() {
   const iniciales = email.slice(0, 2).toUpperCase()
   const esTrabajador = session?.user.app_metadata?.role === 'trabajador'
 
+  const [eventosHoy, setEventosHoy] = useState<EventoAgenda[]>([])
+  useFocusEffect(
+    useCallback(() => {
+      const hoy = toDateInput(new Date())
+      getEventosAgenda(hoy, hoy).then(setEventosHoy).catch(() => {})
+    }, []),
+  )
+  const enCurso = eventosHoy.filter((ev) => getEstadoVisual(ev) === 'en_curso').length
+  const pendientes = eventosHoy.filter((ev) => ['reserva', 'programado'].includes(getEstadoVisual(ev))).length
+
   return (
-    <View className="flex-1 bg-igb-surface p-4">
+    <ScrollView className="flex-1 bg-igb-surface" contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
       <View className="bg-white border border-igb-outline rounded-lg p-4 mb-3 flex-row items-center gap-3">
-        <View className="w-12 h-12 rounded-full bg-igb-navy/10 items-center justify-center">
-          <Text className="font-headline text-igb-navy text-sm">{iniciales}</Text>
+        <View className="w-14 h-14 rounded-xl bg-igb-yellow items-center justify-center">
+          <Text className="font-headline text-igb-on-yellow text-lg">{iniciales}</Text>
         </View>
         <View className="flex-1">
-          <Text className="text-igb-secondary text-xs">Sesión iniciada como</Text>
           <Text className="text-igb-on-surface font-semibold" numberOfLines={1}>
             {email}
           </Text>
-          <Text className="text-igb-secondary text-xs mt-0.5">{esTrabajador ? 'Operario' : 'Despachador'}</Text>
+          {esTrabajador && (
+            <View className="flex-row items-center gap-2 mt-1">
+              <View className="bg-igb-yellow/15 px-2 py-0.5 rounded">
+                <Text className="text-igb-yellow-dark text-[11px] font-semibold">Operario</Text>
+              </View>
+            </View>
+          )}
+        </View>
+      </View>
+
+      <View className="bg-white border border-igb-outline rounded-lg flex-row divide-x divide-igb-outline mb-3">
+        <View className="flex-1 p-3 items-center">
+          <Text className="font-headline text-igb-navy text-xl">{eventosHoy.length}</Text>
+          <Text className="text-igb-secondary text-[11px] mt-1 text-center">Servicios hoy</Text>
+        </View>
+        <View className="flex-1 p-3 items-center">
+          <Text className="font-headline text-igb-navy text-xl">{enCurso}</Text>
+          <Text className="text-igb-secondary text-[11px] mt-1 text-center">En curso</Text>
+        </View>
+        <View className="flex-1 p-3 items-center">
+          <Text className="font-headline text-igb-navy text-xl">{pendientes}</Text>
+          <Text className="text-igb-secondary text-[11px] mt-1 text-center">Pendientes</Text>
         </View>
       </View>
 
@@ -48,6 +83,10 @@ export default function PerfilScreen() {
         <Ionicons name="log-out-outline" size={16} color="#dc2626" />
         <Text className="text-red-600 font-medium text-center">Cerrar sesión</Text>
       </Pressable>
-    </View>
+
+      <Text className="text-igb-secondary/60 text-[11px] text-center mt-6">
+        Grúas InGlobal · v{Constants.expoConfig?.version ?? '1.0.0'}
+      </Text>
+    </ScrollView>
   )
 }

@@ -75,11 +75,11 @@ export default function PairTvScreen() {
       <View className="flex-1 items-center justify-center bg-igb-surface p-8">
         <Ionicons name="tv-outline" size={48} color="#1C357F" style={{ marginBottom: 16 }} />
         <Text className="text-igb-on-surface font-semibold text-lg mb-2 text-center">¿Aprobar el inicio de sesión en esta TV?</Text>
-        {result === 'error' && <Text className="text-red-600 text-center mb-4">{errorMsg}</Text>}
+        {result === 'error' && <Text className="text-igb-error text-center mb-4">{errorMsg}</Text>}
         <Pressable onPress={handleApprove} disabled={approving} className="bg-igb-yellow rounded-lg px-6 py-3 mb-3 w-full items-center disabled:opacity-60">
           {approving ? <ActivityIndicator color="#221b00" /> : <Text className="text-igb-on-yellow font-bold">Aprobar</Text>}
         </Pressable>
-        <Pressable onPress={reset} className="items-center py-2">
+        <Pressable onPress={reset} hitSlop={8} className="items-center py-2">
           <Text className="text-igb-secondary">Cancelar</Text>
         </Pressable>
       </View>

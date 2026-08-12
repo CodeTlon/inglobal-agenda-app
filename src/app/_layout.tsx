@@ -7,7 +7,9 @@ import { View, ActivityIndicator } from 'react-native'
 import * as SplashScreen from 'expo-splash-screen'
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter'
 import { Manrope_700Bold } from '@expo-google-fonts/manrope'
+import { Ionicons } from '@expo/vector-icons'
 import { useSession } from '@/lib/session'
+import { AgendaSelectionProvider } from '@/lib/agenda-selection'
 import { Text } from '@/components/Text'
 
 SplashScreen.preventAutoHideAsync()
@@ -28,6 +30,13 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
     Manrope_700Bold,
+    // El bottom tab bar (TabBarIcon) usa Ionicons dentro de un componente que
+    // React Navigation solo re-renderiza al cambiar de tab enfocado — si el
+    // font de Ionicons todavía no había cargado en su primer render, quedaba
+    // con el ícono y el label invisibles para siempre (nunca se re-dibuja
+    // solo). El resto de la app no lo sufre porque las pantallas normales sí
+    // se re-renderizan seguido y "autocuran" apenas el font está listo.
+    ...Ionicons.font,
   })
 
   const onLayout = useCallback(() => {
@@ -53,14 +62,16 @@ export default function RootLayout() {
           </Text>
         </CenteredMessage>
       ) : (
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Protected guard={!!session}>
-            <Stack.Screen name="(tabs)" />
-          </Stack.Protected>
-          <Stack.Protected guard={!session}>
-            <Stack.Screen name="(auth)" />
-          </Stack.Protected>
-        </Stack>
+        <AgendaSelectionProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Protected guard={!!session}>
+              <Stack.Screen name="(tabs)" />
+            </Stack.Protected>
+            <Stack.Protected guard={!session}>
+              <Stack.Screen name="(auth)" />
+            </Stack.Protected>
+          </Stack>
+        </AgendaSelectionProvider>
       )}
     </SafeAreaProvider>
   )

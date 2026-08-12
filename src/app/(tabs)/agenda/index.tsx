@@ -18,6 +18,7 @@ import {
 } from '@/lib/agenda-view'
 import type { EventoAgenda } from '@/lib/types'
 import { EstadoLegend } from '@/components/EstadoLegend'
+import { useAgendaSelection } from '@/lib/agenda-selection'
 
 const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const PX_PER_HOUR = 60
@@ -50,6 +51,7 @@ type Positioned = { ev: EventoAgenda; top: number; height: number; lane: number;
 
 export default function AgendaScreen() {
   const router = useRouter()
+  const { setSelectedDate } = useAgendaSelection()
   const [days, setDays] = useState(() =>
     Array.from({ length: INITIAL_BEFORE + INITIAL_AFTER + 1 }, (_, i) => addDays(new Date(), i - INITIAL_BEFORE)),
   )
@@ -67,6 +69,11 @@ export default function AgendaScreen() {
   // en semana, 7x la distancia, el "rebote" se notaba mucho más).
   const isProgrammaticScrollRef = useRef(false)
   const programmaticScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Objetivo en px del scroll programático en vuelo — permite limpiar la guarda
+  // en cuanto onScroll reporta que ya llegamos, en vez de confiar a ciegas en
+  // el timeout (que en Android puede vencer antes de que termine un scroll
+  // largo, ver `scrollToDate`).
+  const scrollTargetYRef = useRef<number | null>(null)
   const daysRef = useRef(days)
   daysRef.current = days
   const pendingScrollRef = useRef<{ dateStr: string; animated: boolean } | null>({
@@ -81,6 +88,12 @@ export default function AgendaScreen() {
   const todayIdx = days.findIndex((d) => toDateInput(d) === todayStr)
   const weekStart = getWeekStart(focused)
   const weekDays = getWeekDays(weekStart)
+
+  // Comparte con Catálogos qué día se está mirando acá — el badge Ocupado/
+  // Disponible de Grúas/Operarios lo usa como referencia en vez de "hoy" fijo.
+  useEffect(() => {
+    setSelectedDate(focusedStr)
+  }, [focusedStr, setSelectedDate])
 
   async function fetchEventos(desde: string, hasta: string): Promise<EventoAgenda[]> {
     try {
@@ -130,23 +143,32 @@ export default function AgendaScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading])
 
-  function scrollToDate(dateStr: string, animated: boolean) {
-    const idx = days.findIndex((d) => toDateInput(d) === dateStr)
+  // `daysList`/`eventosList` son opcionales para poder scrollear a un destino
+  // recién calculado (días/eventos de una ventana nueva) antes de que ese
+  // estado termine de aplicarse — evita depender del closure viejo de `days`.
+  function scrollToDate(dateStr: string, animated: boolean, daysList: Date[] = days, eventosList: EventoAgenda[] = eventos) {
+    const idx = daysList.findIndex((d) => toDateInput(d) === dateStr)
     if (idx === -1) return
-    const eventosDelDia = eventos.filter((ev) => eventoOcurreEn(ev, dateStr))
+    const eventosDelDia = eventosList.filter((ev) => eventoOcurreEn(ev, dateStr))
     const anchorMin = eventosDelDia.length > 0
       ? Math.min(...eventosDelDia.map((ev) => toMinutes(ev.hora_inicio)))
       : dateStr === todayStr ? nowMinutes() : 7 * 60
     const y = idx * DAY_HEIGHT + Math.max(0, (anchorMin / 60 - 1) * PX_PER_HOUR)
     if (animated) {
       isProgrammaticScrollRef.current = true
+      scrollTargetYRef.current = y
       if (programmaticScrollTimeoutRef.current) clearTimeout(programmaticScrollTimeoutRef.current)
-      // Red de seguridad: si por lo que sea no llega onMomentumScrollEnd (pasa
-      // en algunos casos con scrollTo programático), no queremos que la guarda
-      // quede prendida para siempre e ignore el scroll real del usuario.
+      // Red de seguridad si por lo que sea no llega ni onMomentumScrollEnd ni
+      // el chequeo de proximidad en handleScroll. Proporcional a la distancia:
+      // un salto de semana recorre ~7x los px de un salto de día y en Android
+      // el scroll nativo tarda más — un timeout fijo corto lo cortaba a mitad
+      // de camino (bug: "vuelve al día inicial y después salta").
+      const distance = Math.abs(y - scrollYRef.current)
+      const timeoutMs = Math.min(3000, 400 + distance / 4)
       programmaticScrollTimeoutRef.current = setTimeout(() => {
         isProgrammaticScrollRef.current = false
-      }, 800)
+        scrollTargetYRef.current = null
+      }, timeoutMs)
     }
     timelineRef.current?.scrollTo({ y, animated })
   }
@@ -157,6 +179,7 @@ export default function AgendaScreen() {
       programmaticScrollTimeoutRef.current = null
     }
     isProgrammaticScrollRef.current = false
+    scrollTargetYRef.current = null
   }
 
   // Navegación explícita (flechas de semana, tap en un día). Si el destino ya
@@ -171,13 +194,19 @@ export default function AgendaScreen() {
       scrollToDate(dateStr, animated)
       return
     }
+    // Destino fuera de la ventana renderizada: arma una ventana nueva sin
+    // pasar por el spinner de pantalla completa (eso desmontaba el ScrollView
+    // y lo remontaba en y=0, mostrando el primer día de la ventana nueva antes
+    // de deslizar al elegido — el otro tramo del bug "vuelve y después
+    // salta"). El ScrollView sigue montado con el contenido viejo mientras
+    // carga; recién cuando `days`/`eventos` ya están puestos, un scroll NO
+    // animado en el próximo frame (mismo patrón que `extend`) salta directo
+    // al destino sin exponer un frame con offset viejo sobre contenido nuevo.
     const newDays = Array.from({ length: INITIAL_BEFORE + INITIAL_AFTER + 1 }, (_, i) => addDays(date, i - INITIAL_BEFORE))
     setDays(newDays)
-    pendingScrollRef.current = { dateStr, animated }
-    setLoading(true)
     fetchEventos(toDateInput(newDays[0]), toDateInput(newDays[newDays.length - 1])).then((data) => {
       setEventos(data)
-      setLoading(false)
+      requestAnimationFrame(() => scrollToDate(dateStr, false, newDays, data))
     })
   }
 
@@ -208,14 +237,25 @@ export default function AgendaScreen() {
   function handleScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
     const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent
     scrollYRef.current = contentOffset.y
+    // Llegamos (o pasamos de largo) el destino del scroll programático: no
+    // hace falta esperar el timeout de red de seguridad para soltar la
+    // guarda, así el próximo scroll real del usuario no se ignora de más.
+    if (isProgrammaticScrollRef.current && scrollTargetYRef.current !== null
+      && Math.abs(contentOffset.y - scrollTargetYRef.current) < 8) {
+      clearProgrammaticScroll()
+    }
     if (!isProgrammaticScrollRef.current) {
       const idx = Math.min(days.length - 1, Math.max(0, Math.round(contentOffset.y / DAY_HEIGHT)))
       const d = days[idx]
       setFocused((prev) => (toDateInput(prev) === toDateInput(d) ? prev : d))
-    }
 
-    if (contentOffset.y < EDGE_TRIGGER) extend('past')
-    else if (contentOffset.y + layoutMeasurement.height > contentSize.height - EDGE_TRIGGER) extend('future')
+      // Gateado por la misma guarda: si no, un `goTo` animado que pasa cerca
+      // de un borde dispara `extend` a mitad de vuelo, y el scroll no animado
+      // que compensa la extensión compite con el scrollTo de `goTo` en curso
+      // — otro salto visible además del que ya arregla la guarda de arriba.
+      if (contentOffset.y < EDGE_TRIGGER) extend('past')
+      else if (contentOffset.y + layoutMeasurement.height > contentSize.height - EDGE_TRIGGER) extend('future')
+    }
   }
 
   // Carriles side-by-side para eventos que se solapan en horario, en
@@ -223,6 +263,17 @@ export default function AgendaScreen() {
   // (22:00-04:00) es una sola card continua entre los dos bloques de día, sin
   // costura. layoutDayEvents compara strings, y "fecha+hora" ISO ordena
   // cronológicamente igual que solo "hora", así que se reutiliza tal cual.
+  // Conteos del día enfocado para el summary strip — mismos 3 grupos que la
+  // franja lateral/chip de estado ya usan (getEstadoVisual), sin fetch nuevo.
+  const focusedCounts = useMemo(() => {
+    const delDia = eventos.filter((ev) => eventoOcurreEn(ev, focusedStr))
+    return {
+      enCurso: delDia.filter((ev) => getEstadoVisual(ev) === 'en_curso').length,
+      confirmados: delDia.filter((ev) => getEstadoVisual(ev) === 'programado').length,
+      pendientes: delDia.filter((ev) => getEstadoVisual(ev) === 'reserva').length,
+    }
+  }, [eventos, focusedStr])
+
   const positioned = useMemo<Positioned[]>(() => {
     const dayIndex = new Map(days.map((d, i) => [toDateInput(d), i]))
     const windowStartStr = toDateInput(windowStart)
@@ -282,6 +333,20 @@ export default function AgendaScreen() {
               </Pressable>
             )
           })}
+        </View>
+        <View className="flex-row items-center gap-4 px-4 pt-2.5 border-t border-igb-outline mt-2">
+          <View className="flex-row items-center gap-1.5">
+            <View className={`w-2.5 h-2.5 rounded-sm ${estadoStripColor('en_curso')}`} />
+            <Text className="text-xs text-igb-secondary">En curso <Text className="font-semibold text-igb-on-surface">{focusedCounts.enCurso}</Text></Text>
+          </View>
+          <View className="flex-row items-center gap-1.5">
+            <View className={`w-2.5 h-2.5 rounded-sm ${estadoStripColor('programado')}`} />
+            <Text className="text-xs text-igb-secondary">Confirmados <Text className="font-semibold text-igb-on-surface">{focusedCounts.confirmados}</Text></Text>
+          </View>
+          <View className="flex-row items-center gap-1.5">
+            <View className={`w-2.5 h-2.5 rounded-sm ${estadoStripColor('reserva')}`} />
+            <Text className="text-xs text-igb-secondary">Pendientes <Text className="font-semibold text-igb-on-surface">{focusedCounts.pendientes}</Text></Text>
+          </View>
         </View>
       </View>
 

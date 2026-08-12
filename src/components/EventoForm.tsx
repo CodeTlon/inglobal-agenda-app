@@ -135,8 +135,8 @@ export function EventoForm({
   return (
     <ScrollView className="flex-1 bg-igb-surface px-4 pt-4" contentContainerStyle={{ paddingBottom: 40 }}>
       {locked && (
-        <View className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-          <Text className="text-blue-700 text-sm">Un evento en curso solo permite cambiar el estado.</Text>
+        <View className="bg-igb-navy/5 border border-igb-navy/20 rounded-lg p-3 mb-4">
+          <Text className="text-igb-navy text-sm">Un evento en curso solo permite cambiar el estado.</Text>
         </View>
       )}
 
@@ -205,7 +205,7 @@ export function EventoForm({
                 key={g.id}
                 label={`${g.nombre}${ocupados.gruaIds.includes(g.id) ? ' (ocupada)' : ''}${!g.activo ? ' (inactiva)' : ''}`}
                 value={g.id}
-                color={ocupados.gruaIds.includes(g.id) ? '#b91c1c' : !g.activo ? '#575d78' : undefined}
+                color={ocupados.gruaIds.includes(g.id) ? '#dc2626' : !g.activo ? '#575d78' : undefined}
               />
             ))}
           </Picker>
@@ -238,7 +238,7 @@ export function EventoForm({
                 <View className={`w-5 h-5 rounded border mr-3 items-center justify-center ${selected ? 'bg-igb-yellow border-igb-yellow' : 'border-igb-outline'}`}>
                   {selected && <Ionicons name="checkmark" size={14} color="#221b00" />}
                 </View>
-                <Text className={ocupado ? 'text-red-600' : !o.activo ? 'text-igb-secondary' : 'text-igb-on-surface'}>
+                <Text className={ocupado ? 'text-igb-error flex-1' : !o.activo ? 'text-igb-secondary flex-1' : 'text-igb-on-surface flex-1'} numberOfLines={1}>
                   {o.nombre}{ocupado ? ' (ocupado)' : ''}{!o.activo ? ' (inactivo)' : ''}
                 </Text>
               </Pressable>
@@ -264,6 +264,7 @@ export function EventoForm({
           onChangeText={setNotas}
           multiline
           numberOfLines={3}
+          style={{ textAlignVertical: 'top' }}
           className="border border-igb-outline rounded-lg px-4 py-3 bg-white text-igb-on-surface"
           placeholder="Notas internas (opcional)"
         />
@@ -281,7 +282,7 @@ export function EventoForm({
         </Field>
       )}
 
-      {error && <Text className="text-red-600 mb-3">{error}</Text>}
+      {error && <Text className="text-igb-error mb-3">{error}</Text>}
 
       <Pressable
         onPress={handleSubmit}

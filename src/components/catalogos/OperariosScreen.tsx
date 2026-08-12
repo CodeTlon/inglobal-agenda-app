@@ -3,27 +3,51 @@ import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native'
 import { useFocusEffect } from 'expo-router'
 import { Text } from '@/components/Text'
 import { TextInput } from '@/components/TextInput'
-import { getOperarios, createOperario, updateOperario, toggleOperario, deleteOperario } from '@/lib/agenda-api'
+import { getOperarios, createOperario, updateOperario, toggleOperario, deleteOperario, getEventosAgenda } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
 import { showApiError } from '@/lib/alert'
-import type { Operario } from '@/lib/types'
-import { CatalogRow } from '@/components/CatalogRow'
+import { toDateInput } from '@/lib/agenda-view'
+import { useAgendaSelection } from '@/lib/agenda-selection'
+import type { Operario, EventoAgenda } from '@/lib/types'
+import { CatalogRow, type CatalogEstado } from '@/components/CatalogRow'
 
 const EMPTY = { nombre: '', telefono: '' }
+const ESTADOS_VIVOS = ['reserva', 'programado', 'en_curso']
 
 export default function OperariosScreen() {
+  const { selectedDate } = useAgendaSelection()
   const [operarios, setOperarios] = useState<Operario[]>([])
+  const [eventosDelDia, setEventosDelDia] = useState<EventoAgenda[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<Operario | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
-    getOperarios(true).then(setOperarios).finally(() => setLoading(false))
-  }, [])
+    setLoadError(null)
+    Promise.all([getOperarios(true), getEventosAgenda(selectedDate, selectedDate)])
+      .then(([ops, evs]) => {
+        setOperarios(ops)
+        setEventosDelDia(evs)
+      })
+      .catch((e) => setLoadError(e instanceof ApiError ? e.message : 'No se pudieron cargar los operarios.'))
+      .finally(() => setLoading(false))
+  }, [selectedDate])
+
+  // Disponible/Ocupado según si hay un evento vivo (no cancelado/finalizado)
+  // que lo tenga asignado y cubra `selectedDate` — no hay campo de
+  // estado/turno propio en el catálogo. `selectedDate` es el día que se
+  // estaba mirando en Agenda (o hoy, si se entró directo a Catálogos).
+  function estadoDe(o: Operario): CatalogEstado | undefined {
+    if (!o.activo) return undefined
+    const ocupado = eventosDelDia.find((ev) => ESTADOS_VIVOS.includes(ev.estado) && ev.operarios.some((op) => op.id === o.id))
+    if (!ocupado) return { kind: 'disponible' }
+    return { kind: 'ocupado', detail: `Libera ~${(ocupado.hora_fin ?? '18:00').slice(0, 5)}` }
+  }
 
   useFocusEffect(useCallback(() => { load() }, [load]))
 
@@ -93,7 +117,7 @@ export default function OperariosScreen() {
         <Text className="text-igb-on-surface mb-1 font-medium">Teléfono</Text>
         <TextInput value={form.telefono} onChangeText={(v) => setForm((f) => ({ ...f, telefono: v }))} keyboardType="phone-pad" className="border border-igb-outline rounded-lg px-4 py-3 mb-4 bg-white text-igb-on-surface" placeholder="011 1234-5678" />
 
-        {error && <Text className="text-red-600 mb-3">{error}</Text>}
+        {error && <Text className="text-igb-error mb-3">{error}</Text>}
 
         <Pressable onPress={handleSave} disabled={saving} className="bg-igb-yellow rounded-lg py-3.5 items-center mb-3 disabled:opacity-60">
           {saving ? <ActivityIndicator color="#221b00" /> : <Text className="text-igb-on-yellow font-bold">Guardar</Text>}
@@ -109,8 +133,17 @@ export default function OperariosScreen() {
     <View className="flex-1 bg-igb-surface">
       {loading ? (
         <View className="flex-1 items-center justify-center"><ActivityIndicator color="#f5d100" /></View>
+      ) : loadError ? (
+        <View className="flex-1 items-center px-4 pt-8">
+          <Text className="text-igb-error text-center">{loadError}</Text>
+        </View>
       ) : (
         <ScrollView className="flex-1 px-4 pt-4">
+          {selectedDate !== toDateInput(new Date()) && (
+            <Text className="text-igb-secondary text-xs mb-3">
+              Estado al {new Date(`${selectedDate}T00:00:00`).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </Text>
+          )}
           {operarios.map((o) => (
             <CatalogRow
               key={o.id}
@@ -118,6 +151,7 @@ export default function OperariosScreen() {
               title={o.nombre}
               subtitle={o.telefono}
               activo={o.activo}
+              estado={estadoDe(o)}
               onToggle={() => handleToggle(o)}
               onEdit={() => openEdit(o)}
               onDelete={() => handleDelete(o)}

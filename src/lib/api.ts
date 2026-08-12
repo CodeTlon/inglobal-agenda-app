@@ -12,14 +12,23 @@ export class ApiError extends Error {
 
 async function apiFetch(path: string, opts: RequestInit = {}) {
   const { data: { session } } = await supabase.auth.getSession()
-  const res = await fetch(`${API_BASE}/api${path}`, {
-    ...opts,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(opts.headers ?? {}),
-      Authorization: `Bearer ${session?.access_token ?? ''}`,
-    },
-  })
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE}/api${path}`, {
+      ...opts,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(opts.headers ?? {}),
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+    })
+  } catch {
+    // fetch() rechaza con TypeError en falla de red (offline/DNS/timeout), no
+    // con una respuesta — sin este catch quedaba sin envolver como ApiError y
+    // cada caller que hace `e instanceof ApiError` caía siempre al mensaje
+    // genérico sin poder distinguir "sin conexión" de un error real del server.
+    throw new ApiError('No se pudo conectar con el servidor. Revisá tu conexión.', 0)
+  }
   const body = await res.json().catch(() => ({}))
   if (!res.ok) throw new ApiError(body.error ?? 'Error desconocido', res.status)
   return body.data

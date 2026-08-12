@@ -27,6 +27,12 @@ module.exports = {
         'igb-surface-highest': '#e1e3e4',
         'igb-on-surface': '#191c1d',
         'igb-outline': '#cfc6ab',
+        // No están en inglobal-site — agregados acá para dejar de mezclar
+        // red-600/red-700/green-600 crudos para el mismo "error"/"éxito" en
+        // distintas pantallas (login, formularios de catálogos, EventoForm,
+        // pair-tv).
+        'igb-error': '#dc2626',
+        'igb-success': '#16a34a',
       },
     },
   },

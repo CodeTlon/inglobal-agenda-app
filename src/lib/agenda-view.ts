@@ -95,20 +95,26 @@ export function formatEstado(estado: string): string {
  * reglas repetida acá solo porque el fetch pudo haber pasado hace rato).
  *  - `reserva` nunca confirmada cuya ventana ya pasó -> `cancelado` (no avanza sola a
  *    `programado`/`en_curso`, una reserva sin confirmar que venció está cancelada).
- *  - `programado` que ya arrancó pero no terminó -> `en_curso`.
- *  - `programado` cuya ventana ya terminó -> `finalizado`.
+ *  - `programado` se ve `en_curso` solo DENTRO de la ventana [hora_inicio, hora_fin)
+ *    de cada día del rango (no las 24hs corridas) — se repite día a día desde
+ *    `fecha` hasta `fecha_hasta`. Sin `hora_fin` la ventana cierra a las 18:00; sin
+ *    `fecha_hasta` el rango es de un solo día.
+ *  - `programado` cuya ventana del último día ya terminó -> `finalizado`.
  *  - `en_curso` se cierra a mano (finalizarlo es una decisión, no algo automático).
  */
 export function getEstadoVisual(evento: EventoAgenda, now = new Date()): string {
-  const inicio = new Date(`${evento.fecha}T${evento.hora_inicio.slice(0, 8)}`)
-  // Sin hora_fin, el evento queda "abierto" hasta el final del día de fecha_hasta
-  // (no duración 0) — mismo criterio que rangosSeSolapan en inglobal-site.
-  const fin = new Date(`${evento.fecha_hasta ?? evento.fecha}T${(evento.hora_fin ?? '23:59:59').slice(0, 8)}`)
+  const ultimoDia = evento.fecha_hasta ?? evento.fecha
+  const horaFinEfectiva = (evento.hora_fin ?? '18:00:00').slice(0, 8)
+  const inicioGlobal = new Date(`${evento.fecha}T${evento.hora_inicio.slice(0, 8)}`)
+  const finGlobal = new Date(`${ultimoDia}T${horaFinEfectiva}`)
   if (evento.estado === 'reserva') {
-    if (fin < now) return 'cancelado'
+    if (finGlobal < now) return 'cancelado'
   } else if (evento.estado === 'programado') {
-    if (fin < now) return 'finalizado'
-    if (inicio <= now) return 'en_curso'
+    if (finGlobal < now) return 'finalizado'
+    if (inicioGlobal > now) return 'programado'
+    const horaActual = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
+    const dentroDeVentanaHoraria = horaActual >= evento.hora_inicio.slice(0, 8) && horaActual < horaFinEfectiva
+    return dentroDeVentanaHoraria ? 'en_curso' : 'programado'
   }
   return evento.estado
 }

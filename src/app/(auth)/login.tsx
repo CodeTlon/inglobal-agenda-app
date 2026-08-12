@@ -1,9 +1,21 @@
 import { useState } from 'react'
 import { View, Image, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import type { AuthError } from '@supabase/supabase-js'
 import { Text } from '@/components/Text'
 import { TextInput } from '@/components/TextInput'
 import { supabase } from '@/lib/supabase'
+
+function authErrorMessage(error: AuthError): string {
+  if (error.code === 'invalid_credentials') return 'Email o contraseña incorrectos.'
+  if (error.code === 'email_not_confirmed') return 'Tu cuenta todavía no fue confirmada. Contactá al administrador.'
+  if (error.code === 'over_request_rate_limit' || error.code === 'over_email_send_rate_limit') {
+    return 'Demasiados intentos. Esperá un momento y volvé a intentar.'
+  }
+  if (error.status && error.status >= 500) return 'El servidor no está disponible. Intentá de nuevo en unos minutos.'
+  console.error('[login] auth error', error.code, error.status, error.message)
+  return `No se pudo iniciar sesión (${error.code ?? error.status ?? '?'}): ${error.message}`
+}
 
 // Sin pantalla de registro — las cuentas se siguen creando a mano desde
 // /dashboard/usuarios en el sitio web, no hay flujo de alta público.
@@ -21,9 +33,15 @@ export default function LoginScreen() {
     }
     setLoading(true)
     setError(null)
-    const { error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
-    setLoading(false)
-    if (authError) setError('Email o contraseña incorrectos.')
+    try {
+      const { error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+      if (authError) setError(authErrorMessage(authError))
+    } catch (e) {
+      console.error('[login] network/unexpected error', e)
+      setError('No se pudo conectar. Revisá tu conexión a internet e intentá de nuevo.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -69,7 +87,7 @@ export default function LoginScreen() {
           </Pressable>
         </View>
 
-        {error && <Text className="text-red-600 mb-4">{error}</Text>}
+        {error && <Text className="text-igb-error mb-4">{error}</Text>}
 
         <Pressable
           onPress={handleLogin}

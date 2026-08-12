@@ -12,7 +12,7 @@ export function EstadoLegend() {
   return (
     <>
       <Pressable onPress={() => setOpen(true)} hitSlop={8}>
-        <Ionicons name="information-circle-outline" size={18} color="#9aa0b4" />
+        <Ionicons name="information-circle-outline" size={18} color="#575d78" />
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>

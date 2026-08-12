@@ -7,10 +7,18 @@ export function useSession() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session)
-      setLoading(false)
-    })
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        setSession(data.session)
+      })
+      .catch(() => {
+        setSession(null)
+        supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+      })
+      .finally(() => {
+        setLoading(false)
+      })
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession)
     })

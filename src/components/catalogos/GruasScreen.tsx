@@ -4,27 +4,51 @@ import { Picker } from '@react-native-picker/picker'
 import { Text } from '@/components/Text'
 import { TextInput } from '@/components/TextInput'
 import { useFocusEffect } from 'expo-router'
-import { getGruas, createGrua, updateGrua, toggleGrua, deleteGrua } from '@/lib/agenda-api'
+import { getGruas, createGrua, updateGrua, toggleGrua, deleteGrua, getEventosAgenda } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
 import { showApiError } from '@/lib/alert'
-import { TIPOS_GRUA, type Grua } from '@/lib/types'
-import { CatalogRow } from '@/components/CatalogRow'
+import { toDateInput } from '@/lib/agenda-view'
+import { useAgendaSelection } from '@/lib/agenda-selection'
+import { TIPOS_GRUA, type Grua, type EventoAgenda } from '@/lib/types'
+import { CatalogRow, type CatalogEstado } from '@/components/CatalogRow'
 
 const EMPTY = { nombre: '', patente: '', capacidad_toneladas: '', tipo: 'Grúa' as string }
+const ESTADOS_VIVOS = ['reserva', 'programado', 'en_curso']
 
 export default function GruasScreen() {
+  const { selectedDate } = useAgendaSelection()
   const [gruas, setGruas] = useState<Grua[]>([])
+  const [eventosDelDia, setEventosDelDia] = useState<EventoAgenda[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<Grua | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
-    getGruas(true).then(setGruas).finally(() => setLoading(false))
-  }, [])
+    setLoadError(null)
+    Promise.all([getGruas(true), getEventosAgenda(selectedDate, selectedDate)])
+      .then(([gs, evs]) => {
+        setGruas(gs)
+        setEventosDelDia(evs)
+      })
+      .catch((e) => setLoadError(e instanceof ApiError ? e.message : 'No se pudieron cargar las grúas.'))
+      .finally(() => setLoading(false))
+  }, [selectedDate])
+
+  // Disponible/Ocupado según si hay un evento vivo (no cancelado/finalizado)
+  // que cubra `selectedDate` con esta grúa — no hay campo de estado propio en
+  // el catálogo. `selectedDate` es el día que se estaba mirando en Agenda
+  // (o hoy, si se entró directo a Catálogos).
+  function estadoDe(g: Grua): CatalogEstado | undefined {
+    if (!g.activo) return undefined
+    const ocupado = eventosDelDia.find((ev) => ev.grua_id === g.id && ESTADOS_VIVOS.includes(ev.estado))
+    if (!ocupado) return { kind: 'disponible' }
+    return { kind: 'ocupado', detail: `Libera ~${(ocupado.hora_fin ?? '18:00').slice(0, 5)}` }
+  }
 
   useFocusEffect(useCallback(() => { load() }, [load]))
 
@@ -109,7 +133,7 @@ export default function GruasScreen() {
           </Picker>
         </View>
 
-        {error && <Text className="text-red-600 mb-3">{error}</Text>}
+        {error && <Text className="text-igb-error mb-3">{error}</Text>}
 
         <Pressable onPress={handleSave} disabled={saving} className="bg-igb-yellow rounded-lg py-3.5 items-center mb-3 disabled:opacity-60">
           {saving ? <ActivityIndicator color="#221b00" /> : <Text className="text-igb-on-yellow font-bold">Guardar</Text>}
@@ -125,8 +149,17 @@ export default function GruasScreen() {
     <View className="flex-1 bg-igb-surface">
       {loading ? (
         <View className="flex-1 items-center justify-center"><ActivityIndicator color="#f5d100" /></View>
+      ) : loadError ? (
+        <View className="flex-1 items-center px-4 pt-8">
+          <Text className="text-igb-error text-center">{loadError}</Text>
+        </View>
       ) : (
         <ScrollView className="flex-1 px-4 pt-4">
+          {selectedDate !== toDateInput(new Date()) && (
+            <Text className="text-igb-secondary text-xs mb-3">
+              Estado al {new Date(`${selectedDate}T00:00:00`).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </Text>
+          )}
           {gruas.map((g) => (
             <CatalogRow
               key={g.id}
@@ -134,6 +167,7 @@ export default function GruasScreen() {
               title={g.nombre}
               subtitle={`${g.tipo} — ${g.patente ?? 'sin patente'} — ${g.capacidad_toneladas ?? '?'}t`}
               activo={g.activo}
+              estado={estadoDe(g)}
               onToggle={() => handleToggle(g)}
               onEdit={() => openEdit(g)}
               onDelete={() => handleDelete(g)}

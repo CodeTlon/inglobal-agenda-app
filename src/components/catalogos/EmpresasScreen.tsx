@@ -19,10 +19,15 @@ export default function EmpresasScreen() {
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
-    getEmpresasAgenda(true).then(setEmpresas).finally(() => setLoading(false))
+    setLoadError(null)
+    getEmpresasAgenda(true)
+      .then(setEmpresas)
+      .catch((e) => setLoadError(e instanceof ApiError ? e.message : 'No se pudieron cargar las empresas.'))
+      .finally(() => setLoading(false))
   }, [])
 
   useFocusEffect(useCallback(() => { load() }, [load]))
@@ -99,9 +104,9 @@ export default function EmpresasScreen() {
         <TextInput value={form.telefono} onChangeText={(v) => setForm((f) => ({ ...f, telefono: v }))} keyboardType="phone-pad" className="border border-igb-outline rounded-lg px-4 py-3 mb-4 bg-white text-igb-on-surface" placeholder="011 1234-5678" />
 
         <Text className="text-igb-on-surface mb-1 font-medium">Notas</Text>
-        <TextInput value={form.notas} onChangeText={(v) => setForm((f) => ({ ...f, notas: v }))} multiline numberOfLines={3} className="border border-igb-outline rounded-lg px-4 py-3 mb-4 bg-white text-igb-on-surface" placeholder="Opcional" />
+        <TextInput value={form.notas} onChangeText={(v) => setForm((f) => ({ ...f, notas: v }))} multiline numberOfLines={3} style={{ textAlignVertical: 'top' }} className="border border-igb-outline rounded-lg px-4 py-3 mb-4 bg-white text-igb-on-surface" placeholder="Opcional" />
 
-        {error && <Text className="text-red-600 mb-3">{error}</Text>}
+        {error && <Text className="text-igb-error mb-3">{error}</Text>}
 
         <Pressable onPress={handleSave} disabled={saving} className="bg-igb-yellow rounded-lg py-3.5 items-center mb-3 disabled:opacity-60">
           {saving ? <ActivityIndicator color="#221b00" /> : <Text className="text-igb-on-yellow font-bold">Guardar</Text>}
@@ -117,6 +122,10 @@ export default function EmpresasScreen() {
     <View className="flex-1 bg-igb-surface">
       {loading ? (
         <View className="flex-1 items-center justify-center"><ActivityIndicator color="#f5d100" /></View>
+      ) : loadError ? (
+        <View className="flex-1 items-center px-4 pt-8">
+          <Text className="text-igb-error text-center">{loadError}</Text>
+        </View>
       ) : (
         <ScrollView className="flex-1 px-4 pt-4">
           {empresas.map((e) => (

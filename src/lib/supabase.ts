@@ -9,18 +9,55 @@ import { Platform } from 'react-native'
 // Supabase Auth), las cuentas se siguen creando a mano desde /dashboard/usuarios.
 // ponytail: expo-secure-store has no native impl on web/SSR (Node), so it
 // crashes there — fall back to localStorage in the browser, no-op on the server.
+//
+// Android's Keystore-backed SecureStore rejects values over 2048 bytes, and a
+// Supabase session (access + refresh JWT) regularly exceeds that — setItemAsync
+// threw silently here, the session never persisted, and login looked frozen
+// even with correct credentials. Chunk the value across numbered sub-keys to
+// stay under the limit.
+const CHUNK_SIZE = 1800
+const CHUNK_COUNT_SUFFIX = '_chunks'
+
+async function setChunkedItem(key: string, value: string) {
+  const count = Math.ceil(value.length / CHUNK_SIZE)
+  await Promise.all(
+    Array.from({ length: count }, (_, i) =>
+      SecureStore.setItemAsync(`${key}_${i}`, value.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE))
+    )
+  )
+  await SecureStore.setItemAsync(`${key}${CHUNK_COUNT_SUFFIX}`, String(count))
+}
+
+async function getChunkedItem(key: string): Promise<string | null> {
+  const countRaw = await SecureStore.getItemAsync(`${key}${CHUNK_COUNT_SUFFIX}`)
+  if (!countRaw) return SecureStore.getItemAsync(key)
+  const count = Number(countRaw)
+  const chunks = await Promise.all(Array.from({ length: count }, (_, i) => SecureStore.getItemAsync(`${key}_${i}`)))
+  return chunks.some((c) => c === null) ? null : chunks.join('')
+}
+
+async function removeChunkedItem(key: string) {
+  const countRaw = await SecureStore.getItemAsync(`${key}${CHUNK_COUNT_SUFFIX}`)
+  const count = countRaw ? Number(countRaw) : 0
+  await Promise.all([
+    SecureStore.deleteItemAsync(key).catch(() => {}),
+    SecureStore.deleteItemAsync(`${key}${CHUNK_COUNT_SUFFIX}`).catch(() => {}),
+    ...Array.from({ length: count }, (_, i) => SecureStore.deleteItemAsync(`${key}_${i}`).catch(() => {})),
+  ])
+}
+
 const SecureStoreAdapter = {
   getItem: (key: string) => {
-    if (Platform.OS !== 'web') return SecureStore.getItemAsync(key)
+    if (Platform.OS !== 'web') return getChunkedItem(key)
     return Promise.resolve(typeof localStorage === 'undefined' ? null : localStorage.getItem(key))
   },
   setItem: (key: string, value: string) => {
-    if (Platform.OS !== 'web') return SecureStore.setItemAsync(key, value)
+    if (Platform.OS !== 'web') return setChunkedItem(key, value)
     if (typeof localStorage !== 'undefined') localStorage.setItem(key, value)
     return Promise.resolve()
   },
   removeItem: (key: string) => {
-    if (Platform.OS !== 'web') return SecureStore.deleteItemAsync(key)
+    if (Platform.OS !== 'web') return removeChunkedItem(key)
     if (typeof localStorage !== 'undefined') localStorage.removeItem(key)
     return Promise.resolve()
   },
