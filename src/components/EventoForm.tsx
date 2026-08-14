@@ -99,6 +99,14 @@ export function EventoForm({
       setError('Asigná al menos un operario.')
       return
     }
+    if (ocupados.gruaIds.includes(gruaId)) {
+      setError('La grúa seleccionada ya está ocupada en ese horario. Elegí otra.')
+      return
+    }
+    if (operarioIds.some((id) => ocupados.operarioIds.includes(id))) {
+      setError('Uno o más operarios seleccionados ya están ocupados en ese horario.')
+      return
+    }
     if (fechaHasta && fechaHasta < fecha) {
       setError('La fecha de fin no puede ser anterior a la fecha de inicio.')
       return
@@ -218,6 +226,9 @@ export function EventoForm({
             ))}
           </Picker>
         </View>
+        {gruaId && ocupados.gruaIds.includes(gruaId) && (
+          <Text className="text-igb-error text-xs mt-1">Esta grúa ya está ocupada en ese horario.</Text>
+        )}
       </Field>
 
       <Field label="Empresa">
@@ -253,6 +264,11 @@ export function EventoForm({
             )
           })}
         </View>
+        {operarioIds.some((id) => ocupados.operarioIds.includes(id)) && (
+          <Text className="text-igb-error text-xs mt-1">
+            Uno o más operarios seleccionados ya están ocupados en ese horario.
+          </Text>
+        )}
       </Field>
 
       <Field label="Ubicación">
