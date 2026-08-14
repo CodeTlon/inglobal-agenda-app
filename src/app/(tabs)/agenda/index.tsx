@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native'
+import { View, ScrollView, Pressable, ActivityIndicator, useWindowDimensions } from 'react-native'
 import type { NativeSyntheticEvent, NativeScrollEvent } from 'react-native'
+import { Gesture, GestureDetector } from 'react-native-gesture-handler'
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, runOnJS } from 'react-native-reanimated'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { Text } from '@/components/Text'
 import { getEventosAgenda } from '@/lib/agenda-api'
@@ -19,6 +21,8 @@ import {
 import type { EventoAgenda } from '@/lib/types'
 import { EstadoLegend } from '@/components/EstadoLegend'
 import { useAgendaSelection } from '@/lib/agenda-selection'
+import { AgendaMonthView } from '@/components/agenda/AgendaMonthView'
+import { AgendaWeekView } from '@/components/agenda/AgendaWeekView'
 
 const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const PX_PER_HOUR = 60
@@ -50,7 +54,11 @@ type Positioned = { key: string; ev: EventoAgenda; top: number; height: number; 
 
 export default function AgendaScreen() {
   const router = useRouter()
+  const { width: screenWidth } = useWindowDimensions()
   const { setSelectedDate } = useAgendaSelection()
+  // Mes es la vista por defecto; Semana es un nivel intermedio; Día es el
+  // timeline horario de siempre, sin cambios funcionales, alcanzable por tap.
+  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('month')
   const [days, setDays] = useState(() =>
     Array.from({ length: INITIAL_BEFORE + INITIAL_AFTER + 1 }, (_, i) => addDays(new Date(), i - INITIAL_BEFORE)),
   )
@@ -93,6 +101,45 @@ export default function AgendaScreen() {
   useEffect(() => {
     setSelectedDate(focusedStr)
   }, [focusedStr, setSelectedDate])
+
+  // Swipe horizontal en Mes/Semana: cambia de período (no de nivel de zoom,
+  // eso es tap en un día + botón "volver" en el header de cada vista, para no
+  // pelear por el mismo eje con la navegación de fecha). Día mantiene su
+  // propio scroll vertical sin gesto horizontal nuevo.
+  const translateX = useSharedValue(0)
+  const animatedViewStyle = useAnimatedStyle(() => ({ transform: [{ translateX: translateX.value }] }))
+
+  function goToPrevPeriod() {
+    setFocused((f) => (viewMode === 'month' ? new Date(f.getFullYear(), f.getMonth() - 1, 1) : addDays(f, -7)))
+  }
+  function goToNextPeriod() {
+    setFocused((f) => (viewMode === 'month' ? new Date(f.getFullYear(), f.getMonth() + 1, 1) : addDays(f, 7)))
+  }
+
+  const panGesture = Gesture.Pan()
+    .onUpdate((e) => {
+      translateX.value = e.translationX
+    })
+    .onEnd((e) => {
+      const committed = e.translationX < -screenWidth * 0.25 || e.velocityX < -800
+        ? 'next'
+        : e.translationX > screenWidth * 0.25 || e.velocityX > 800
+          ? 'prev'
+          : null
+      if (committed === 'next') {
+        translateX.value = withTiming(-screenWidth, { duration: 180 }, () => {
+          translateX.value = 0
+          runOnJS(goToNextPeriod)()
+        })
+      } else if (committed === 'prev') {
+        translateX.value = withTiming(screenWidth, { duration: 180 }, () => {
+          translateX.value = 0
+          runOnJS(goToPrevPeriod)()
+        })
+      } else {
+        translateX.value = withSpring(0)
+      }
+    })
 
   async function fetchEventos(desde: string, hasta: string): Promise<EventoAgenda[]> {
     try {
@@ -317,8 +364,42 @@ export default function AgendaScreen() {
 
   return (
     <View className="flex-1 bg-igb-surface">
+      {(viewMode === 'month' || viewMode === 'week') && (
+        <GestureDetector gesture={panGesture}>
+          <Animated.View style={[{ flex: 1 }, animatedViewStyle]}>
+            {viewMode === 'month' ? (
+              <AgendaMonthView
+                month={focused}
+                focusedStr={focusedStr}
+                onSelectDay={(d) => {
+                  setFocused(d)
+                  setViewMode('week')
+                }}
+                onChangeMonth={setFocused}
+              />
+            ) : (
+              <AgendaWeekView
+                weekStart={weekStart}
+                focusedStr={focusedStr}
+                onSelectDay={(d) => {
+                  goTo(d)
+                  setViewMode('day')
+                }}
+                onChangeWeek={setFocused}
+                onBack={() => setViewMode('month')}
+              />
+            )}
+          </Animated.View>
+        </GestureDetector>
+      )}
+
+      {viewMode === 'day' && (
+        <>
       <View className="bg-white border-b border-igb-outline pb-2">
         <View className="flex-row justify-between items-center px-4 pt-3 pb-1">
+          <Pressable onPress={() => setViewMode('week')} className="p-2">
+            <Text className="text-sm text-igb-secondary">◂ Semana</Text>
+          </Pressable>
           <Pressable onPress={() => goTo(addDays(focused, -7))} className="p-2">
             <Text className="text-lg">‹</Text>
           </Pressable>
@@ -474,6 +555,8 @@ export default function AgendaScreen() {
             </View>
           </View>
         </ScrollView>
+      )}
+        </>
       )}
 
       <Pressable
