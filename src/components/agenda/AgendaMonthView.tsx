@@ -1,0 +1,135 @@
+import { useEffect, useState } from 'react'
+import { View, Pressable, ActivityIndicator } from 'react-native'
+import { Text } from '@/components/Text'
+import { getEventosAgendaCached } from '@/lib/agenda-api'
+import { ApiError } from '@/lib/api'
+import { getMonthMatrix, toDateInput, estadoStripColor, getEstadoVisual } from '@/lib/agenda-view'
+import type { EventoAgenda } from '@/lib/types'
+
+const MESES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+]
+const DIAS_CORTOS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+const MAX_DOTS = 4
+
+function eventoOcurreEn(ev: EventoAgenda, fecha: string): boolean {
+  return ev.fecha <= fecha && fecha <= (ev.fecha_hasta ?? ev.fecha)
+}
+
+export function AgendaMonthView({
+  month,
+  focusedStr,
+  onSelectDay,
+  onChangeMonth,
+}: {
+  month: Date
+  focusedStr: string
+  onSelectDay: (d: Date) => void
+  onChangeMonth: (d: Date) => void
+}) {
+  const [eventos, setEventos] = useState<EventoAgenda[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const weeks = getMonthMatrix(month)
+  const todayStr = toDateInput(new Date())
+  const desde = toDateInput(weeks[0][0])
+  const hasta = toDateInput(weeks[weeks.length - 1][6])
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    getEventosAgendaCached(desde, hasta)
+      .then((data) => {
+        if (!cancelled) setEventos(data)
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e instanceof ApiError ? e.message : 'No se pudieron cargar los eventos. Revisá tu conexión.')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [desde, hasta])
+
+  return (
+    <View className="flex-1 bg-igb-surface">
+      <View className="bg-white border-b border-igb-outline px-4 pt-3 pb-3">
+        <View className="flex-row justify-between items-center">
+          <Pressable
+            onPress={() => onChangeMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}
+            className="p-2"
+          >
+            <Text className="text-lg">‹</Text>
+          </Pressable>
+          <Text className="font-semibold text-igb-on-surface text-base">
+            {MESES[month.getMonth()]} {month.getFullYear()}
+          </Text>
+          <Pressable
+            onPress={() => onChangeMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}
+            className="p-2"
+          >
+            <Text className="text-lg">›</Text>
+          </Pressable>
+        </View>
+        <View className="flex-row mt-2">
+          {DIAS_CORTOS.map((d) => (
+            <Text key={d} className="flex-1 text-center text-xs text-igb-secondary">
+              {d}
+            </Text>
+          ))}
+        </View>
+      </View>
+
+      {loading ? (
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator color="#f5d100" />
+        </View>
+      ) : error ? (
+        <View className="flex-1 items-center justify-center p-6">
+          <Text className="text-igb-error text-center">{error}</Text>
+        </View>
+      ) : (
+        <View className="flex-1 p-2">
+          {weeks.map((week, wi) => (
+            <View key={wi} className="flex-row flex-1">
+              {week.map((day) => {
+                const dStr = toDateInput(day)
+                const inMonth = day.getMonth() === month.getMonth()
+                const isToday = dStr === todayStr
+                const isFocused = dStr === focusedStr
+                const delDia = eventos.filter((ev) => eventoOcurreEn(ev, dStr))
+                return (
+                  <Pressable
+                    key={dStr}
+                    onPress={() => onSelectDay(day)}
+                    className={`flex-1 m-0.5 rounded-lg border p-1.5 ${
+                      isFocused ? 'border-igb-yellow bg-igb-yellow/10' : isToday ? 'border-igb-navy/40' : 'border-igb-outline'
+                    } ${inMonth ? 'bg-white' : 'bg-igb-surface'}`}
+                  >
+                    <Text className={`text-xs font-medium ${inMonth ? 'text-igb-on-surface' : 'text-igb-secondary/50'}`}>
+                      {day.getDate()}
+                    </Text>
+                    {delDia.length > 0 && (
+                      <View className="flex-row flex-wrap gap-0.5 mt-1">
+                        {delDia.slice(0, MAX_DOTS).map((ev) => (
+                          <View key={ev.id} className={`w-1.5 h-1.5 rounded-full ${estadoStripColor(getEstadoVisual(ev))}`} />
+                        ))}
+                      </View>
+                    )}
+                    {delDia.length > MAX_DOTS && (
+                      <Text className="text-[10px] text-igb-secondary mt-0.5">+{delDia.length - MAX_DOTS}</Text>
+                    )}
+                  </Pressable>
+                )
+              })}
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  )
+}

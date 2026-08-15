@@ -3,6 +3,7 @@ import { useCallback } from 'react'
 import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { View, ActivityIndicator } from 'react-native'
 import * as SplashScreen from 'expo-splash-screen'
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter'
@@ -46,8 +47,9 @@ export default function RootLayout() {
   if (!fontsLoaded) return null
 
   return (
-    <SafeAreaProvider onLayout={onLayout}>
-      <StatusBar style="dark" />
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider onLayout={onLayout}>
+        <StatusBar style="dark" />
       {loading ? (
         <CenteredMessage>
           <ActivityIndicator color="#f5d100" size="large" />
@@ -73,6 +75,7 @@ export default function RootLayout() {
           </Stack>
         </AgendaSelectionProvider>
       )}
-    </SafeAreaProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   )
 }

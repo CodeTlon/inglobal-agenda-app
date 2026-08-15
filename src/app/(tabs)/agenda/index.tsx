@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native'
+import { View, ScrollView, Pressable, ActivityIndicator, useWindowDimensions } from 'react-native'
 import type { NativeSyntheticEvent, NativeScrollEvent } from 'react-native'
+import { Gesture, GestureDetector } from 'react-native-gesture-handler'
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, runOnJS } from 'react-native-reanimated'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { Text } from '@/components/Text'
-import { getEventosAgenda } from '@/lib/agenda-api'
+import { getEventosAgenda, getEventosAgendaCached } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
 import {
   getWeekStart,
@@ -19,6 +21,8 @@ import {
 import type { EventoAgenda } from '@/lib/types'
 import { EstadoLegend } from '@/components/EstadoLegend'
 import { useAgendaSelection } from '@/lib/agenda-selection'
+import { AgendaMonthView } from '@/components/agenda/AgendaMonthView'
+import { AgendaWeekView } from '@/components/agenda/AgendaWeekView'
 
 const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const PX_PER_HOUR = 60
@@ -50,7 +54,11 @@ type Positioned = { key: string; ev: EventoAgenda; top: number; height: number; 
 
 export default function AgendaScreen() {
   const router = useRouter()
+  const { width: screenWidth } = useWindowDimensions()
   const { setSelectedDate } = useAgendaSelection()
+  // Mes es la vista por defecto; Semana es un nivel intermedio; Día es el
+  // timeline horario de siempre, sin cambios funcionales, alcanzable por tap.
+  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('month')
   const [days, setDays] = useState(() =>
     Array.from({ length: INITIAL_BEFORE + INITIAL_AFTER + 1 }, (_, i) => addDays(new Date(), i - INITIAL_BEFORE)),
   )
@@ -58,6 +66,15 @@ export default function AgendaScreen() {
   const [eventos, setEventos] = useState<EventoAgenda[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // `todayStr`/`nowMinutes()` se recalculan con `new Date()` en cada render,
+  // pero sin esto nada dispara ese render — el resaltado de "hoy" y la línea
+  // roja de "ahora" se quedaban pegados hasta que otra cosa (foco, scroll)
+  // forzara un render, a veces horas después de medianoche.
+  const [, forceTick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => forceTick((t) => t + 1), 60_000)
+    return () => clearInterval(id)
+  }, [])
   const timelineRef = useRef<ScrollView>(null)
   const scrollYRef = useRef(0)
   const extendingRef = useRef<'past' | 'future' | null>(null)
@@ -94,9 +111,51 @@ export default function AgendaScreen() {
     setSelectedDate(focusedStr)
   }, [focusedStr, setSelectedDate])
 
-  async function fetchEventos(desde: string, hasta: string): Promise<EventoAgenda[]> {
+  // Swipe horizontal en Mes/Semana: cambia de período (no de nivel de zoom,
+  // eso es tap en un día + botón "volver" en el header de cada vista, para no
+  // pelear por el mismo eje con la navegación de fecha). Día mantiene su
+  // propio scroll vertical sin gesto horizontal nuevo.
+  const translateX = useSharedValue(0)
+  const animatedViewStyle = useAnimatedStyle(() => ({ transform: [{ translateX: translateX.value }] }))
+
+  function goToPrevPeriod() {
+    setFocused((f) => (viewMode === 'month' ? new Date(f.getFullYear(), f.getMonth() - 1, 1) : addDays(f, -7)))
+  }
+  function goToNextPeriod() {
+    setFocused((f) => (viewMode === 'month' ? new Date(f.getFullYear(), f.getMonth() + 1, 1) : addDays(f, 7)))
+  }
+
+  const panGesture = Gesture.Pan()
+    .onUpdate((e) => {
+      translateX.value = e.translationX
+    })
+    .onEnd((e) => {
+      const committed = e.translationX < -screenWidth * 0.25 || e.velocityX < -800
+        ? 'next'
+        : e.translationX > screenWidth * 0.25 || e.velocityX > 800
+          ? 'prev'
+          : null
+      if (committed === 'next') {
+        translateX.value = withTiming(-screenWidth, { duration: 180 }, () => {
+          translateX.value = 0
+          runOnJS(goToNextPeriod)()
+        })
+      } else if (committed === 'prev') {
+        translateX.value = withTiming(screenWidth, { duration: 180 }, () => {
+          translateX.value = 0
+          runOnJS(goToPrevPeriod)()
+        })
+      } else {
+        translateX.value = withSpring(0)
+      }
+    })
+
+  // `cached=true` reutiliza eventos que la vista de mes/semana ya haya
+  // traído para ese rango (evita el refetch al pasar a semana/día); `load()`
+  // pide siempre fresco porque es el refetch de "volví a la pantalla".
+  async function fetchEventos(desde: string, hasta: string, cached = true): Promise<EventoAgenda[]> {
     try {
-      return await getEventosAgenda(desde, hasta)
+      return await (cached ? getEventosAgendaCached(desde, hasta) : getEventosAgenda(desde, hasta))
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'No se pudieron cargar los eventos. Revisá tu conexión.')
       return []
@@ -109,7 +168,7 @@ export default function AgendaScreen() {
   const load = useCallback(() => {
     setError(null)
     const d = daysRef.current
-    fetchEventos(toDateInput(d[0]), toDateInput(d[d.length - 1])).then((data) => {
+    fetchEventos(toDateInput(d[0]), toDateInput(d[d.length - 1]), false).then((data) => {
       setEventos(data)
       setLoading(false)
       hasLoadedOnceRef.current = true
@@ -153,22 +212,28 @@ export default function AgendaScreen() {
       ? Math.min(...eventosDelDia.map((ev) => toMinutes(ev.hora_inicio)))
       : dateStr === todayStr ? nowMinutes() : 7 * 60
     const y = idx * DAY_HEIGHT + Math.max(0, (anchorMin / 60 - 1) * PX_PER_HOUR)
-    if (animated) {
-      isProgrammaticScrollRef.current = true
-      scrollTargetYRef.current = y
-      if (programmaticScrollTimeoutRef.current) clearTimeout(programmaticScrollTimeoutRef.current)
-      // Red de seguridad si por lo que sea no llega ni onMomentumScrollEnd ni
-      // el chequeo de proximidad en handleScroll. Proporcional a la distancia:
-      // un salto de semana recorre ~7x los px de un salto de día y en Android
-      // el scroll nativo tarda más — un timeout fijo corto lo cortaba a mitad
-      // de camino (bug: "vuelve al día inicial y después salta").
-      const distance = Math.abs(y - scrollYRef.current)
-      const timeoutMs = Math.min(3000, 400 + distance / 4)
-      programmaticScrollTimeoutRef.current = setTimeout(() => {
-        isProgrammaticScrollRef.current = false
-        scrollTargetYRef.current = null
-      }, timeoutMs)
-    }
+    // La guarda se arma siempre, sea o no animado el salto — `animated` solo
+    // controla si el ScrollView nativo lo anima, es independiente de si
+    // `handleScroll` debe ignorar el evento resultante. Antes solo se armaba
+    // `if (animated)`: un salto sin animar (el de `goTo` al reconstruir la
+    // ventana) quedaba sin protección y `handleScroll` lo procesaba como
+    // scroll real del usuario contra un `days` todavía viejo — aterrizaba
+    // ~16 días lejos del destino real (bug: "salta de un día a otro sin
+    // relación").
+    isProgrammaticScrollRef.current = true
+    scrollTargetYRef.current = y
+    if (programmaticScrollTimeoutRef.current) clearTimeout(programmaticScrollTimeoutRef.current)
+    // Red de seguridad si por lo que sea no llega ni onMomentumScrollEnd ni
+    // el chequeo de proximidad en handleScroll. Proporcional a la distancia:
+    // un salto de semana recorre ~7x los px de un salto de día y en Android
+    // el scroll nativo tarda más — un timeout fijo corto lo cortaba a mitad
+    // de camino (bug: "vuelve al día inicial y después salta").
+    const distance = Math.abs(y - scrollYRef.current)
+    const timeoutMs = Math.min(3000, 400 + distance / 4)
+    programmaticScrollTimeoutRef.current = setTimeout(() => {
+      isProgrammaticScrollRef.current = false
+      scrollTargetYRef.current = null
+    }, timeoutMs)
     timelineRef.current?.scrollTo({ y, animated })
   }
 
@@ -317,8 +382,42 @@ export default function AgendaScreen() {
 
   return (
     <View className="flex-1 bg-igb-surface">
+      {(viewMode === 'month' || viewMode === 'week') && (
+        <GestureDetector gesture={panGesture}>
+          <Animated.View style={[{ flex: 1 }, animatedViewStyle]}>
+            {viewMode === 'month' ? (
+              <AgendaMonthView
+                month={focused}
+                focusedStr={focusedStr}
+                onSelectDay={(d) => {
+                  setFocused(d)
+                  setViewMode('week')
+                }}
+                onChangeMonth={setFocused}
+              />
+            ) : (
+              <AgendaWeekView
+                weekStart={weekStart}
+                focusedStr={focusedStr}
+                onSelectDay={(d) => {
+                  goTo(d)
+                  setViewMode('day')
+                }}
+                onChangeWeek={setFocused}
+                onBack={() => setViewMode('month')}
+              />
+            )}
+          </Animated.View>
+        </GestureDetector>
+      )}
+
+      {viewMode === 'day' && (
+        <>
       <View className="bg-white border-b border-igb-outline pb-2">
         <View className="flex-row justify-between items-center px-4 pt-3 pb-1">
+          <Pressable onPress={() => setViewMode('week')} className="p-2">
+            <Text className="text-sm text-igb-secondary">◂ Semana</Text>
+          </Pressable>
           <Pressable onPress={() => goTo(addDays(focused, -7))} className="p-2">
             <Text className="text-lg">‹</Text>
           </Pressable>
@@ -474,6 +573,8 @@ export default function AgendaScreen() {
             </View>
           </View>
         </ScrollView>
+      )}
+        </>
       )}
 
       <Pressable

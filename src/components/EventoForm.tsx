@@ -5,6 +5,7 @@ import { Picker } from '@react-native-picker/picker'
 import { Ionicons } from '@expo/vector-icons'
 import { Text } from '@/components/Text'
 import { TextInput } from '@/components/TextInput'
+import { ErrorBanner } from '@/components/ErrorBanner'
 import {
   getGruas,
   getEmpresasAgenda,
@@ -99,11 +100,25 @@ export function EventoForm({
       setError('Asigná al menos un operario.')
       return
     }
+    // Al editar se permite fecha pasada (ej. cerrar un evento viejo) — igual
+    // que crearEventoSchema/eventoAgendaSchema del lado del servidor.
+    if (!isEdit && fecha < toDateInput(new Date())) {
+      setError('La fecha no puede ser anterior a hoy.')
+      return
+    }
+    if (ocupados.gruaIds.includes(gruaId)) {
+      setError('La grúa seleccionada ya está ocupada en ese horario. Elegí otra.')
+      return
+    }
+    if (operarioIds.some((id) => ocupados.operarioIds.includes(id))) {
+      setError('Uno o más operarios seleccionados ya están ocupados en ese horario.')
+      return
+    }
     if (fechaHasta && fechaHasta < fecha) {
       setError('La fecha de fin no puede ser anterior a la fecha de inicio.')
       return
     }
-    if (!fechaHasta && horaFin && horaFin <= horaInicio) {
+    if ((!fechaHasta || fechaHasta === fecha) && horaFin && horaFin <= horaInicio) {
       setError('La hora de fin debe ser posterior a la hora de inicio.')
       return
     }
@@ -193,6 +208,8 @@ export function EventoForm({
           // veces guardando) un día antes/después del que tenía el string.
           // Con "T00:00:00" el motor de JS lo toma como hora local.
           value={showPicker === 'fecha' ? new Date(`${fecha}T00:00:00`) : new Date(`${fechaHasta || fecha}T00:00:00`)}
+          // Al editar se permite fecha pasada (ej. cerrar un evento viejo).
+          minimumDate={!isEdit ? new Date() : undefined}
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           onChange={(_, date) => {
@@ -214,10 +231,16 @@ export function EventoForm({
                 label={`${g.nombre}${ocupados.gruaIds.includes(g.id) ? ' (ocupada)' : ''}${!g.activo ? ' (inactiva)' : ''}`}
                 value={g.id}
                 color={ocupados.gruaIds.includes(g.id) ? '#dc2626' : !g.activo ? '#575d78' : undefined}
+                // Ya seleccionada se deja elegible para no trabar el picker si
+                // se ocupó después de elegirla (ej. se cambió el horario).
+                enabled={g.id === gruaId || !ocupados.gruaIds.includes(g.id)}
               />
             ))}
           </Picker>
         </View>
+        {gruaId && ocupados.gruaIds.includes(gruaId) && (
+          <Text className="text-igb-error text-xs mt-1">Esta grúa ya está ocupada en ese horario.</Text>
+        )}
       </Field>
 
       <Field label="Empresa">
@@ -239,7 +262,9 @@ export function EventoForm({
             return (
               <Pressable
                 key={o.id}
-                disabled={locked}
+                // Ya seleccionado se deja togglable para no trabar la lista si
+                // se ocupó después de elegirlo (ej. se cambió el horario).
+                disabled={locked || (ocupado && !selected)}
                 onPress={() => toggleOperario(o.id)}
                 className="flex-row items-center py-2 px-1"
               >
@@ -253,6 +278,11 @@ export function EventoForm({
             )
           })}
         </View>
+        {operarioIds.some((id) => ocupados.operarioIds.includes(id)) && (
+          <Text className="text-igb-error text-xs mt-1">
+            Uno o más operarios seleccionados ya están ocupados en ese horario.
+          </Text>
+        )}
       </Field>
 
       <Field label="Ubicación">
@@ -290,7 +320,7 @@ export function EventoForm({
         </Field>
       )}
 
-      {error && <Text className="text-igb-error mb-3">{error}</Text>}
+      {error && <ErrorBanner message={error} />}
 
       <Pressable
         onPress={handleSubmit}
