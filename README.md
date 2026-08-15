@@ -52,4 +52,4 @@ usuario/contraseña) — ver `app/api/tv-pair/**` en `inglobal-site` para el flu
 
 - Trabajos (mini-blog por cliente, contenido rico TipTap) — sigue editándose solo desde el dashboard web.
 - Cambio de contraseña in-app (si el usuario tiene `must_change_password`, la app le pide que lo haga desde el panel web).
-- Build de producción (EAS) — falta configurar `eas.json` con perfiles dev/preview/production.
+- Build de producción (EAS) — `eas.json` ya tiene perfiles dev/preview/production (ver `docs/deployment.md`); falta crear las cuentas de Apple Developer / Google Play y correr `eas build --profile production` + `eas submit`.
