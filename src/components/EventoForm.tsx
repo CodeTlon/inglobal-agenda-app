@@ -209,7 +209,9 @@ export function EventoForm({
           // Con "T00:00:00" el motor de JS lo toma como hora local.
           value={showPicker === 'fecha' ? new Date(`${fecha}T00:00:00`) : new Date(`${fechaHasta || fecha}T00:00:00`)}
           // Al editar se permite fecha pasada (ej. cerrar un evento viejo).
-          minimumDate={!isEdit ? new Date() : undefined}
+          // Al elegir fecha de fin, el mínimo es la fecha de inicio (no hoy)
+          // para que sea imposible elegir un rango invertido desde el picker.
+          minimumDate={!isEdit ? (showPicker === 'fechaHasta' ? new Date(`${fecha}T00:00:00`) : new Date()) : undefined}
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           onChange={(_, date) => {
@@ -285,7 +287,7 @@ export function EventoForm({
         )}
       </Field>
 
-      <Field label="Ubicación">
+      <Field label="Ubicación (opcional)">
         <TextInput
           editable={!locked}
           value={ubicacion}

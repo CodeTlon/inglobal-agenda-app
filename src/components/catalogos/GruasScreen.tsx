@@ -46,6 +46,9 @@ export default function GruasScreen() {
   // (o hoy, si se entró directo a Catálogos).
   function estadoDe(g: Grua): CatalogEstado | undefined {
     if (!g.activo) return undefined
+    // Fecha pasada: no hay disponibilidad que mostrar, solo sirve para ver
+    // trabajos ya hechos.
+    if (selectedDate < toDateInput(new Date())) return undefined
     const ocupado = eventosDelDia.find((ev) => ev.grua_id === g.id && ESTADOS_VIVOS.includes(ev.estado))
     if (!ocupado) return { kind: 'disponible' }
     return { kind: 'ocupado', detail: `Libera ~${(ocupado.hora_fin ?? '18:00').slice(0, 5)}` }
@@ -99,7 +102,7 @@ export default function GruasScreen() {
 
   async function handleToggle(g: Grua) {
     try {
-      await toggleGrua(g.id, g.activo)
+      await toggleGrua(g.id, !g.activo)
       load()
     } catch (e) {
       showApiError(e, 'No se pudo actualizar.', 'No se pudo actualizar la grúa')

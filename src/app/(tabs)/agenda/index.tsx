@@ -286,11 +286,30 @@ export default function AgendaScreen() {
     )
     const data = await fetchEventos(toDateInput(chunk[0]), toDateInput(chunk[chunk.length - 1]))
     setEventos((prev) => [...prev, ...data])
-    setDays((prev) => (direction === 'future' ? [...prev, ...chunk] : [...chunk, ...prev]))
     if (direction === 'past') {
+      // Mismo bug de fondo que scrollToDate ya sufrió ("salta de un día a
+      // otro sin relación"): si `days` se actualiza antes de armar la
+      // guarda, un scroll real que llegue entre el setDays y el
+      // requestAnimationFrame usa el offset viejo contra el array ya
+      // extendido — handleScroll calcula un día EXTEND_CHUNK (2 semanas) más
+      // atrás del real. Armar la guarda ANTES de tocar `days` cierra la
+      // ventana.
+      const y = scrollYRef.current + EXTEND_CHUNK * DAY_HEIGHT
+      isProgrammaticScrollRef.current = true
+      scrollTargetYRef.current = y
+      if (programmaticScrollTimeoutRef.current) clearTimeout(programmaticScrollTimeoutRef.current)
+      const distance = Math.abs(y - scrollYRef.current)
+      const timeoutMs = Math.min(3000, 400 + distance / 4)
+      programmaticScrollTimeoutRef.current = setTimeout(() => {
+        isProgrammaticScrollRef.current = false
+        scrollTargetYRef.current = null
+      }, timeoutMs)
+      setDays((prev) => [...chunk, ...prev])
       requestAnimationFrame(() => {
-        timelineRef.current?.scrollTo({ y: scrollYRef.current + EXTEND_CHUNK * DAY_HEIGHT, animated: false })
+        timelineRef.current?.scrollTo({ y, animated: false })
       })
+    } else {
+      setDays((prev) => [...prev, ...chunk])
     }
     extendingRef.current = null
   }

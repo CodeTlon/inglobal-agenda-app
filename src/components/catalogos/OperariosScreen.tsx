@@ -45,6 +45,9 @@ export default function OperariosScreen() {
   // estaba mirando en Agenda (o hoy, si se entró directo a Catálogos).
   function estadoDe(o: Operario): CatalogEstado | undefined {
     if (!o.activo) return undefined
+    // Fecha pasada: no hay disponibilidad que mostrar, solo sirve para ver
+    // trabajos ya hechos.
+    if (selectedDate < toDateInput(new Date())) return undefined
     const ocupado = eventosDelDia.find((ev) => ESTADOS_VIVOS.includes(ev.estado) && ev.operarios.some((op) => op.id === o.id))
     if (!ocupado) return { kind: 'disponible' }
     return { kind: 'ocupado', detail: `Libera ~${(ocupado.hora_fin ?? '18:00').slice(0, 5)}` }
@@ -93,7 +96,7 @@ export default function OperariosScreen() {
 
   async function handleToggle(o: Operario) {
     try {
-      await toggleOperario(o.id, o.activo)
+      await toggleOperario(o.id, !o.activo)
       load()
     } catch (err) {
       showApiError(err, 'No se pudo actualizar.', 'No se pudo actualizar el operario')

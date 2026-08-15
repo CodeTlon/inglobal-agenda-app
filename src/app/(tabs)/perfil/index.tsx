@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { View, Pressable, ScrollView } from 'react-native'
+import { View, Pressable, ScrollView, Image } from 'react-native'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import Constants from 'expo-constants'
@@ -14,7 +14,6 @@ export default function PerfilScreen() {
   const router = useRouter()
   const { session } = useSession()
   const email = session?.user.email ?? ''
-  const iniciales = email.slice(0, 2).toUpperCase()
   const esTrabajador = session?.user.app_metadata?.role === 'trabajador'
 
   const [eventosHoy, setEventosHoy] = useState<EventoAgenda[]>([])
@@ -30,9 +29,11 @@ export default function PerfilScreen() {
   return (
     <ScrollView className="flex-1 bg-igb-surface" contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
       <View className="bg-white border border-igb-outline rounded-lg p-4 mb-3 flex-row items-center gap-3">
-        <View className="w-14 h-14 rounded-xl bg-igb-yellow items-center justify-center">
-          <Text className="font-headline text-igb-on-yellow text-lg">{iniciales}</Text>
-        </View>
+        <Image
+          source={require('../../../../assets/images/logo-isotype-master.png')}
+          resizeMode="contain"
+          className="w-14 h-14 rounded-xl"
+        />
         <View className="flex-1">
           <Text className="text-igb-on-surface font-semibold" numberOfLines={1}>
             {email}
