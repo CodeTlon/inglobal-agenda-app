@@ -3,6 +3,7 @@ import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native'
 import { useFocusEffect } from 'expo-router'
 import { Text } from '@/components/Text'
 import { TextInput } from '@/components/TextInput'
+import { ErrorBanner } from '@/components/ErrorBanner'
 import { getEmpresasAgenda, createEmpresaAgenda, updateEmpresaAgenda, toggleEmpresaAgenda, deleteEmpresaAgenda } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
 import { showApiError } from '@/lib/alert'
@@ -106,7 +107,7 @@ export default function EmpresasScreen() {
         <Text className="text-igb-on-surface mb-1 font-medium">Notas</Text>
         <TextInput value={form.notas} onChangeText={(v) => setForm((f) => ({ ...f, notas: v }))} multiline numberOfLines={3} style={{ textAlignVertical: 'top' }} className="border border-igb-outline rounded-lg px-4 py-3 mb-4 bg-white text-igb-on-surface" placeholder="Opcional" />
 
-        {error && <Text className="text-igb-error mb-3">{error}</Text>}
+        {error && <ErrorBanner message={error} />}
 
         <Pressable onPress={handleSave} disabled={saving} className="bg-igb-yellow rounded-lg py-3.5 items-center mb-3 disabled:opacity-60">
           {saving ? <ActivityIndicator color="#221b00" /> : <Text className="text-igb-on-yellow font-bold">Guardar</Text>}

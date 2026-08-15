@@ -3,6 +3,7 @@ import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native'
 import { Picker } from '@react-native-picker/picker'
 import { Text } from '@/components/Text'
 import { TextInput } from '@/components/TextInput'
+import { ErrorBanner } from '@/components/ErrorBanner'
 import { useFocusEffect } from 'expo-router'
 import { getGruas, createGrua, updateGrua, toggleGrua, deleteGrua, getEventosAgenda } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
@@ -133,7 +134,7 @@ export default function GruasScreen() {
           </Picker>
         </View>
 
-        {error && <Text className="text-igb-error mb-3">{error}</Text>}
+        {error && <ErrorBanner message={error} />}
 
         <Pressable onPress={handleSave} disabled={saving} className="bg-igb-yellow rounded-lg py-3.5 items-center mb-3 disabled:opacity-60">
           {saving ? <ActivityIndicator color="#221b00" /> : <Text className="text-igb-on-yellow font-bold">Guardar</Text>}
