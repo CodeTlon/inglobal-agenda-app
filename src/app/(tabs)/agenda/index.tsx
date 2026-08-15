@@ -5,7 +5,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, runOnJS } from 'react-native-reanimated'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { Text } from '@/components/Text'
-import { getEventosAgenda } from '@/lib/agenda-api'
+import { getEventosAgenda, getEventosAgendaCached } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
 import {
   getWeekStart,
@@ -66,6 +66,15 @@ export default function AgendaScreen() {
   const [eventos, setEventos] = useState<EventoAgenda[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // `todayStr`/`nowMinutes()` se recalculan con `new Date()` en cada render,
+  // pero sin esto nada dispara ese render — el resaltado de "hoy" y la línea
+  // roja de "ahora" se quedaban pegados hasta que otra cosa (foco, scroll)
+  // forzara un render, a veces horas después de medianoche.
+  const [, forceTick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => forceTick((t) => t + 1), 60_000)
+    return () => clearInterval(id)
+  }, [])
   const timelineRef = useRef<ScrollView>(null)
   const scrollYRef = useRef(0)
   const extendingRef = useRef<'past' | 'future' | null>(null)
@@ -141,9 +150,12 @@ export default function AgendaScreen() {
       }
     })
 
-  async function fetchEventos(desde: string, hasta: string): Promise<EventoAgenda[]> {
+  // `cached=true` reutiliza eventos que la vista de mes/semana ya haya
+  // traído para ese rango (evita el refetch al pasar a semana/día); `load()`
+  // pide siempre fresco porque es el refetch de "volví a la pantalla".
+  async function fetchEventos(desde: string, hasta: string, cached = true): Promise<EventoAgenda[]> {
     try {
-      return await getEventosAgenda(desde, hasta)
+      return await (cached ? getEventosAgendaCached(desde, hasta) : getEventosAgenda(desde, hasta))
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'No se pudieron cargar los eventos. Revisá tu conexión.')
       return []
@@ -156,7 +168,7 @@ export default function AgendaScreen() {
   const load = useCallback(() => {
     setError(null)
     const d = daysRef.current
-    fetchEventos(toDateInput(d[0]), toDateInput(d[d.length - 1])).then((data) => {
+    fetchEventos(toDateInput(d[0]), toDateInput(d[d.length - 1]), false).then((data) => {
       setEventos(data)
       setLoading(false)
       hasLoadedOnceRef.current = true
@@ -200,22 +212,28 @@ export default function AgendaScreen() {
       ? Math.min(...eventosDelDia.map((ev) => toMinutes(ev.hora_inicio)))
       : dateStr === todayStr ? nowMinutes() : 7 * 60
     const y = idx * DAY_HEIGHT + Math.max(0, (anchorMin / 60 - 1) * PX_PER_HOUR)
-    if (animated) {
-      isProgrammaticScrollRef.current = true
-      scrollTargetYRef.current = y
-      if (programmaticScrollTimeoutRef.current) clearTimeout(programmaticScrollTimeoutRef.current)
-      // Red de seguridad si por lo que sea no llega ni onMomentumScrollEnd ni
-      // el chequeo de proximidad en handleScroll. Proporcional a la distancia:
-      // un salto de semana recorre ~7x los px de un salto de día y en Android
-      // el scroll nativo tarda más — un timeout fijo corto lo cortaba a mitad
-      // de camino (bug: "vuelve al día inicial y después salta").
-      const distance = Math.abs(y - scrollYRef.current)
-      const timeoutMs = Math.min(3000, 400 + distance / 4)
-      programmaticScrollTimeoutRef.current = setTimeout(() => {
-        isProgrammaticScrollRef.current = false
-        scrollTargetYRef.current = null
-      }, timeoutMs)
-    }
+    // La guarda se arma siempre, sea o no animado el salto — `animated` solo
+    // controla si el ScrollView nativo lo anima, es independiente de si
+    // `handleScroll` debe ignorar el evento resultante. Antes solo se armaba
+    // `if (animated)`: un salto sin animar (el de `goTo` al reconstruir la
+    // ventana) quedaba sin protección y `handleScroll` lo procesaba como
+    // scroll real del usuario contra un `days` todavía viejo — aterrizaba
+    // ~16 días lejos del destino real (bug: "salta de un día a otro sin
+    // relación").
+    isProgrammaticScrollRef.current = true
+    scrollTargetYRef.current = y
+    if (programmaticScrollTimeoutRef.current) clearTimeout(programmaticScrollTimeoutRef.current)
+    // Red de seguridad si por lo que sea no llega ni onMomentumScrollEnd ni
+    // el chequeo de proximidad en handleScroll. Proporcional a la distancia:
+    // un salto de semana recorre ~7x los px de un salto de día y en Android
+    // el scroll nativo tarda más — un timeout fijo corto lo cortaba a mitad
+    // de camino (bug: "vuelve al día inicial y después salta").
+    const distance = Math.abs(y - scrollYRef.current)
+    const timeoutMs = Math.min(3000, 400 + distance / 4)
+    programmaticScrollTimeoutRef.current = setTimeout(() => {
+      isProgrammaticScrollRef.current = false
+      scrollTargetYRef.current = null
+    }, timeoutMs)
     timelineRef.current?.scrollTo({ y, animated })
   }
 

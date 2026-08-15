@@ -25,16 +25,48 @@ export type EventoPayload = {
   operario_ids: string[]
 }
 
-export function createEvento(payload: EventoPayload) {
-  return api.post<{ id: string }>('/agenda/eventos', payload)
+export async function createEvento(payload: EventoPayload) {
+  const res = await api.post<{ id: string }>('/agenda/eventos', payload)
+  invalidarEventosCache()
+  return res
 }
 
-export function updateEvento(id: string, payload: EventoPayload) {
-  return api.patch<{ id: string }>(`/agenda/eventos/${id}`, payload)
+export async function updateEvento(id: string, payload: EventoPayload) {
+  const res = await api.patch<{ id: string }>(`/agenda/eventos/${id}`, payload)
+  invalidarEventosCache()
+  return res
 }
 
-export function deleteEvento(id: string) {
-  return api.delete<{ id: string }>(`/agenda/eventos/${id}`)
+export async function deleteEvento(id: string) {
+  const res = await api.delete<{ id: string }>(`/agenda/eventos/${id}`)
+  invalidarEventosCache()
+  return res
+}
+
+// ─── Cache de eventos por rango ─────────────────────────────────────────────
+// Mes/semana/día cada uno pedía getEventosAgenda desde cero al cambiar de
+// vista, aunque el rango ya lo hubiera traído la vista anterior (ej. entrar a
+// una semana puntual desde el mes). Este cache evita ese refetch: si el rango
+// pedido ya está cubierto por el último fetch, se filtra en memoria.
+let eventosCache: { desde: string; hasta: string; data: EventoAgenda[] } | null = null
+
+function invalidarEventosCache() {
+  eventosCache = null
+}
+
+function eventoSeSuperponeCon(ev: EventoAgenda, desde: string, hasta: string): boolean {
+  return ev.fecha <= hasta && desde <= (ev.fecha_hasta ?? ev.fecha)
+}
+
+export async function getEventosAgendaCached(desde: string, hasta: string): Promise<EventoAgenda[]> {
+  if (eventosCache && eventosCache.desde <= desde && hasta <= eventosCache.hasta) {
+    return eventosCache.data.filter((ev) => eventoSeSuperponeCon(ev, desde, hasta))
+  }
+  const nuevoDesde = eventosCache && eventosCache.desde < desde ? eventosCache.desde : desde
+  const nuevoHasta = eventosCache && eventosCache.hasta > hasta ? eventosCache.hasta : hasta
+  const data = await getEventosAgenda(nuevoDesde, nuevoHasta)
+  eventosCache = { desde: nuevoDesde, hasta: nuevoHasta, data }
+  return data.filter((ev) => eventoSeSuperponeCon(ev, desde, hasta))
 }
 
 export function getRecursosOcupados(params: {

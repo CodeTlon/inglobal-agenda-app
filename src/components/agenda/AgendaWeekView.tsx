@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { View, Pressable, ActivityIndicator, ScrollView } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Text } from '@/components/Text'
-import { getEventosAgenda } from '@/lib/agenda-api'
+import { getEventosAgendaCached } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
 import { getWeekDays, addDays, toDateInput, estadoStripColor, getEstadoVisual } from '@/lib/agenda-view'
 import type { EventoAgenda } from '@/lib/types'
@@ -42,7 +42,7 @@ export function AgendaWeekView({
     let cancelled = false
     setLoading(true)
     setError(null)
-    getEventosAgenda(weekStartStr, weekEndStr)
+    getEventosAgendaCached(weekStartStr, weekEndStr)
       .then((data) => {
         if (!cancelled) setEventos(data)
       })

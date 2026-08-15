@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { View, Pressable, ActivityIndicator } from 'react-native'
 import { Text } from '@/components/Text'
-import { getEventosAgenda } from '@/lib/agenda-api'
+import { getEventosAgendaCached } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
 import { getMonthMatrix, toDateInput, estadoStripColor, getEstadoVisual } from '@/lib/agenda-view'
 import type { EventoAgenda } from '@/lib/types'
@@ -40,7 +40,7 @@ export function AgendaMonthView({
     let cancelled = false
     setLoading(true)
     setError(null)
-    getEventosAgenda(desde, hasta)
+    getEventosAgendaCached(desde, hasta)
       .then((data) => {
         if (!cancelled) setEventos(data)
       })
