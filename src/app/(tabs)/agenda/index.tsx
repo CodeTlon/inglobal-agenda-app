@@ -399,6 +399,43 @@ export default function AgendaScreen() {
     })
   }, [eventos, days])
 
+  // ponytail: la grilla de horas (24 * days.length filas) no depende de eventos/foco/tick,
+  // solo de `days` — sin memo se reconstruía en cada render (cada 60s del reloj, cada
+  // scroll) y era el cuello de botella al entrar a vista día.
+  const dayGrid = useMemo(
+    () =>
+      days.map((d, i) => {
+        const dStr = toDateInput(d)
+        return (
+          <View key={dStr} className="absolute left-0 right-0 flex-row" style={{ top: i * DAY_HEIGHT, height: DAY_HEIGHT }}>
+            <View style={{ width: 48 }}>
+              {HOURS.map((h) => (
+                <View key={h} style={{ height: PX_PER_HOUR }}>
+                  {h === 0 && (
+                    <Text
+                      className={`text-[10px] font-bold pl-1 ${dStr === todayStr ? 'text-igb-yellow-dark' : 'text-igb-on-surface'}`}
+                      numberOfLines={1}
+                    >
+                      {d.toLocaleDateString('es-AR', { weekday: 'short', day: '2-digit', month: 'short' })}
+                    </Text>
+                  )}
+                  <Text className="text-[10px] text-igb-secondary pl-1" style={{ marginTop: h === 0 ? 0 : -6 }}>
+                    {String(h).padStart(2, '0')}:00
+                  </Text>
+                </View>
+              ))}
+            </View>
+            <View className="flex-1 relative border-l border-igb-outline mr-3">
+              {HOURS.map((h) => (
+                <View key={h} className="absolute left-0 right-0 border-t border-igb-outline" style={{ top: h * PX_PER_HOUR }} />
+              ))}
+            </View>
+          </View>
+        )
+      }),
+    [days, todayStr]
+  )
+
   return (
     <View className="flex-1 bg-igb-surface">
       {(viewMode === 'month' || viewMode === 'week') && (
@@ -419,8 +456,11 @@ export default function AgendaScreen() {
                 weekStart={weekStart}
                 focusedStr={focusedStr}
                 onSelectDay={(d) => {
-                  goTo(d)
+                  // ponytail: setViewMode primero para que el ScrollView de día
+                  // (timelineRef) llegue a montar antes de que goTo intente scrollear;
+                  // si no, scrollTo es un no-op y la vista día abre en el día equivocado.
                   setViewMode('day')
+                  requestAnimationFrame(() => goTo(d))
                 }}
                 onChangeWeek={setFocused}
                 onBack={() => setViewMode('month')}
@@ -502,35 +542,7 @@ export default function AgendaScreen() {
           onMomentumScrollEnd={clearProgrammaticScroll}
         >
           <View style={{ height: days.length * DAY_HEIGHT }}>
-            {days.map((d, i) => {
-              const dStr = toDateInput(d)
-              return (
-                <View key={dStr} className="absolute left-0 right-0 flex-row" style={{ top: i * DAY_HEIGHT, height: DAY_HEIGHT }}>
-                  <View style={{ width: 48 }}>
-                    {HOURS.map((h) => (
-                      <View key={h} style={{ height: PX_PER_HOUR }}>
-                        {h === 0 && (
-                          <Text
-                            className={`text-[10px] font-bold pl-1 ${dStr === todayStr ? 'text-igb-yellow-dark' : 'text-igb-on-surface'}`}
-                            numberOfLines={1}
-                          >
-                            {d.toLocaleDateString('es-AR', { weekday: 'short', day: '2-digit', month: 'short' })}
-                          </Text>
-                        )}
-                        <Text className="text-[10px] text-igb-secondary pl-1" style={{ marginTop: h === 0 ? 0 : -6 }}>
-                          {String(h).padStart(2, '0')}:00
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                  <View className="flex-1 relative border-l border-igb-outline mr-3">
-                    {HOURS.map((h) => (
-                      <View key={h} className="absolute left-0 right-0 border-t border-igb-outline" style={{ top: h * PX_PER_HOUR }} />
-                    ))}
-                  </View>
-                </View>
-              )
-            })}
+            {dayGrid}
 
             {todayIdx !== -1 && (
               <View

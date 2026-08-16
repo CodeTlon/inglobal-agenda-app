@@ -131,9 +131,10 @@ export default function EventoScreen() {
           />
           <DetailRow icon="business-outline" text={evento.empresa?.nombre ?? 'Empresa'} />
           {evento.ubicacion ? <DetailRow icon="location-outline" text={evento.ubicacion} /> : null}
-          {evento.operarios.length > 0 ? (
-            <DetailRow icon="people-outline" text={evento.operarios.map((o) => o.nombre).join(', ')} />
-          ) : null}
+          <DetailRow
+            icon="people-outline"
+            text={evento.operarios.length > 0 ? evento.operarios.map((o) => o.nombre).join(', ') : 'Sin operario asignado'}
+          />
           {evento.notas ? <Text className="text-igb-secondary pt-2 border-t border-igb-outline">{evento.notas}</Text> : null}
         </View>
 
