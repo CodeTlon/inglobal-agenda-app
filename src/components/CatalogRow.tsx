@@ -63,6 +63,15 @@ export function CatalogRow({
         hitSlop={8}
         className="ml-2 p-1.5"
         onPress={() =>
+          // El backend ya bloquea (409, catalogDelete en inglobal-site/lib/agenda-business.ts)
+          // eliminar una grúa/empresa con eventos asociados, con un mensaje
+          // específico ("tiene N evento(s) asociado(s). Desactivalo en vez de
+          // eliminarlo") que showApiError muestra tal cual — verificado contra
+          // el backend real. Para operarios el borrado es intencionalmente
+          // libre (relación M2M con CASCADE, decisión de negocio: "borrar un
+          // operario siempre debe funcionar"), así que no hay nada que advertir
+          // de más acá — el aviso genérico alcanza, no hace falta duplicar ni
+          // adivinar lo que ya resuelve el servidor.
           Alert.alert('Eliminar', `¿Eliminar "${title}"?`, [
             { text: 'Cancelar', style: 'cancel' },
             { text: 'Eliminar', style: 'destructive', onPress: onDelete },

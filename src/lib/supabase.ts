@@ -14,11 +14,16 @@ import { Platform } from 'react-native'
 // Supabase session (access + refresh JWT) regularly exceeds that — setItemAsync
 // threw silently here, the session never persisted, and login looked frozen
 // even with correct credentials. Chunk the value across numbered sub-keys to
-// stay under the limit.
+// stay under the limit. iOS Keychain doesn't have this low a limit, so it
+// skips chunking entirely (see NEEDS_CHUNKING below) — one less thing to go
+// wrong and no extra latency on every login/refresh there.
 const CHUNK_SIZE = 1800
 const CHUNK_COUNT_SUFFIX = '_chunks'
+const NEEDS_CHUNKING = Platform.OS === 'android'
 
 async function setChunkedItem(key: string, value: string) {
+  const oldCountRaw = await SecureStore.getItemAsync(`${key}${CHUNK_COUNT_SUFFIX}`)
+  const oldCount = oldCountRaw ? Number(oldCountRaw) : 0
   const count = Math.ceil(value.length / CHUNK_SIZE)
   await Promise.all(
     Array.from({ length: count }, (_, i) =>
@@ -26,6 +31,17 @@ async function setChunkedItem(key: string, value: string) {
     )
   )
   await SecureStore.setItemAsync(`${key}${CHUNK_COUNT_SUFFIX}`, String(count))
+  // Un valor nuevo con menos chunks que el anterior (ej. un refresh de
+  // token más corto) dejaba huérfanos los índices de más — nunca se
+  // borraban, sobrevivían a logout y a logins posteriores. Se borran DESPUÉS
+  // de escribir el count nuevo: si el proceso muere acá, el count ya apunta
+  // al valor correcto (sin corrupción), solo queda basura para la próxima
+  // escritura.
+  if (oldCount > count) {
+    await Promise.all(
+      Array.from({ length: oldCount - count }, (_, i) => SecureStore.deleteItemAsync(`${key}_${count + i}`).catch(() => {})),
+    )
+  }
 }
 
 async function getChunkedItem(key: string): Promise<string | null> {
@@ -52,9 +68,15 @@ const SecureStoreAdapter = {
     return Promise.resolve(typeof localStorage === 'undefined' ? null : localStorage.getItem(key))
   },
   setItem: (key: string, value: string) => {
-    if (Platform.OS !== 'web') return setChunkedItem(key, value)
-    if (typeof localStorage !== 'undefined') localStorage.setItem(key, value)
-    return Promise.resolve()
+    if (Platform.OS === 'web') {
+      if (typeof localStorage !== 'undefined') localStorage.setItem(key, value)
+      return Promise.resolve()
+    }
+    // getChunkedItem/removeChunkedItem ya saben leer/borrar un valor SIN
+    // chunkear (caen a la key plana cuando no hay `_chunks`) — no hace falta
+    // tocarlos para que iOS conviva con Android acá, solo evitar el chunking
+    // de más al escribir.
+    return NEEDS_CHUNKING ? setChunkedItem(key, value) : SecureStore.setItemAsync(key, value)
   },
   removeItem: (key: string) => {
     if (Platform.OS !== 'web') return removeChunkedItem(key)

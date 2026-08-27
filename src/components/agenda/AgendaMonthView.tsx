@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { View, Pressable, ActivityIndicator } from 'react-native'
+import { useFocusEffect } from 'expo-router'
 import { Text } from '@/components/Text'
 import { getEventosAgendaCached } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
 import { getMonthMatrix, toDateInput, estadoStripColor, getEstadoVisual } from '@/lib/agenda-view'
 import type { EventoAgenda } from '@/lib/types'
+import { EstadoLegend } from '@/components/EstadoLegend'
 
 const MESES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -36,24 +38,38 @@ export function AgendaMonthView({
   const desde = toDateInput(weeks[0][0])
   const hasta = toDateInput(weeks[weeks.length - 1][6])
 
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    setError(null)
-    getEventosAgendaCached(desde, hasta)
-      .then((data) => {
-        if (!cancelled) setEventos(data)
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e instanceof ApiError ? e.message : 'No se pudieron cargar los eventos. Revisá tu conexión.')
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [desde, hasta])
+  // useFocusEffect (no un useEffect atado solo a [desde, hasta]) para que
+  // también recargue al volver de crear/editar/borrar un evento — antes un
+  // evento nuevo no aparecía en Mes hasta cambiar de mes y volver.
+  //
+  // hasLoadedOnceRef: mismo guard anti-flicker que ya usa Día — sin esto,
+  // cada refoco (ej. volver del detalle de un evento) hacía desaparecer
+  // toda la grilla detrás de un spinner de pantalla completa aunque los
+  // datos ya estuvieran cacheados.
+  const hasLoadedOnceRef = useRef(false)
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false
+      if (!hasLoadedOnceRef.current) setLoading(true)
+      setError(null)
+      getEventosAgendaCached(desde, hasta)
+        .then((data) => {
+          if (!cancelled) setEventos(data)
+        })
+        .catch((e) => {
+          if (!cancelled) setError(e instanceof ApiError ? e.message : 'No se pudieron cargar los eventos. Revisá tu conexión.')
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setLoading(false)
+            hasLoadedOnceRef.current = true
+          }
+        })
+      return () => {
+        cancelled = true
+      }
+    }, [desde, hasta]),
+  )
 
   return (
     <View className="flex-1 bg-igb-surface">
@@ -68,12 +84,15 @@ export function AgendaMonthView({
           <Text className="font-semibold text-igb-on-surface text-base">
             {MESES[month.getMonth()]} {month.getFullYear()}
           </Text>
-          <Pressable
-            onPress={() => onChangeMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}
-            className="p-2"
-          >
-            <Text className="text-lg">›</Text>
-          </Pressable>
+          <View className="flex-row items-center">
+            <Pressable
+              onPress={() => onChangeMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}
+              className="p-2"
+            >
+              <Text className="text-lg">›</Text>
+            </Pressable>
+            <EstadoLegend />
+          </View>
         </View>
         <View className="flex-row mt-2">
           {DIAS_CORTOS.map((d) => (
@@ -116,7 +135,7 @@ export function AgendaMonthView({
                     {delDia.length > 0 && (
                       <View className="flex-row flex-wrap gap-0.5 mt-1">
                         {delDia.slice(0, MAX_DOTS).map((ev) => (
-                          <View key={ev.id} className={`w-1.5 h-1.5 rounded-full ${estadoStripColor(getEstadoVisual(ev))}`} />
+                          <View key={ev.id} className={`w-2 h-2 rounded-full ${estadoStripColor(getEstadoVisual(ev))}`} />
                         ))}
                       </View>
                     )}

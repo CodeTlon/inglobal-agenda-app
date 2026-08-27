@@ -2,6 +2,19 @@
  * Helpers puros para las vistas de calendario — copiado 1:1 de inglobal-site/lib/agenda-view.ts
  * (sin date-fns, sin dependencias de Next/browser) para que mobile, web y TV coincidan
  * exactamente en semana/estado visual/layout de eventos superpuestos.
+ *
+ * OJO — este archivo YA NO es 1:1 con la fuente en un punto puntual:
+ * `getEstadoVisual` acá usa `18:00:00` como fin de jornada default cuando no
+ * hay `hora_fin`; inglobal-site/lib/agenda-view.ts usa `23:59:59`. Es una
+ * diferencia de POLÍTICA preexistente (no introducida acá, ya estaba antes de
+ * esta sesión) — verificado: con `23:59:59` como default, el default nunca
+ * cae antes que `hora_inicio` el mismo día, así que la fuente NUNCA tuvo el
+ * bug de turnos nocturnos que sí tenía esta copia (se mostraba
+ * `finalizado`/`cancelado` antes de empezar). El fix de acá corrige el lado
+ * mobile solamente — no hace falta portarlo a inglobal-site, esa copia ya
+ * estaba bien por usar el otro default. Si en algún momento se decide
+ * unificar el criterio (18:00 vs 23:59 como "fin de jornada" para eventos sin
+ * `hora_fin`), es una decisión de producto, no un bug a arreglar en un lado.
  */
 
 import type { EventoAgenda } from './types'
@@ -105,17 +118,36 @@ export function formatEstado(estado: string): string {
  *    se quiere el mismo corte de las 18:00 también para conflictos/DB.
  *  - `programado` cuya ventana del último día ya terminó -> `finalizado`.
  *  - `en_curso` se cierra a mano (finalizarlo es una decisión, no algo automático).
+ *
+ * Turno nocturno sin `fecha_hasta` ni `hora_fin` explícita (ej. `hora_inicio`
+ * 20:00, cierra al default 18:00): el default cae ANTES que el inicio en el
+ * mismo día. Mismo criterio de `crossesMidnight` que ya usa `index.tsx` para
+ * el layout de cards — sin esto el evento se mostraba `finalizado`/`cancelado`
+ * antes de empezar (y nunca `en_curso`), un evento nocturno con la ventana
+ * abierta se leía como si ya hubiera terminado.
+ *
+ * LIMITACIÓN CONOCIDA (no cubierta por el fix de arriba, mismo scope que
+ * `crossesMidnight` en index.tsx): un evento CON `fecha_hasta` (multi-día)
+ * cuya `hora_inicio` es nocturna y no tiene `hora_fin` queda con una ventana
+ * horaria diaria [hora_inicio, 18:00) que nunca matchea ningún horario real
+ * — se ve `programado` en vez de `en_curso` durante todo el rango. Caso más
+ * raro (multi-día + sin hora_fin + arranque nocturno); si aparece en la
+ * práctica, extender `crossesMidnight` para que también aplique día a día
+ * dentro de un rango multi-día. Casos runnable: `scripts/check-estado-visual.mjs`.
  */
 export function getEstadoVisual(evento: EventoAgenda, now = new Date()): string {
   const ultimoDia = evento.fecha_hasta ?? evento.fecha
   const horaFinEfectiva = (evento.hora_fin ?? '18:00:00').slice(0, 8)
   const inicioGlobal = new Date(`${evento.fecha}T${evento.hora_inicio.slice(0, 8)}`)
-  const finGlobal = new Date(`${ultimoDia}T${horaFinEfectiva}`)
+  const crossesMidnight = !evento.fecha_hasta && horaFinEfectiva <= evento.hora_inicio.slice(0, 8)
+  const finDiaStr = crossesMidnight ? toDateInput(addDays(new Date(`${ultimoDia}T00:00:00`), 1)) : ultimoDia
+  const finGlobal = new Date(`${finDiaStr}T${horaFinEfectiva}`)
   if (evento.estado === 'reserva') {
     if (finGlobal < now) return 'cancelado'
   } else if (evento.estado === 'programado') {
     if (finGlobal < now) return 'finalizado'
     if (inicioGlobal > now) return 'programado'
+    if (crossesMidnight) return 'en_curso' // ventana continua, ya sabemos inicioGlobal <= now < finGlobal
     const horaActual = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
     const dentroDeVentanaHoraria = horaActual >= evento.hora_inicio.slice(0, 8) && horaActual < horaFinEfectiva
     return dentroDeVentanaHoraria ? 'en_curso' : 'programado'
@@ -149,7 +181,7 @@ export function layoutDayEvents<T extends { hora_inicio: string; hora_fin?: stri
     const laneEnds: string[] = []
     const laneOf = new Map<T, number>()
     for (const ev of cluster) {
-      const fin = ev.hora_fin ?? '23:59'
+      const fin = ev.hora_fin ?? '23:59:59'
       let lane = laneEnds.findIndex((end) => end <= ev.hora_inicio)
       if (lane === -1) {
         lane = laneEnds.length
@@ -166,7 +198,7 @@ export function layoutDayEvents<T extends { hora_inicio: string; hora_fin?: stri
   }
 
   for (const ev of sorted) {
-    const fin = ev.hora_fin ?? '23:59'
+    const fin = ev.hora_fin ?? '23:59:59'
     if (cluster.length > 0 && ev.hora_inicio >= clusterEnd) flushCluster()
     cluster.push(ev)
     clusterEnd = cluster.length === 1 ? fin : fin > clusterEnd ? fin : clusterEnd

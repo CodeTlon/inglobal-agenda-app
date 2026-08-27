@@ -6,7 +6,7 @@ import Constants from 'expo-constants'
 import { Text } from '@/components/Text'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/lib/session'
-import { getEventosAgenda } from '@/lib/agenda-api'
+import { getEventosAgendaCached } from '@/lib/agenda-api'
 import { getEstadoVisual, toDateInput } from '@/lib/agenda-view'
 import type { EventoAgenda } from '@/lib/types'
 
@@ -17,10 +17,15 @@ export default function PerfilScreen() {
   const esTrabajador = session?.user.app_metadata?.role === 'trabajador'
 
   const [eventosHoy, setEventosHoy] = useState<EventoAgenda[]>([])
+  const [eventosHoyError, setEventosHoyError] = useState(false)
   useFocusEffect(
     useCallback(() => {
       const hoy = toDateInput(new Date())
-      getEventosAgenda(hoy, hoy).then(setEventosHoy).catch(() => {})
+      setEventosHoyError(false)
+      // Cached: si ya se vio Agenda hoy, esto no repite el fetch de "hoy" a la red.
+      getEventosAgendaCached(hoy, hoy)
+        .then(setEventosHoy)
+        .catch(() => setEventosHoyError(true))
     }, []),
   )
   const enCurso = eventosHoy.filter((ev) => getEstadoVisual(ev) === 'en_curso').length
@@ -50,15 +55,17 @@ export default function PerfilScreen() {
 
       <View className="bg-white border border-igb-outline rounded-lg flex-row divide-x divide-igb-outline mb-3">
         <View className="flex-1 p-3 items-center">
-          <Text className="font-headline text-igb-navy text-xl">{eventosHoy.length}</Text>
+          {/* "—" en vez de 0 si falló el fetch: 0 se leía como "sin servicios hoy",
+              indistinguible de un error de red silencioso. */}
+          <Text className="font-headline text-igb-navy text-xl">{eventosHoyError ? '—' : eventosHoy.length}</Text>
           <Text className="text-igb-secondary text-[11px] mt-1 text-center">Servicios hoy</Text>
         </View>
         <View className="flex-1 p-3 items-center">
-          <Text className="font-headline text-igb-navy text-xl">{enCurso}</Text>
+          <Text className="font-headline text-igb-navy text-xl">{eventosHoyError ? '—' : enCurso}</Text>
           <Text className="text-igb-secondary text-[11px] mt-1 text-center">En curso</Text>
         </View>
         <View className="flex-1 p-3 items-center">
-          <Text className="font-headline text-igb-navy text-xl">{pendientes}</Text>
+          <Text className="font-headline text-igb-navy text-xl">{eventosHoyError ? '—' : pendientes}</Text>
           <Text className="text-igb-secondary text-[11px] mt-1 text-center">Pendientes</Text>
         </View>
       </View>

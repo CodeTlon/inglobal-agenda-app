@@ -42,6 +42,7 @@ Esto es lo que hay activo hoy. Publica el JS a los servers de Expo, se abre desd
 
 - **Android:** `eas build --platform android --profile preview` (ajustar `eas.json` para `"buildType": "apk"` si se quiere un `.apk` instalable directo por archivo, en vez de `.aab`) → se comparte el link de descarga, se instala tocando el archivo. Sin costo, sin Play Console.
 - **iOS:** no hay forma de evitar la cuenta de Apple Developer ($99/año) — es una restricción de la plataforma, no algo que EAS pueda sortear. Con la cuenta: build `ad-hoc` (requiere registrar los UDID de cada iPhone) o subir a **TestFlight** (sin límite de dispositivos, instala por invitación, sin review público).
+  - Ojo: el perfil `preview` de `eas.json` (`distribution: "internal"`, sin override de `ios`) genera un IPA **ad-hoc** — no llega a TestFlight aunque el nombre coincida con el canal de Camino 1. Para TestFlight hay que usar el perfil `production` (`distribution` sin setear = `"store"` por default) y `eas build --platform ios --profile production` + `eas submit --platform ios`.
 
 ## Camino 3 — Tiendas públicas (App Store / Play Store)
 

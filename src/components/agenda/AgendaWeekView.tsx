@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { View, Pressable, ActivityIndicator, ScrollView } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useRouter, useFocusEffect } from 'expo-router'
 import { Text } from '@/components/Text'
 import { getEventosAgendaCached } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
 import { getWeekDays, addDays, toDateInput, estadoStripColor, getEstadoVisual } from '@/lib/agenda-view'
 import type { EventoAgenda } from '@/lib/types'
+import { EstadoLegend } from '@/components/EstadoLegend'
 
 const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
@@ -38,24 +39,36 @@ export function AgendaWeekView({
   const weekStartStr = toDateInput(weekStart)
   const weekEndStr = toDateInput(addDays(weekStart, 6))
 
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    setError(null)
-    getEventosAgendaCached(weekStartStr, weekEndStr)
-      .then((data) => {
-        if (!cancelled) setEventos(data)
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e instanceof ApiError ? e.message : 'No se pudieron cargar los eventos. Revisá tu conexión.')
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [weekStartStr, weekEndStr])
+  // useFocusEffect (no un useEffect atado solo a [weekStartStr, weekEndStr])
+  // para que también recargue al volver de crear/editar/borrar un evento.
+  //
+  // hasLoadedOnceRef: mismo guard anti-flicker que ya usa Día — sin esto,
+  // cada refoco hacía desaparecer la lista detrás de un spinner de pantalla
+  // completa aunque los datos ya estuvieran cacheados.
+  const hasLoadedOnceRef = useRef(false)
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false
+      if (!hasLoadedOnceRef.current) setLoading(true)
+      setError(null)
+      getEventosAgendaCached(weekStartStr, weekEndStr)
+        .then((data) => {
+          if (!cancelled) setEventos(data)
+        })
+        .catch((e) => {
+          if (!cancelled) setError(e instanceof ApiError ? e.message : 'No se pudieron cargar los eventos. Revisá tu conexión.')
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setLoading(false)
+            hasLoadedOnceRef.current = true
+          }
+        })
+      return () => {
+        cancelled = true
+      }
+    }, [weekStartStr, weekEndStr]),
+  )
 
   return (
     <View className="flex-1 bg-igb-surface">
@@ -72,6 +85,7 @@ export function AgendaWeekView({
         <Pressable onPress={() => onChangeWeek(addDays(weekStart, 7))} className="p-2">
           <Text className="text-lg">›</Text>
         </Pressable>
+        <EstadoLegend />
       </View>
 
       {loading ? (

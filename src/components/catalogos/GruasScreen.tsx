@@ -1,60 +1,33 @@
-import { useCallback, useState } from 'react'
-import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native'
+import { useState } from 'react'
+import { View, ScrollView, Pressable, ActivityIndicator, Platform, KeyboardAvoidingView } from 'react-native'
 import { Picker } from '@react-native-picker/picker'
 import { Text } from '@/components/Text'
 import { TextInput } from '@/components/TextInput'
 import { ErrorBanner } from '@/components/ErrorBanner'
-import { useFocusEffect } from 'expo-router'
-import { getGruas, createGrua, updateGrua, toggleGrua, deleteGrua, getEventosAgenda } from '@/lib/agenda-api'
+import { getGruas, createGrua, updateGrua, toggleGrua, deleteGrua } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
 import { showApiError } from '@/lib/alert'
 import { toDateInput } from '@/lib/agenda-view'
 import { useAgendaSelection } from '@/lib/agenda-selection'
-import { TIPOS_GRUA, type Grua, type EventoAgenda } from '@/lib/types'
-import { CatalogRow, type CatalogEstado } from '@/components/CatalogRow'
+import { useOcupacionDelDia } from '@/lib/catalog-ocupacion'
+import { TIPOS_GRUA, type Grua } from '@/lib/types'
+import { CatalogRow } from '@/components/CatalogRow'
 
 const EMPTY = { nombre: '', patente: '', capacidad_toneladas: '', tipo: 'Grúa' as string }
-const ESTADOS_VIVOS = ['reserva', 'programado', 'en_curso']
 
 export default function GruasScreen() {
   const { selectedDate } = useAgendaSelection()
-  const [gruas, setGruas] = useState<Grua[]>([])
-  const [eventosDelDia, setEventosDelDia] = useState<EventoAgenda[]>([])
-  const [loading, setLoading] = useState(true)
+  const { items: gruas, loading, loadError, load, estadoDe } = useOcupacionDelDia(
+    selectedDate,
+    getGruas,
+    (ev, g) => ev.grua_id === g.id,
+    'No se pudieron cargar las grúas.',
+  )
   const [editing, setEditing] = useState<Grua | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [loadError, setLoadError] = useState<string | null>(null)
-
-  const load = useCallback(() => {
-    setLoading(true)
-    setLoadError(null)
-    Promise.all([getGruas(true), getEventosAgenda(selectedDate, selectedDate)])
-      .then(([gs, evs]) => {
-        setGruas(gs)
-        setEventosDelDia(evs)
-      })
-      .catch((e) => setLoadError(e instanceof ApiError ? e.message : 'No se pudieron cargar las grúas.'))
-      .finally(() => setLoading(false))
-  }, [selectedDate])
-
-  // Disponible/Ocupado según si hay un evento vivo (no cancelado/finalizado)
-  // que cubra `selectedDate` con esta grúa — no hay campo de estado propio en
-  // el catálogo. `selectedDate` es el día que se estaba mirando en Agenda
-  // (o hoy, si se entró directo a Catálogos).
-  function estadoDe(g: Grua): CatalogEstado | undefined {
-    if (!g.activo) return undefined
-    // Fecha pasada: no hay disponibilidad que mostrar, solo sirve para ver
-    // trabajos ya hechos.
-    if (selectedDate < toDateInput(new Date())) return undefined
-    const ocupado = eventosDelDia.find((ev) => ev.grua_id === g.id && ESTADOS_VIVOS.includes(ev.estado))
-    if (!ocupado) return { kind: 'disponible' }
-    return { kind: 'ocupado', detail: `Libera ~${(ocupado.hora_fin ?? '18:00').slice(0, 5)}` }
-  }
-
-  useFocusEffect(useCallback(() => { load() }, [load]))
 
   function openNew() {
     setEditing(null)
@@ -102,7 +75,12 @@ export default function GruasScreen() {
 
   async function handleToggle(g: Grua) {
     try {
-      await toggleGrua(g.id, !g.activo)
+      // Bug preexistente (no introducido en esta sesión): esto mandaba el
+      // valor YA negado. El backend espera el valor ACTUAL y lo invierte él
+      // mismo (catalogToggle en inglobal-site/lib/agenda-business.ts) — con
+      // el negado de más, el servidor terminaba escribiendo el mismo valor
+      // que ya tenía (`!(!activo) === activo`): el switch no hacía nada.
+      await toggleGrua(g.id, g.activo)
       load()
     } catch (e) {
       showApiError(e, 'No se pudo actualizar.', 'No se pudo actualizar la grúa')
@@ -120,6 +98,7 @@ export default function GruasScreen() {
 
   if (showForm) {
     return (
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
       <ScrollView className="flex-1 bg-igb-surface px-4 pt-4" contentContainerStyle={{ paddingBottom: 40 }}>
         <Text className="text-igb-on-surface mb-1 font-medium">Nombre</Text>
         <TextInput value={form.nombre} onChangeText={(v) => setForm((f) => ({ ...f, nombre: v }))} className="border border-igb-outline rounded-lg px-4 py-3 mb-4 bg-white text-igb-on-surface" placeholder="Ej: Grúa 1" />
@@ -146,6 +125,7 @@ export default function GruasScreen() {
           <Text className="text-igb-secondary">Cancelar</Text>
         </Pressable>
       </ScrollView>
+      </KeyboardAvoidingView>
     )
   }
 

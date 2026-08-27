@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { View, Pressable, ActivityIndicator } from 'react-native'
+import { View, Pressable, ActivityIndicator, Linking } from 'react-native'
 import { CameraView, useCameraPermissions } from 'expo-camera'
 import { Ionicons } from '@expo/vector-icons'
 import { Text } from '@/components/Text'
@@ -47,6 +47,22 @@ export default function PairTvScreen() {
   }
 
   if (!permission.granted) {
+    // En iOS, una vez denegado el permiso el sistema no vuelve a mostrar el
+    // diálogo — requestPermission() no hace nada. canAskAgain === false es
+    // la señal de eso (Android sí puede seguir reintentando el diálogo
+    // nativo); solo ahí mandamos a Ajustes.
+    if (!permission.canAskAgain) {
+      return (
+        <View className="flex-1 items-center justify-center bg-igb-surface p-8">
+          <Text className="text-igb-on-surface text-center mb-4">
+            El acceso a la cámara está denegado. Activalo desde Ajustes para escanear el código QR de la TV.
+          </Text>
+          <Pressable onPress={() => Linking.openSettings()} className="bg-igb-yellow rounded-lg px-6 py-3">
+            <Text className="text-igb-on-yellow font-bold">Abrir Ajustes</Text>
+          </Pressable>
+        </View>
+      )
+    }
     return (
       <View className="flex-1 items-center justify-center bg-igb-surface p-8">
         <Text className="text-igb-on-surface text-center mb-4">Necesitamos acceso a la cámara para escanear el código QR de la TV.</Text>
