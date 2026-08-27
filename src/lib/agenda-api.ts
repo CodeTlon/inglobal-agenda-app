@@ -49,9 +49,22 @@ export async function deleteEvento(id: string) {
 // una semana puntual desde el mes). Este cache evita ese refetch: si el rango
 // pedido ya está cubierto por el último fetch, se filtra en memoria.
 let eventosCache: { desde: string; hasta: string; data: EventoAgenda[] } | null = null
+// Se incrementa en cada invalidación — un fetch lento en vuelo cuya
+// `generation` quedó vieja no debe pisar el cache al resolver (ver abajo).
+let cacheGeneration = 0
+// Techo del rango acumulado: el scroll infinito de la vista Día no tiene
+// límite (ver INITIAL_BEFORE/EXTEND_CHUNK en agenda/index.tsx) y este cache
+// solo se ensanchaba (min/max) sin recortar nunca — una sesión larga
+// scrolleando acumulaba en memoria cada vez más días.
+const MAX_CACHE_DAYS = 120
+
+function daysBetween(desde: string, hasta: string): number {
+  return Math.round((new Date(`${hasta}T00:00:00`).getTime() - new Date(`${desde}T00:00:00`).getTime()) / 86_400_000)
+}
 
 function invalidarEventosCache() {
   eventosCache = null
+  cacheGeneration++
 }
 
 function eventoSeSuperponeCon(ev: EventoAgenda, desde: string, hasta: string): boolean {
@@ -64,8 +77,21 @@ export async function getEventosAgendaCached(desde: string, hasta: string): Prom
   }
   const nuevoDesde = eventosCache && eventosCache.desde < desde ? eventosCache.desde : desde
   const nuevoHasta = eventosCache && eventosCache.hasta > hasta ? eventosCache.hasta : hasta
+  const generation = cacheGeneration
   const data = await getEventosAgenda(nuevoDesde, nuevoHasta)
-  eventosCache = { desde: nuevoDesde, hasta: nuevoHasta, data }
+  // Si mientras esperábamos hubo una invalidación (crear/editar/borrar un
+  // evento) o un fetch más nuevo ya escribió el cache, esta respuesta puede
+  // llegar tarde y pisarlo con datos viejos — solo escribimos si seguimos
+  // siendo la generación vigente.
+  if (generation === cacheGeneration) {
+    if (daysBetween(nuevoDesde, nuevoHasta) <= MAX_CACHE_DAYS) {
+      eventosCache = { desde: nuevoDesde, hasta: nuevoHasta, data }
+    } else {
+      // Unir con lo ya cacheado se pasaría del techo — en vez de acumular
+      // sin límite, arrancamos de nuevo desde lo recién pedido.
+      eventosCache = { desde, hasta, data: data.filter((ev) => eventoSeSuperponeCon(ev, desde, hasta)) }
+    }
+  }
   return data.filter((ev) => eventoSeSuperponeCon(ev, desde, hasta))
 }
 

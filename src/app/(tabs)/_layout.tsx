@@ -1,4 +1,5 @@
 import { Tabs } from 'expo-router'
+import { StatusBar } from 'expo-status-bar'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useSession } from '@/lib/session'
 import { TabBarIcon } from '@/components/TabBarIcon'
@@ -14,6 +15,11 @@ export default function TabsLayout() {
   const insets = useSafeAreaInsets()
 
   return (
+    <>
+    {/* Todas las pantallas de este grupo usan NavHeader con fondo navy hasta
+        el notch — iconos claros del status bar, a diferencia del "dark"
+        global de _layout.tsx (pensado para login/loading, de fondo claro). */}
+    <StatusBar style="light" />
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -71,5 +77,6 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+    </>
   )
 }

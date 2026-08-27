@@ -4,12 +4,13 @@ import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
-import { View, ActivityIndicator } from 'react-native'
+import { View, ActivityIndicator, Pressable } from 'react-native'
 import * as SplashScreen from 'expo-splash-screen'
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter'
 import { Manrope_700Bold } from '@expo-google-fonts/manrope'
 import { Ionicons } from '@expo/vector-icons'
-import { useSession } from '@/lib/session'
+import { useSession, SessionProvider } from '@/lib/session'
+import { supabase } from '@/lib/supabase'
 import { AgendaSelectionProvider } from '@/lib/agenda-selection'
 import { Text } from '@/components/Text'
 
@@ -24,6 +25,14 @@ function CenteredMessage({ children }: { children: React.ReactNode }) {
 }
 
 export default function RootLayout() {
+  return (
+    <SessionProvider>
+      <RootLayoutNav />
+    </SessionProvider>
+  )
+}
+
+function RootLayoutNav() {
   const { session, loading, mustChangePassword } = useSession()
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
@@ -62,6 +71,9 @@ export default function RootLayout() {
           <Text className="text-center text-igb-secondary">
             Ingresá al panel web (gruasinglobal.com/dashboard) para cambiar tu contraseña temporal antes de usar la app.
           </Text>
+          <Pressable onPress={() => supabase.auth.signOut()} className="mt-6 py-2 px-4">
+            <Text className="text-igb-navy font-semibold">Cerrar sesión</Text>
+          </Pressable>
         </CenteredMessage>
       ) : (
         <AgendaSelectionProvider>

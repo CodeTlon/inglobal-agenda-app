@@ -29,8 +29,18 @@ async function apiFetch(path: string, opts: RequestInit = {}) {
     // genérico sin poder distinguir "sin conexión" de un error real del server.
     throw new ApiError('No se pudo conectar con el servidor. Revisá tu conexión.', 0)
   }
+  // Si el body no es JSON (ej. 502 de un proxy devolviendo HTML), `body.error`
+  // queda undefined — usamos `res.statusText` antes que el genérico "Error
+  // desconocido" para no perder toda pista del error real.
   const body = await res.json().catch(() => ({}))
-  if (!res.ok) throw new ApiError(body.error ?? 'Error desconocido', res.status)
+  if (!res.ok) {
+    // El backend revocó el token (usuario desactivado, sesión inválida) pero
+    // la sesión local de Supabase seguía "viva" — sin esto el usuario
+    // quedaba navegando la app viendo errores genéricos en cada pantalla,
+    // sin ninguna señal de que tenía que volver a loguearse.
+    if (res.status === 401) supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+    throw new ApiError(body.error ?? res.statusText ?? 'Error desconocido', res.status)
+  }
   return body.data
 }
 

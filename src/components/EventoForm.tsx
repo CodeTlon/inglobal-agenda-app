@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { View, ScrollView, Pressable, ActivityIndicator, Platform } from 'react-native'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { View, ScrollView, Pressable, ActivityIndicator, Platform, KeyboardAvoidingView } from 'react-native'
 import DateTimePicker from '@react-native-community/datetimepicker'
 import { Picker } from '@react-native-picker/picker'
 import { Ionicons } from '@expo/vector-icons'
@@ -56,6 +56,8 @@ export function EventoForm({
   const [operarioIds, setOperarioIds] = useState<string[]>(initial?.operarios.map((o) => o.id) ?? [])
 
   const [ocupados, setOcupados] = useState<{ gruaIds: string[]; operarioIds: string[] }>({ gruaIds: [], operarioIds: [] })
+  const [ocupadosError, setOcupadosError] = useState(false)
+  const ocupadosRequestRef = useRef(0)
   const [showPicker, setShowPicker] = useState<null | 'fecha' | 'fechaHasta'>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -77,10 +79,29 @@ export function EventoForm({
 
   useEffect(() => {
     if (!fecha || !horaInicio) return
+    // requestId: si el usuario cambia hora/fecha rápido (varios toques
+    // seguidos en el picker) pueden salir 3-4 requests en simultáneo, sin
+    // garantía de que respondan en orden — solo aplicamos la respuesta si
+    // sigue siendo la última pedida, si no `ocupados` podía terminar
+    // reflejando la disponibilidad de un horario distinto al elegido.
+    const requestId = ++ocupadosRequestRef.current
+    setOcupadosError(false)
     getRecursosOcupados({ fecha, fechaHasta: fechaHasta || null, horaInicio, horaFin: horaFin || null, excludeEventoId: initial?.id })
-      .then(setOcupados)
-      .catch(() => {})
-  }, [fecha, fechaHasta, horaInicio, horaFin])
+      .then((data) => {
+        if (requestId === ocupadosRequestRef.current) setOcupados(data)
+      })
+      .catch(() => {
+        // Antes esto se tragaba en silencio y `ocupados` quedaba vacío — la
+        // validación de conflicto pasaba igual, dejando asignar una
+        // grúa/operario en realidad ocupado. Bloqueamos el submit en vez de
+        // adivinar disponibilidad con datos que no llegaron.
+        if (requestId === ocupadosRequestRef.current) setOcupadosError(true)
+      })
+    // `initial?.id` en deps: no cambia durante la vida de esta instancia (cada
+    // evento distinto remonta el form vía navegación, mismo criterio que el
+    // efecto de arriba) — se agrega solo para que el lint quede documentado
+    // en vez de generar dudas de nuevo.
+  }, [fecha, fechaHasta, horaInicio, horaFin, initial?.id])
 
   // El estado solo se elige acá al crear (reserva vs. programado). Al editar, el
   // cambio de estado se hace desde el control rápido en la pantalla de detalle
@@ -104,6 +125,10 @@ export function EventoForm({
     // que crearEventoSchema/eventoAgendaSchema del lado del servidor.
     if (!isEdit && fecha < toDateInput(new Date())) {
       setError('La fecha no puede ser anterior a hoy.')
+      return
+    }
+    if (ocupadosError) {
+      setError('No se pudo confirmar la disponibilidad de grúa/operarios. Revisá tu conexión e intentá de nuevo.')
       return
     }
     if (ocupados.gruaIds.includes(gruaId)) {
@@ -156,6 +181,7 @@ export function EventoForm({
   }
 
   return (
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
     <ScrollView className="flex-1 bg-igb-surface px-4 pt-4" contentContainerStyle={{ paddingBottom: 40 }}>
       {locked && (
         <View className="bg-igb-navy/5 border border-igb-navy/20 rounded-lg p-3 mb-4">
@@ -214,13 +240,23 @@ export function EventoForm({
           minimumDate={!isEdit ? (showPicker === 'fechaHasta' ? new Date(`${fecha}T00:00:00`) : new Date()) : undefined}
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          // En iOS el spinner dispara onChange en cada vuelta de rueda (a
+          // diferencia del diálogo modal de Android, que confirma una sola
+          // vez) — cerrar acá lo desmontaba apenas el usuario tocaba el
+          // selector, sin dejarlo llegar a la fecha elegida. En iOS solo
+          // actualiza el valor; el botón "Listo" de abajo cierra.
           onChange={(_, date) => {
-            setShowPicker(null)
+            if (Platform.OS !== 'ios') setShowPicker(null)
             if (!date) return
             if (showPicker === 'fecha') setFecha(toDateInput(date))
             else setFechaHasta(toDateInput(date))
           }}
         />
+      )}
+      {showPicker && Platform.OS === 'ios' && (
+        <Pressable onPress={() => setShowPicker(null)} className="items-center py-2 bg-white border-t border-igb-outline mb-1">
+          <Text className="text-igb-navy font-semibold">Listo</Text>
+        </Pressable>
       )}
 
       <Field label="Grúa">
@@ -333,6 +369,7 @@ export function EventoForm({
       </Pressable>
       {footer}
     </ScrollView>
+    </KeyboardAvoidingView>
   )
 }
 

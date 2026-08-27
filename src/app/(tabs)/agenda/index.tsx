@@ -5,7 +5,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, runOnJS } from 'react-native-reanimated'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { Text } from '@/components/Text'
-import { getEventosAgenda, getEventosAgendaCached } from '@/lib/agenda-api'
+import { getEventosAgendaCached } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
 import {
   getWeekStart,
@@ -150,12 +150,11 @@ export default function AgendaScreen() {
       }
     })
 
-  // `cached=true` reutiliza eventos que la vista de mes/semana ya haya
-  // traído para ese rango (evita el refetch al pasar a semana/día); `load()`
-  // pide siempre fresco porque es el refetch de "volví a la pantalla".
-  async function fetchEventos(desde: string, hasta: string, cached = true): Promise<EventoAgenda[]> {
+  // `cached` reutiliza eventos que Mes/Semana ya hayan traído para ese rango
+  // (evita el refetch al pasar a semana/día).
+  async function fetchEventos(desde: string, hasta: string): Promise<EventoAgenda[]> {
     try {
-      return await (cached ? getEventosAgendaCached(desde, hasta) : getEventosAgenda(desde, hasta))
+      return await getEventosAgendaCached(desde, hasta)
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'No se pudieron cargar los eventos. Revisá tu conexión.')
       return []
@@ -168,12 +167,11 @@ export default function AgendaScreen() {
   const load = useCallback(() => {
     setError(null)
     const d = daysRef.current
-    fetchEventos(toDateInput(d[0]), toDateInput(d[d.length - 1]), false).then((data) => {
+    fetchEventos(toDateInput(d[0]), toDateInput(d[d.length - 1])).then((data) => {
       setEventos(data)
       setLoading(false)
       hasLoadedOnceRef.current = true
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Bug: useFocusEffect disparaba setLoading(true) en CADA foco de pantalla,
@@ -183,12 +181,24 @@ export default function AgendaScreen() {
   // arriba del todo de la ventana cargada, no en el día que estabas mirando).
   // Solo mostramos el spinner de pantalla completa la primera vez; los
   // refetches por refoco pasan en silencio con el ScrollView ya montado.
+  //
+  // ponytail: solo Día usa este `eventos`/`loading` de 31 días — Mes y
+  // Semana traen el suyo (AgendaMonthView/AgendaWeekView). Antes se pedía
+  // siempre, en cada foco de la pestaña, aunque se estuviera mirando Mes:
+  // un fetch entero tirado a la basura en paralelo con el que sí se usaba.
+  // El chequeo de `viewMode` en el dep array hace que este mismo hook
+  // recargue también al entrar a Día desde Semana (useFocusEffect vuelve a
+  // correr cuando cambia el callback memoizado, sin esperar un foco real) —
+  // como contrapartida, la primera vez que se entra a Día en la sesión el
+  // scroll inicial ancla en las 07:00/ahora en vez del primer evento real
+  // (todavía no llegó el fetch): cosmético, se corrige solo al re-entrar.
   const hasLoadedOnceRef = useRef(false)
   useFocusEffect(
     useCallback(() => {
+      if (viewMode !== 'day') return
       if (!hasLoadedOnceRef.current) setLoading(true)
       load()
-    }, [load]),
+    }, [load, viewMode]),
   )
 
   // Consume el scroll pendiente (posición inicial o navegación explícita a un
@@ -285,7 +295,14 @@ export default function AgendaScreen() {
       direction === 'future' ? addDays(windowEnd, i + 1) : addDays(windowStart, i - EXTEND_CHUNK),
     )
     const data = await fetchEventos(toDateInput(chunk[0]), toDateInput(chunk[chunk.length - 1]))
-    setEventos((prev) => [...prev, ...data])
+    // Un evento con fecha_hasta que cruza el borde entre la ventana ya
+    // cargada y este chunk nuevo viene en AMBOS fetches (el overlap-test de
+    // agenda-api.ts así lo garantiza) — sin dedupe por id quedaba duplicado
+    // (una card de más por cada día de su rango) hasta el próximo refoco.
+    setEventos((prev) => {
+      const yaEstan = new Set(prev.map((ev) => ev.id))
+      return [...prev, ...data.filter((ev) => !yaEstan.has(ev.id))]
+    })
     if (direction === 'past') {
       // Mismo bug de fondo que scrollToDate ya sufrió ("salta de un día a
       // otro sin relación"): si `days` se actualiza antes de armar la

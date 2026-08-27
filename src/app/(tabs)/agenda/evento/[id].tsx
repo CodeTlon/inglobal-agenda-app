@@ -114,13 +114,19 @@ export default function EventoScreen() {
     )
   }
 
+  // `as EstadoEvento`: getEstadoVisual siempre devuelve uno de los 5 estados
+  // conocidos, solo que su firma es `string` porque agenda-view.ts es una
+  // copia 1:1 de inglobal-site/lib/agenda-view.ts (ver comentario del
+  // archivo) — no le cambiamos el tipo ahí para no divergir de esa fuente.
+  const estadoVisual = getEstadoVisual(evento) as EstadoEvento
+
   return (
     <>
       <Stack.Screen options={{ title: 'Evento' }} />
       <ScrollView className="flex-1 bg-igb-surface" contentContainerStyle={{ padding: 16, gap: 16 }}>
         <View className="bg-white rounded-2xl border border-igb-outline p-4 gap-3">
-          <View className={`self-start px-2.5 py-1 rounded ${estadoColorClassesLight(getEstadoVisual(evento))}`}>
-            <Text className="text-xs font-bold">{formatEstado(getEstadoVisual(evento))}</Text>
+          <View className={`self-start px-2.5 py-1 rounded ${estadoColorClassesLight(estadoVisual)}`}>
+            <Text className="text-xs font-bold">{formatEstado(estadoVisual)}</Text>
           </View>
           <Text className="font-headline text-xl text-igb-on-surface">{evento.grua?.nombre ?? 'Grúa'}</Text>
 
@@ -138,11 +144,14 @@ export default function EventoScreen() {
           {evento.notas ? <Text className="text-igb-secondary pt-2 border-t border-igb-outline">{evento.notas}</Text> : null}
         </View>
 
-        {TRANSICIONES_VALIDAS[evento.estado].length > 0 && (
+        {/* Transiciones ofrecidas según el estado VISUAL (el badge de arriba), no
+            el crudo de la DB — si no, un `programado` cuya ventana ya pasó
+            mostraba badge "Finalizado" pero seguía ofreciendo "En curso". */}
+        {TRANSICIONES_VALIDAS[estadoVisual].length > 0 && (
           <View className="bg-white rounded-2xl border border-igb-outline p-4 gap-2">
             <Text className="text-igb-on-surface font-medium mb-1">Cambiar estado</Text>
             <View className="flex-row flex-wrap gap-2">
-              {TRANSICIONES_VALIDAS[evento.estado].map((siguiente) => (
+              {TRANSICIONES_VALIDAS[estadoVisual].map((siguiente) => (
                 <Pressable
                   key={siguiente}
                   disabled={cambiandoEstado}

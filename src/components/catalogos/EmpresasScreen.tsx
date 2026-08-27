@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native'
+import { View, ScrollView, Pressable, ActivityIndicator, Platform, KeyboardAvoidingView } from 'react-native'
 import { useFocusEffect } from 'expo-router'
 import { Text } from '@/components/Text'
 import { TextInput } from '@/components/TextInput'
@@ -76,6 +76,10 @@ export default function EmpresasScreen() {
 
   async function handleToggle(e: EmpresaAgenda) {
     try {
+      // El backend espera el valor ACTUAL y lo invierte él mismo (mismo
+      // contrato que /api/agenda/{gruas,empresas,operarios}/[id] en
+      // inglobal-site, ver catalogToggle en lib/agenda-business.ts) — NO
+      // mandar ya negado.
       await toggleEmpresaAgenda(e.id, e.activo)
       load()
     } catch (err) {
@@ -94,6 +98,7 @@ export default function EmpresasScreen() {
 
   if (showForm) {
     return (
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
       <ScrollView className="flex-1 bg-igb-surface px-4 pt-4" contentContainerStyle={{ paddingBottom: 40 }}>
         <Text className="text-igb-on-surface mb-1 font-medium">Nombre</Text>
         <TextInput value={form.nombre} onChangeText={(v) => setForm((f) => ({ ...f, nombre: v }))} className="border border-igb-outline rounded-lg px-4 py-3 mb-4 bg-white text-igb-on-surface" placeholder="Ej: Transportes SRL" />
@@ -116,6 +121,7 @@ export default function EmpresasScreen() {
           <Text className="text-igb-secondary">Cancelar</Text>
         </Pressable>
       </ScrollView>
+      </KeyboardAvoidingView>
     )
   }
 
