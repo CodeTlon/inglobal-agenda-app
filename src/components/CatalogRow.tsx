@@ -18,6 +18,7 @@ export function CatalogRow({
   onToggle,
   onEdit,
   onDelete,
+  onOpenDetail,
 }: {
   icon: ComponentProps<typeof Ionicons>['name']
   title: string
@@ -27,6 +28,7 @@ export function CatalogRow({
   onToggle: () => void
   onEdit: () => void
   onDelete: () => void
+  onOpenDetail?: () => void
 }) {
   return (
     <View className="flex-row items-center bg-white border border-igb-outline rounded-lg px-3 py-3 mb-2.5">
@@ -58,24 +60,28 @@ export function CatalogRow({
         ) : null}
         {!activo && <Text className="text-[10px] text-igb-secondary mt-0.5">Inactivo</Text>}
       </Pressable>
+      {onOpenDetail && (
+        <Pressable hitSlop={8} className="p-1.5" onPress={onOpenDetail}>
+          <Ionicons name="time-outline" size={18} color="#575d78" />
+        </Pressable>
+      )}
       <Switch value={activo} onValueChange={onToggle} trackColor={{ true: '#f5d100' }} style={{ transform: [{ scale: 0.85 }] }} />
       <Pressable
         hitSlop={8}
         className="ml-2 p-1.5"
         onPress={() =>
-          // El backend ya bloquea (409, catalogDelete en inglobal-site/lib/agenda-business.ts)
-          // eliminar una grúa/empresa con eventos asociados, con un mensaje
-          // específico ("tiene N evento(s) asociado(s). Desactivalo en vez de
-          // eliminarlo") que showApiError muestra tal cual — verificado contra
-          // el backend real. Para operarios el borrado es intencionalmente
-          // libre (relación M2M con CASCADE, decisión de negocio: "borrar un
-          // operario siempre debe funcionar"), así que no hay nada que advertir
-          // de más acá — el aviso genérico alcanza, no hace falta duplicar ni
-          // adivinar lo que ya resuelve el servidor.
-          Alert.alert('Eliminar', `¿Eliminar "${title}"?`, [
-            { text: 'Cancelar', style: 'cancel' },
-            { text: 'Eliminar', style: 'destructive', onPress: onDelete },
-          ])
+          // Primero desactivar, después eliminar — nunca se borra algo activo
+          // directamente. Una vez inactivo, el backend (catalogDelete en
+          // inglobal-site/lib/agenda-business.ts) bloquea igual (409) si
+          // todavía tiene eventos "vivos" (reserva/programado/en_curso)
+          // asociados; si el ítem tiene eventos pero ya están todos
+          // finalizados/cancelados, deja borrar igual.
+          activo
+            ? Alert.alert('Desactivá primero', `Para eliminar "${title}" primero desactivalo con el interruptor.`)
+            : Alert.alert('Eliminar', `¿Eliminar "${title}"?`, [
+                { text: 'Cancelar', style: 'cancel' },
+                { text: 'Eliminar', style: 'destructive', onPress: onDelete },
+              ])
         }
       >
         <Ionicons name="trash-outline" size={18} color="#dc2626" />

@@ -34,7 +34,11 @@ export function AgendaMonthView({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const weeks = getMonthMatrix(month)
-  const todayStr = toDateInput(new Date())
+  const today = new Date()
+  const todayStr = toDateInput(today)
+  // Si el mes que se está mirando no es el actual, no hay "hoy" que pintar
+  // ahí — se pinta el día 1 del mes como referencia en su lugar.
+  const isCurrentMonthView = month.getMonth() === today.getMonth() && month.getFullYear() === today.getFullYear()
   const desde = toDateInput(weeks[0][0])
   const hasta = toDateInput(weeks[weeks.length - 1][6])
 
@@ -119,6 +123,9 @@ export function AgendaMonthView({
                 const dStr = toDateInput(day)
                 const inMonth = day.getMonth() === month.getMonth()
                 const isToday = dStr === todayStr
+                // Ancla visual: "hoy" si se está mirando el mes actual, o el
+                // día 1 del mes si se navegó a otro mes.
+                const isAnchor = isCurrentMonthView ? isToday : day.getDate() === 1 && inMonth
                 const isFocused = dStr === focusedStr
                 const delDia = eventos.filter((ev) => eventoOcurreEn(ev, dStr))
                 return (
@@ -126,7 +133,7 @@ export function AgendaMonthView({
                     key={dStr}
                     onPress={() => onSelectDay(day)}
                     className={`flex-1 m-0.5 rounded-lg border p-1.5 ${
-                      isFocused ? 'border-igb-yellow bg-igb-yellow/10' : isToday ? 'border-igb-navy/40' : 'border-igb-outline'
+                      isFocused ? 'border-igb-yellow bg-igb-yellow/10' : isAnchor ? 'border-igb-navy/40' : 'border-igb-outline'
                     } ${inMonth ? 'bg-white' : 'bg-igb-surface'}`}
                   >
                     <Text className={`text-xs font-medium ${inMonth ? 'text-igb-on-surface' : 'text-igb-secondary/50'}`}>

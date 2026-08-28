@@ -11,7 +11,6 @@ import { Manrope_700Bold } from '@expo-google-fonts/manrope'
 import { Ionicons } from '@expo/vector-icons'
 import { useSession, SessionProvider } from '@/lib/session'
 import { supabase } from '@/lib/supabase'
-import { AgendaSelectionProvider } from '@/lib/agenda-selection'
 import { Text } from '@/components/Text'
 
 SplashScreen.preventAutoHideAsync()
@@ -76,16 +75,14 @@ function RootLayoutNav() {
           </Pressable>
         </CenteredMessage>
       ) : (
-        <AgendaSelectionProvider>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Protected guard={!!session}>
-              <Stack.Screen name="(tabs)" />
-            </Stack.Protected>
-            <Stack.Protected guard={!session}>
-              <Stack.Screen name="(auth)" />
-            </Stack.Protected>
-          </Stack>
-        </AgendaSelectionProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Protected guard={!!session}>
+            <Stack.Screen name="(tabs)" />
+          </Stack.Protected>
+          <Stack.Protected guard={!session}>
+            <Stack.Screen name="(auth)" />
+          </Stack.Protected>
+        </Stack>
       )}
       </SafeAreaProvider>
     </GestureHandlerRootView>

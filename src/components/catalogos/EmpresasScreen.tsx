@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { View, ScrollView, Pressable, ActivityIndicator, Platform, KeyboardAvoidingView } from 'react-native'
-import { useFocusEffect } from 'expo-router'
+import { useFocusEffect, useRouter } from 'expo-router'
 import { Text } from '@/components/Text'
 import { TextInput } from '@/components/TextInput'
 import { ErrorBanner } from '@/components/ErrorBanner'
@@ -13,6 +13,7 @@ import { CatalogRow } from '@/components/CatalogRow'
 const EMPTY = { nombre: '', contacto: '', telefono: '', notas: '' }
 
 export default function EmpresasScreen() {
+  const router = useRouter()
   const [empresas, setEmpresas] = useState<EmpresaAgenda[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<EmpresaAgenda | null>(null)
@@ -135,7 +136,7 @@ export default function EmpresasScreen() {
         </View>
       ) : (
         <ScrollView className="flex-1 px-4 pt-4">
-          {empresas.map((e) => (
+          {[...empresas].sort((a, b) => Number(b.activo) - Number(a.activo)).map((e) => (
             <CatalogRow
               key={e.id}
               icon="business-outline"
@@ -145,6 +146,7 @@ export default function EmpresasScreen() {
               onToggle={() => handleToggle(e)}
               onEdit={() => openEdit(e)}
               onDelete={() => handleDelete(e)}
+              onOpenDetail={() => router.push(`/catalogos/recurso/empresas/${e.id}`)}
             />
           ))}
           <View className="h-24" />

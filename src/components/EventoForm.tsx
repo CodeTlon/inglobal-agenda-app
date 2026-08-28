@@ -37,7 +37,7 @@ export function EventoForm({
   footer?: ReactNode
 }) {
   const isEdit = !!initial
-  const locked = isEdit && initial.estado === 'en_curso'
+  const locked = isEdit && ['en_curso', 'cancelado', 'finalizado'].includes(initial.estado)
 
   const [gruas, setGruas] = useState<Grua[]>([])
   const [empresas, setEmpresas] = useState<EmpresaAgenda[]>([])
@@ -185,7 +185,11 @@ export function EventoForm({
     <ScrollView className="flex-1 bg-igb-surface px-4 pt-4" contentContainerStyle={{ paddingBottom: 40 }}>
       {locked && (
         <View className="bg-igb-navy/5 border border-igb-navy/20 rounded-lg p-3 mb-4">
-          <Text className="text-igb-navy text-sm">Un evento en curso solo permite cambiar el estado.</Text>
+          <Text className="text-igb-navy text-sm">
+            {initial?.estado === 'en_curso'
+              ? 'Un evento en curso solo permite cambiar el estado.'
+              : 'Un evento cancelado o finalizado no se puede editar.'}
+          </Text>
         </View>
       )}
 
@@ -260,21 +264,34 @@ export function EventoForm({
       )}
 
       <Field label="Grúa">
-        <View className="border border-igb-outline rounded-lg bg-white">
-          <Picker enabled={!locked} selectedValue={gruaId} onValueChange={setGruaId}>
-            <Picker.Item label="Seleccioná una grúa" value="" />
-            {gruas.map((g) => (
-              <Picker.Item
-                key={g.id}
-                label={`${g.nombre}${ocupados.gruaIds.includes(g.id) ? ' (ocupada)' : ''}${!g.activo ? ' (inactiva)' : ''}`}
-                value={g.id}
-                color={ocupados.gruaIds.includes(g.id) ? '#dc2626' : !g.activo ? '#575d78' : undefined}
-                // Ya seleccionada se deja elegible para no trabar el picker si
-                // se ocupó después de elegirla (ej. se cambió el horario).
-                enabled={g.id === gruaId || !ocupados.gruaIds.includes(g.id)}
-              />
-            ))}
-          </Picker>
+        {/* Lista de filas en vez de <Picker.Item enabled={false}> — ese
+            "enabled" no bloquea el toque de forma confiable en todas las
+            plataformas, dejaba elegir una grúa ocupada aunque se viera en
+            rojo. Mismo patrón de fila que Operarios, disponibles primero. */}
+        <View className="border border-igb-outline rounded-lg bg-white p-2">
+          {[...gruas]
+            .sort((a, b) => Number(ocupados.gruaIds.includes(a.id)) - Number(ocupados.gruaIds.includes(b.id)))
+            .map((g) => {
+              const ocupada = ocupados.gruaIds.includes(g.id)
+              const selected = gruaId === g.id
+              return (
+                <Pressable
+                  key={g.id}
+                  // Ya seleccionada se deja elegible para no trabar el form si
+                  // se ocupó después de elegirla (ej. se cambió el horario).
+                  disabled={locked || (ocupada && !selected)}
+                  onPress={() => setGruaId(g.id)}
+                  className="flex-row items-center py-2 px-1"
+                >
+                  <View className={`w-5 h-5 rounded-full border mr-3 items-center justify-center ${selected ? 'border-igb-yellow' : 'border-igb-outline'}`}>
+                    {selected && <View className="w-2.5 h-2.5 rounded-full bg-igb-yellow" />}
+                  </View>
+                  <Text className={ocupada ? 'text-igb-error flex-1' : !g.activo ? 'text-igb-secondary flex-1' : 'text-igb-on-surface flex-1'} numberOfLines={1}>
+                    {g.nombre}{ocupada ? ' (ocupada)' : ''}{!g.activo ? ' (inactiva)' : ''}
+                  </Text>
+                </Pressable>
+              )
+            })}
         </View>
         {gruaId && ocupados.gruaIds.includes(gruaId) && (
           <Text className="text-igb-error text-xs mt-1">Esta grúa ya está ocupada en ese horario.</Text>
@@ -294,7 +311,9 @@ export function EventoForm({
 
       <Field label="Operarios">
         <View className="border border-igb-outline rounded-lg bg-white p-2">
-          {operarios.map((o) => {
+          {[...operarios]
+            .sort((a, b) => Number(ocupados.operarioIds.includes(a.id)) - Number(ocupados.operarioIds.includes(b.id)))
+            .map((o) => {
             const selected = operarioIds.includes(o.id)
             const ocupado = ocupados.operarioIds.includes(o.id)
             return (
@@ -362,7 +381,7 @@ export function EventoForm({
 
       <Pressable
         onPress={handleSubmit}
-        disabled={saving}
+        disabled={saving || locked}
         className="bg-igb-yellow rounded-lg py-3.5 items-center mt-2 disabled:opacity-60"
       >
         {saving ? <ActivityIndicator color="#221b00" /> : <Text className="text-igb-on-yellow font-bold">{isEdit ? 'Guardar cambios' : 'Crear evento'}</Text>}

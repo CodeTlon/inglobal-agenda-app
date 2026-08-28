@@ -20,7 +20,6 @@ import {
 } from '@/lib/agenda-view'
 import type { EventoAgenda } from '@/lib/types'
 import { EstadoLegend } from '@/components/EstadoLegend'
-import { useAgendaSelection } from '@/lib/agenda-selection'
 import { AgendaMonthView } from '@/components/agenda/AgendaMonthView'
 import { AgendaWeekView } from '@/components/agenda/AgendaWeekView'
 
@@ -55,7 +54,6 @@ type Positioned = { key: string; ev: EventoAgenda; top: number; height: number; 
 export default function AgendaScreen() {
   const router = useRouter()
   const { width: screenWidth } = useWindowDimensions()
-  const { setSelectedDate } = useAgendaSelection()
   // Mes es la vista por defecto; Semana es un nivel intermedio; Día es el
   // timeline horario de siempre, sin cambios funcionales, alcanzable por tap.
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('month')
@@ -104,12 +102,6 @@ export default function AgendaScreen() {
   const todayIdx = days.findIndex((d) => toDateInput(d) === todayStr)
   const weekStart = getWeekStart(focused)
   const weekDays = getWeekDays(weekStart)
-
-  // Comparte con Catálogos qué día se está mirando acá — el badge Ocupado/
-  // Disponible de Grúas/Operarios lo usa como referencia en vez de "hoy" fijo.
-  useEffect(() => {
-    setSelectedDate(focusedStr)
-  }, [focusedStr, setSelectedDate])
 
   // Swipe horizontal en Mes/Semana: cambia de período (no de nivel de zoom,
   // eso es tap en un día + botón "volver" en el header de cada vista, para no

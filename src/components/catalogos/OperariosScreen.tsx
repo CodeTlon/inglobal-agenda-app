@@ -1,23 +1,21 @@
 import { useState } from 'react'
 import { View, ScrollView, Pressable, ActivityIndicator, Platform, KeyboardAvoidingView } from 'react-native'
+import { useRouter } from 'expo-router'
 import { Text } from '@/components/Text'
 import { TextInput } from '@/components/TextInput'
 import { ErrorBanner } from '@/components/ErrorBanner'
 import { getOperarios, createOperario, updateOperario, toggleOperario, deleteOperario } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
 import { showApiError } from '@/lib/alert'
-import { toDateInput } from '@/lib/agenda-view'
-import { useAgendaSelection } from '@/lib/agenda-selection'
-import { useOcupacionDelDia } from '@/lib/catalog-ocupacion'
+import { useOcupacionDelDia, ordenarCatalogo } from '@/lib/catalog-ocupacion'
 import type { Operario } from '@/lib/types'
 import { CatalogRow } from '@/components/CatalogRow'
 
 const EMPTY = { nombre: '', telefono: '' }
 
 export default function OperariosScreen() {
-  const { selectedDate } = useAgendaSelection()
+  const router = useRouter()
   const { items: operarios, loading, loadError, load, estadoDe } = useOcupacionDelDia(
-    selectedDate,
     getOperarios,
     (ev, o) => ev.operarios.some((op) => op.id === o.id),
     'No se pudieron cargar los operarios.',
@@ -120,12 +118,7 @@ export default function OperariosScreen() {
         </View>
       ) : (
         <ScrollView className="flex-1 px-4 pt-4">
-          {selectedDate !== toDateInput(new Date()) && (
-            <Text className="text-igb-secondary text-xs mb-3">
-              Estado al {new Date(`${selectedDate}T00:00:00`).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
-            </Text>
-          )}
-          {operarios.map((o) => (
+          {ordenarCatalogo(operarios, estadoDe).map((o) => (
             <CatalogRow
               key={o.id}
               icon="people-outline"
@@ -136,6 +129,7 @@ export default function OperariosScreen() {
               onToggle={() => handleToggle(o)}
               onEdit={() => openEdit(o)}
               onDelete={() => handleDelete(o)}
+              onOpenDetail={() => router.push(`/catalogos/recurso/operarios/${o.id}`)}
             />
           ))}
           <View className="h-24" />

@@ -46,7 +46,13 @@
           "recordAudioAndroid": false
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "InGlobal Agenda usa tus fotos para elegir el logo de una empresa."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

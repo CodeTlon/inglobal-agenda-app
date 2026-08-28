@@ -12,6 +12,13 @@ export function getEventoAgendaById(id: string) {
   return api.get<EventoAgenda>(`/agenda/eventos/${id}`)
 }
 
+// Historial completo (todas las fechas) de una grúa/empresa/operario puntual,
+// para su pantalla de detalle en Catálogos.
+export function getEventosDeRecurso(tipo: 'gruas' | 'empresas' | 'operarios', id: string) {
+  const campo = tipo === 'gruas' ? 'grua_id' : tipo === 'empresas' ? 'empresa_id' : 'operario_id'
+  return api.get<EventoAgenda[]>(`/agenda/eventos?${campo}=${id}`)
+}
+
 export type EventoPayload = {
   fecha: string
   fecha_hasta?: string | null
@@ -131,7 +138,7 @@ export function deleteGrua(id: string) {
 export function getEmpresasAgenda(includeInactive = false) {
   return api.get<EmpresaAgenda[]>(`/agenda/empresas?includeInactive=${includeInactive}`)
 }
-export type EmpresaPayload = { nombre: string; contacto: string; telefono: string; notas?: string | null }
+export type EmpresaPayload = { nombre: string; contacto: string; telefono: string; notas?: string | null; logo_url?: string | null }
 export function createEmpresaAgenda(payload: EmpresaPayload) {
   return api.post<{ id: string }>('/agenda/empresas', payload)
 }

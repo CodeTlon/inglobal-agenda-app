@@ -5,6 +5,7 @@ export default function CatalogosLayout() {
   return (
     <Stack screenOptions={{ headerStyle: { backgroundColor: '#1C357F' }, headerTintColor: '#fff' }}>
       <Stack.Screen name="index" options={{ header: () => <NavHeader eyebrow="Gestión de flota" title="Catálogos" /> }} />
+      <Stack.Screen name="recurso/[tipo]/[id]" options={{ title: 'Detalle' }} />
     </Stack>
   )
 }

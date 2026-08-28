@@ -143,7 +143,10 @@ export function getEstadoVisual(evento: EventoAgenda, now = new Date()): string 
   const finDiaStr = crossesMidnight ? toDateInput(addDays(new Date(`${ultimoDia}T00:00:00`), 1)) : ultimoDia
   const finGlobal = new Date(`${finDiaStr}T${horaFinEfectiva}`)
   if (evento.estado === 'reserva') {
-    if (finGlobal < now) return 'cancelado'
+    // Tentativa sin confirmar: se cancela sola al llegar su día/hora, no
+    // espera a que termine la ventana (espejo de estadoTransicionado en
+    // inglobal-site/lib/agenda-business.ts).
+    if (inicioGlobal <= now) return 'cancelado'
   } else if (evento.estado === 'programado') {
     if (finGlobal < now) return 'finalizado'
     if (inicioGlobal > now) return 'programado'
@@ -151,6 +154,11 @@ export function getEstadoVisual(evento: EventoAgenda, now = new Date()): string 
     const horaActual = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
     const dentroDeVentanaHoraria = horaActual >= evento.hora_inicio.slice(0, 8) && horaActual < horaFinEfectiva
     return dentroDeVentanaHoraria ? 'en_curso' : 'programado'
+  } else if (evento.estado === 'en_curso') {
+    // Ya pasó la hora/día de fin: se cierra solo. Si en el medio pasó algo
+    // raro con el estado (se canceló a mano, etc.) ya no está en 'en_curso'
+    // acá, así que este chequeo ni se evalúa.
+    if (finGlobal < now) return 'finalizado'
   }
   return evento.estado
 }

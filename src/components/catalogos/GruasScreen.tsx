@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { View, ScrollView, Pressable, ActivityIndicator, Platform, KeyboardAvoidingView } from 'react-native'
+import { useRouter } from 'expo-router'
 import { Picker } from '@react-native-picker/picker'
 import { Text } from '@/components/Text'
 import { TextInput } from '@/components/TextInput'
@@ -7,18 +8,15 @@ import { ErrorBanner } from '@/components/ErrorBanner'
 import { getGruas, createGrua, updateGrua, toggleGrua, deleteGrua } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
 import { showApiError } from '@/lib/alert'
-import { toDateInput } from '@/lib/agenda-view'
-import { useAgendaSelection } from '@/lib/agenda-selection'
-import { useOcupacionDelDia } from '@/lib/catalog-ocupacion'
+import { useOcupacionDelDia, ordenarCatalogo } from '@/lib/catalog-ocupacion'
 import { TIPOS_GRUA, type Grua } from '@/lib/types'
 import { CatalogRow } from '@/components/CatalogRow'
 
 const EMPTY = { nombre: '', patente: '', capacidad_toneladas: '', tipo: 'Grúa' as string }
 
 export default function GruasScreen() {
-  const { selectedDate } = useAgendaSelection()
+  const router = useRouter()
   const { items: gruas, loading, loadError, load, estadoDe } = useOcupacionDelDia(
-    selectedDate,
     getGruas,
     (ev, g) => ev.grua_id === g.id,
     'No se pudieron cargar las grúas.',
@@ -139,12 +137,7 @@ export default function GruasScreen() {
         </View>
       ) : (
         <ScrollView className="flex-1 px-4 pt-4">
-          {selectedDate !== toDateInput(new Date()) && (
-            <Text className="text-igb-secondary text-xs mb-3">
-              Estado al {new Date(`${selectedDate}T00:00:00`).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
-            </Text>
-          )}
-          {gruas.map((g) => (
+          {ordenarCatalogo(gruas, estadoDe).map((g) => (
             <CatalogRow
               key={g.id}
               icon="car-outline"
@@ -155,6 +148,7 @@ export default function GruasScreen() {
               onToggle={() => handleToggle(g)}
               onEdit={() => openEdit(g)}
               onDelete={() => handleDelete(g)}
+              onOpenDetail={() => router.push(`/catalogos/recurso/gruas/${g.id}`)}
             />
           ))}
           <View className="h-24" />

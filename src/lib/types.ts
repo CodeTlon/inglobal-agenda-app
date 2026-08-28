@@ -30,6 +30,7 @@ export interface EmpresaAgenda {
   contacto: string | null
   telefono: string | null
   notas: string | null
+  logo_url: string | null
   activo: boolean
   created_at: string
 }
@@ -48,8 +49,8 @@ export interface EventoAgenda {
   fecha_hasta: string | null
   hora_inicio: string
   hora_fin: string | null
-  grua_id: string
-  empresa_id: string
+  grua_id: string | null
+  empresa_id: string | null
   ubicacion: string | null
   notas: string | null
   estado: EstadoEvento

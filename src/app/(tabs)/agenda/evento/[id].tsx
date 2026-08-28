@@ -62,8 +62,12 @@ export default function EventoScreen() {
               fecha_hasta: evento.fecha_hasta,
               hora_inicio: evento.hora_inicio,
               hora_fin: evento.hora_fin,
-              grua_id: evento.grua_id,
-              empresa_id: evento.empresa_id,
+              // Cambiar estado solo se ofrece para reserva/programado/en_curso
+              // (TRANSICIONES_VALIDAS), y catalogDelete bloquea borrar una
+              // grúa/empresa con eventos en esos estados — nunca pueden ser
+              // null acá todavía.
+              grua_id: evento.grua_id!,
+              empresa_id: evento.empresa_id!,
               ubicacion: evento.ubicacion,
               notas: evento.notas,
               estado: nuevo,
@@ -128,14 +132,14 @@ export default function EventoScreen() {
           <View className={`self-start px-2.5 py-1 rounded ${estadoColorClassesLight(estadoVisual)}`}>
             <Text className="text-xs font-bold">{formatEstado(estadoVisual)}</Text>
           </View>
-          <Text className="font-headline text-xl text-igb-on-surface">{evento.grua?.nombre ?? 'Grúa'}</Text>
+          <Text className="font-headline text-xl text-igb-on-surface">{evento.grua?.nombre ?? 'Grúa eliminada'}</Text>
 
           <DetailRow icon="calendar-outline" text={formatFecha(evento)} />
           <DetailRow
             icon="time-outline"
             text={`${evento.hora_inicio.slice(0, 5)}${evento.hora_fin ? ` – ${evento.hora_fin.slice(0, 5)}` : ''}`}
           />
-          <DetailRow icon="business-outline" text={evento.empresa?.nombre ?? 'Empresa'} />
+          <DetailRow icon="business-outline" text={evento.empresa?.nombre ?? 'Empresa eliminada'} />
           {evento.ubicacion ? <DetailRow icon="location-outline" text={evento.ubicacion} /> : null}
           <DetailRow
             icon="people-outline"
