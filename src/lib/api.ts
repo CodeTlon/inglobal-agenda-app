@@ -10,24 +10,41 @@ export class ApiError extends Error {
   }
 }
 
+// fetch() nativo no tiene timeout — si el backend acepta la conexión y
+// después no responde (típico durante un restart del lado de Supabase/
+// Vercel), la promesa queda colgada para siempre y toda la app se ve
+// "cargando" sin fin, sin ningún error que mostrar. 20s es margen de sobra
+// para una conexión lenta real.
+const TIMEOUT_MS = 20_000
+
 async function apiFetch(path: string, opts: RequestInit = {}) {
   const { data: { session } } = await supabase.auth.getSession()
   let res: Response
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
   try {
     res = await fetch(`${API_BASE}/api${path}`, {
       ...opts,
+      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         ...(opts.headers ?? {}),
         ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
       },
     })
-  } catch {
-    // fetch() rechaza con TypeError en falla de red (offline/DNS/timeout), no
-    // con una respuesta — sin este catch quedaba sin envolver como ApiError y
-    // cada caller que hace `e instanceof ApiError` caía siempre al mensaje
-    // genérico sin poder distinguir "sin conexión" de un error real del server.
-    throw new ApiError('No se pudo conectar con el servidor. Revisá tu conexión.', 0)
+  } catch (e) {
+    // fetch() rechaza con TypeError en falla de red (offline/DNS) o con
+    // AbortError si se cumplió el timeout de arriba — no con una respuesta.
+    // Sin este catch quedaba sin envolver como ApiError y cada caller que
+    // hace `e instanceof ApiError` caía siempre al mensaje genérico sin
+    // poder distinguir "sin conexión"/timeout de un error real del server.
+    const timedOut = e instanceof Error && e.name === 'AbortError'
+    throw new ApiError(
+      timedOut ? 'El servidor no respondió a tiempo. Probá de nuevo.' : 'No se pudo conectar con el servidor. Revisá tu conexión.',
+      0,
+    )
+  } finally {
+    clearTimeout(timeout)
   }
   // Si el body no es JSON (ej. 502 de un proxy devolviendo HTML), `body.error`
   // queda undefined — usamos `res.statusText` antes que el genérico "Error
