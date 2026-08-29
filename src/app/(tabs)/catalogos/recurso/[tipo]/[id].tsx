@@ -163,10 +163,12 @@ export default function RecursoDetalleScreen() {
         await updateGrua(id, { nombre: form.nombre, patente: form.patente, capacidad_toneladas: capacidad, tipo: form.tipo, foto_url: (recurso as Grua).foto_url })
       } else if (tipo === 'operarios') {
         if (!form.telefono?.trim()) throw new Error('El teléfono es obligatorio.')
+        if (!/^[\d\s()+-]+$/.test(form.telefono)) throw new Error('El teléfono tiene caracteres inválidos.')
         await updateOperario(id, { nombre: form.nombre, telefono: form.telefono, foto_url: (recurso as Operario).foto_url })
       } else {
         if (!form.contacto?.trim()) throw new Error('El contacto es obligatorio.')
         if (!form.telefono?.trim()) throw new Error('El teléfono es obligatorio.')
+        if (!/^[\d\s()+-]+$/.test(form.telefono)) throw new Error('El teléfono tiene caracteres inválidos.')
         await updateEmpresaAgenda(id, { nombre: form.nombre, contacto: form.contacto, telefono: form.telefono, notas: form.notas || null, logo_url: (recurso as EmpresaAgenda).logo_url })
       }
       setEditing(false)
@@ -248,11 +250,16 @@ export default function RecursoDetalleScreen() {
 
         {editing ? (
           <View>
-            <Field label="Nombre" value={form.nombre} onChange={(v) => setForm((f) => ({ ...f, nombre: v }))} />
+            <Field
+              label="Nombre"
+              value={form.nombre}
+              onChange={(v) => setForm((f) => ({ ...f, nombre: v }))}
+              placeholder={tipo === 'gruas' ? 'Ej: Grúa 1' : tipo === 'operarios' ? 'Ej: Carlos Gómez' : 'Ej: Constructora del Sur S.A.'}
+            />
             {tipo === 'gruas' && (
               <>
-                <Field label="Patente" value={form.patente} onChange={(v) => setForm((f) => ({ ...f, patente: v }))} autoCapitalize="characters" />
-                <Field label="Capacidad (toneladas)" value={form.capacidad_toneladas} onChange={(v) => setForm((f) => ({ ...f, capacidad_toneladas: v }))} keyboardType="numeric" />
+                <Field label="Patente" value={form.patente} onChange={(v) => setForm((f) => ({ ...f, patente: v }))} placeholder="AB123CD" autoCapitalize="characters" />
+                <Field label="Capacidad (toneladas)" value={form.capacidad_toneladas} onChange={(v) => setForm((f) => ({ ...f, capacidad_toneladas: v }))} placeholder="10" keyboardType="numeric" />
                 <Text className="text-igb-on-surface mb-1 font-medium">Tipo</Text>
                 <View className="border border-igb-outline rounded-lg bg-white mb-3">
                   <Picker selectedValue={form.tipo} onValueChange={(v) => setForm((f) => ({ ...f, tipo: v }))}>
@@ -262,13 +269,13 @@ export default function RecursoDetalleScreen() {
               </>
             )}
             {tipo === 'operarios' && (
-              <Field label="Teléfono" value={form.telefono} onChange={(v) => setForm((f) => ({ ...f, telefono: v }))} />
+              <Field label="Teléfono" value={form.telefono} onChange={(v) => setForm((f) => ({ ...f, telefono: v }))} placeholder="011 1234-5678" keyboardType="phone-pad" />
             )}
             {tipo === 'empresas' && (
               <>
-                <Field label="Contacto" value={form.contacto} onChange={(v) => setForm((f) => ({ ...f, contacto: v }))} />
-                <Field label="Teléfono" value={form.telefono} onChange={(v) => setForm((f) => ({ ...f, telefono: v }))} />
-                <Field label="Notas" value={form.notas} onChange={(v) => setForm((f) => ({ ...f, notas: v }))} />
+                <Field label="Contacto" value={form.contacto} onChange={(v) => setForm((f) => ({ ...f, contacto: v }))} placeholder="Ej: Juan Pérez" />
+                <Field label="Teléfono" value={form.telefono} onChange={(v) => setForm((f) => ({ ...f, telefono: v }))} placeholder="011 1234-5678" keyboardType="phone-pad" />
+                <Field label="Notas" value={form.notas} onChange={(v) => setForm((f) => ({ ...f, notas: v }))} placeholder="Notas internas (opcional)" />
               </>
             )}
             {formError && <ErrorBanner message={formError} />}
@@ -349,14 +356,16 @@ function Field({
   label,
   value,
   onChange,
+  placeholder,
   autoCapitalize,
   keyboardType,
 }: {
   label: string
   value: string
   onChange: (v: string) => void
+  placeholder?: string
   autoCapitalize?: 'characters' | 'none'
-  keyboardType?: 'numeric'
+  keyboardType?: 'numeric' | 'phone-pad'
 }) {
   return (
     <>
@@ -364,6 +373,7 @@ function Field({
       <TextInput
         value={value ?? ''}
         onChangeText={onChange}
+        placeholder={placeholder}
         autoCapitalize={autoCapitalize}
         keyboardType={keyboardType}
         className="border border-igb-outline rounded-lg px-4 py-3 mb-3 bg-white text-igb-on-surface"

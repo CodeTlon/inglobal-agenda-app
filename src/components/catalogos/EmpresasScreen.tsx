@@ -45,6 +45,9 @@ export default function EmpresasScreen() {
     if (!form.nombre.trim()) return 'El nombre es obligatorio.'
     if (!form.contacto.trim()) return 'El contacto es obligatorio.'
     if (!form.telefono.trim()) return 'El teléfono es obligatorio.'
+    // Mismo formato que valida el backend (empresaAgendaSchema en
+    // inglobal-site/lib/validations/agenda.ts).
+    if (!/^[\d\s()+-]+$/.test(form.telefono)) return 'El teléfono tiene caracteres inválidos.'
     return null
   }
 

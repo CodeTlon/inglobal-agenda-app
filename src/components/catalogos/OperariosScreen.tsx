@@ -36,6 +36,10 @@ export default function OperariosScreen() {
   function validate(): string | null {
     if (!form.nombre.trim()) return 'El nombre es obligatorio.'
     if (!form.telefono.trim()) return 'El teléfono es obligatorio.'
+    // Mismo formato que valida el backend (operarioSchema en
+    // inglobal-site/lib/validations/agenda.ts) — atajarlo acá evita el
+    // viaje al servidor solo para enterarse de que el formato es inválido.
+    if (!/^[\d\s()+-]+$/.test(form.telefono)) return 'El teléfono tiene caracteres inválidos.'
     return null
   }
 
