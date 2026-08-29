@@ -116,7 +116,15 @@ export default function RecursoDetalleScreen() {
     if (!recurso) return
     const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (!permiso.granted) return
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 })
+    // allowsEditing abre el editor nativo del OS (iOS/Android) para
+    // recortar/centrar antes de confirmar — el "estándar" de subir foto,
+    // sin reinventar una UI de recorte a mano en RN.
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    })
     if (result.canceled) return
     setUploading(true)
     try {
