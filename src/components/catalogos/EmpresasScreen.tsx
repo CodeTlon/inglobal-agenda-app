@@ -4,7 +4,7 @@ import { useFocusEffect, useRouter } from 'expo-router'
 import { Text } from '@/components/Text'
 import { TextInput } from '@/components/TextInput'
 import { ErrorBanner } from '@/components/ErrorBanner'
-import { getEmpresasAgenda, createEmpresaAgenda, updateEmpresaAgenda, toggleEmpresaAgenda, deleteEmpresaAgenda } from '@/lib/agenda-api'
+import { getEmpresasAgenda, createEmpresaAgenda, toggleEmpresaAgenda } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
 import { showApiError } from '@/lib/alert'
 import type { EmpresaAgenda } from '@/lib/types'
@@ -16,7 +16,6 @@ export default function EmpresasScreen() {
   const router = useRouter()
   const [empresas, setEmpresas] = useState<EmpresaAgenda[]>([])
   const [loading, setLoading] = useState(true)
-  const [editing, setEditing] = useState<EmpresaAgenda | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
@@ -34,15 +33,10 @@ export default function EmpresasScreen() {
 
   useFocusEffect(useCallback(() => { load() }, [load]))
 
+  // Editar una empresa existente vive en su pantalla de detalle, no acá —
+  // este form solo se usa para dar de alta una nueva.
   function openNew() {
-    setEditing(null)
     setForm(EMPTY)
-    setError(null)
-    setShowForm(true)
-  }
-  function openEdit(e: EmpresaAgenda) {
-    setEditing(e)
-    setForm({ nombre: e.nombre, contacto: e.contacto ?? '', telefono: e.telefono ?? '', notas: e.notas ?? '' })
     setError(null)
     setShowForm(true)
   }
@@ -64,8 +58,7 @@ export default function EmpresasScreen() {
     setError(null)
     try {
       const payload = { nombre: form.nombre, contacto: form.contacto, telefono: form.telefono, notas: form.notas || null }
-      if (editing) await updateEmpresaAgenda(editing.id, payload)
-      else await createEmpresaAgenda(payload)
+      await createEmpresaAgenda(payload)
       setShowForm(false)
       load()
     } catch (e) {
@@ -85,15 +78,6 @@ export default function EmpresasScreen() {
       load()
     } catch (err) {
       showApiError(err, 'No se pudo actualizar.', 'No se pudo actualizar la empresa')
-    }
-  }
-
-  async function handleDelete(e: EmpresaAgenda) {
-    try {
-      await deleteEmpresaAgenda(e.id)
-      load()
-    } catch (err) {
-      showApiError(err, 'No se pudo eliminar.', 'No se pudo eliminar la empresa')
     }
   }
 
@@ -140,12 +124,11 @@ export default function EmpresasScreen() {
             <CatalogRow
               key={e.id}
               icon="business-outline"
+              fotoUrl={e.logo_url}
               title={e.nombre}
               subtitle={[e.contacto, e.telefono].filter(Boolean).join(' — ')}
               activo={e.activo}
               onToggle={() => handleToggle(e)}
-              onEdit={() => openEdit(e)}
-              onDelete={() => handleDelete(e)}
               onOpenDetail={() => router.push(`/catalogos/recurso/empresas/${e.id}`)}
             />
           ))}

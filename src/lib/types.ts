@@ -20,6 +20,7 @@ export interface Grua {
   patente: string | null
   capacidad_toneladas: number | null
   tipo: string
+  foto_url: string | null
   activo: boolean
   created_at: string
 }
@@ -39,6 +40,7 @@ export interface Operario {
   id: string
   nombre: string
   telefono: string | null
+  foto_url: string | null
   activo: boolean
   created_at: string
 }

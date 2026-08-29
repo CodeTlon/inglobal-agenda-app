@@ -121,7 +121,7 @@ export function getRecursosOcupados(params: {
 export function getGruas(includeInactive = false) {
   return api.get<Grua[]>(`/agenda/gruas?includeInactive=${includeInactive}`)
 }
-export type GruaPayload = { nombre: string; patente: string; capacidad_toneladas: number; tipo: string }
+export type GruaPayload = { nombre: string; patente: string; capacidad_toneladas: number; tipo: string; foto_url?: string | null }
 export function createGrua(payload: GruaPayload) {
   return api.post<{ id: string }>('/agenda/gruas', payload)
 }
@@ -155,7 +155,7 @@ export function deleteEmpresaAgenda(id: string) {
 export function getOperarios(includeInactive = false) {
   return api.get<Operario[]>(`/agenda/operarios?includeInactive=${includeInactive}`)
 }
-export type OperarioPayload = { nombre: string; telefono: string }
+export type OperarioPayload = { nombre: string; telefono: string; foto_url?: string | null }
 export function createOperario(payload: OperarioPayload) {
   return api.post<{ id: string }>('/agenda/operarios', payload)
 }

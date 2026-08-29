@@ -5,7 +5,7 @@ import { Picker } from '@react-native-picker/picker'
 import { Text } from '@/components/Text'
 import { TextInput } from '@/components/TextInput'
 import { ErrorBanner } from '@/components/ErrorBanner'
-import { getGruas, createGrua, updateGrua, toggleGrua, deleteGrua } from '@/lib/agenda-api'
+import { getGruas, createGrua, toggleGrua } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
 import { showApiError } from '@/lib/alert'
 import { useOcupacionDelDia, ordenarCatalogo } from '@/lib/catalog-ocupacion'
@@ -21,21 +21,15 @@ export default function GruasScreen() {
     (ev, g) => ev.grua_id === g.id,
     'No se pudieron cargar las grúas.',
   )
-  const [editing, setEditing] = useState<Grua | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Editar una grúa existente vive en su pantalla de detalle, no acá — este
+  // form solo se usa para dar de alta una nueva.
   function openNew() {
-    setEditing(null)
     setForm(EMPTY)
-    setError(null)
-    setShowForm(true)
-  }
-  function openEdit(g: Grua) {
-    setEditing(g)
-    setForm({ nombre: g.nombre, patente: g.patente ?? '', capacidad_toneladas: String(g.capacidad_toneladas ?? ''), tipo: g.tipo })
     setError(null)
     setShowForm(true)
   }
@@ -60,8 +54,7 @@ export default function GruasScreen() {
     setError(null)
     try {
       const payload = { nombre: form.nombre, patente: form.patente, capacidad_toneladas: Number(form.capacidad_toneladas), tipo: form.tipo }
-      if (editing) await updateGrua(editing.id, payload)
-      else await createGrua(payload)
+      await createGrua(payload)
       setShowForm(false)
       load()
     } catch (e) {
@@ -82,15 +75,6 @@ export default function GruasScreen() {
       load()
     } catch (e) {
       showApiError(e, 'No se pudo actualizar.', 'No se pudo actualizar la grúa')
-    }
-  }
-
-  async function handleDelete(g: Grua) {
-    try {
-      await deleteGrua(g.id)
-      load()
-    } catch (e) {
-      showApiError(e, 'No se pudo eliminar.', 'No se pudo eliminar la grúa')
     }
   }
 
@@ -141,13 +125,12 @@ export default function GruasScreen() {
             <CatalogRow
               key={g.id}
               icon="car-outline"
+              fotoUrl={g.foto_url}
               title={g.nombre}
               subtitle={`${g.tipo} — ${g.patente ?? 'sin patente'} — ${g.capacidad_toneladas ?? '?'}t`}
               activo={g.activo}
               estado={estadoDe(g)}
               onToggle={() => handleToggle(g)}
-              onEdit={() => openEdit(g)}
-              onDelete={() => handleDelete(g)}
               onOpenDetail={() => router.push(`/catalogos/recurso/gruas/${g.id}`)}
             />
           ))}

@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router'
 import { Text } from '@/components/Text'
 import { TextInput } from '@/components/TextInput'
 import { ErrorBanner } from '@/components/ErrorBanner'
-import { getOperarios, createOperario, updateOperario, toggleOperario, deleteOperario } from '@/lib/agenda-api'
+import { getOperarios, createOperario, toggleOperario } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
 import { showApiError } from '@/lib/alert'
 import { useOcupacionDelDia, ordenarCatalogo } from '@/lib/catalog-ocupacion'
@@ -20,21 +20,15 @@ export default function OperariosScreen() {
     (ev, o) => ev.operarios.some((op) => op.id === o.id),
     'No se pudieron cargar los operarios.',
   )
-  const [editing, setEditing] = useState<Operario | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Editar un operario existente vive en su pantalla de detalle, no acá —
+  // este form solo se usa para dar de alta uno nuevo.
   function openNew() {
-    setEditing(null)
     setForm(EMPTY)
-    setError(null)
-    setShowForm(true)
-  }
-  function openEdit(o: Operario) {
-    setEditing(o)
-    setForm({ nombre: o.nombre, telefono: o.telefono ?? '' })
     setError(null)
     setShowForm(true)
   }
@@ -54,8 +48,7 @@ export default function OperariosScreen() {
     setSaving(true)
     setError(null)
     try {
-      if (editing) await updateOperario(editing.id, form)
-      else await createOperario(form)
+      await createOperario(form)
       setShowForm(false)
       load()
     } catch (e) {
@@ -73,15 +66,6 @@ export default function OperariosScreen() {
       load()
     } catch (err) {
       showApiError(err, 'No se pudo actualizar.', 'No se pudo actualizar el operario')
-    }
-  }
-
-  async function handleDelete(o: Operario) {
-    try {
-      await deleteOperario(o.id)
-      load()
-    } catch (err) {
-      showApiError(err, 'No se pudo eliminar.', 'No se pudo eliminar el operario')
     }
   }
 
@@ -122,13 +106,12 @@ export default function OperariosScreen() {
             <CatalogRow
               key={o.id}
               icon="people-outline"
+              fotoUrl={o.foto_url}
               title={o.nombre}
               subtitle={o.telefono}
               activo={o.activo}
               estado={estadoDe(o)}
               onToggle={() => handleToggle(o)}
-              onEdit={() => openEdit(o)}
-              onDelete={() => handleDelete(o)}
               onOpenDetail={() => router.push(`/catalogos/recurso/operarios/${o.id}`)}
             />
           ))}
