@@ -177,11 +177,15 @@ export default function RecursoDetalleScreen() {
       } else if (tipo === 'operarios') {
         if (!form.telefono?.trim()) throw new Error('El teléfono es obligatorio.')
         if (!/^[\d\s()+-]+$/.test(form.telefono)) throw new Error('El teléfono tiene caracteres inválidos.')
+        // El regex de arriba solo filtra caracteres — "1" o "-" solos lo pasaban.
+        if (form.telefono.replace(/\D/g, '').length < 6) throw new Error('El teléfono parece incompleto.')
         await updateOperario(id, { nombre: form.nombre, telefono: form.telefono, foto_url: (recurso as Operario).foto_url })
       } else {
         if (!form.contacto?.trim()) throw new Error('El contacto es obligatorio.')
         if (!form.telefono?.trim()) throw new Error('El teléfono es obligatorio.')
         if (!/^[\d\s()+-]+$/.test(form.telefono)) throw new Error('El teléfono tiene caracteres inválidos.')
+        // El regex de arriba solo filtra caracteres — "1" o "-" solos lo pasaban.
+        if (form.telefono.replace(/\D/g, '').length < 6) throw new Error('El teléfono parece incompleto.')
         await updateEmpresaAgenda(id, { nombre: form.nombre, contacto: form.contacto, telefono: form.telefono, notas: form.notas || null, logo_url: (recurso as EmpresaAgenda).logo_url })
       }
       setEditing(false)
@@ -293,7 +297,8 @@ export default function RecursoDetalleScreen() {
             )}
             {formError && <ErrorBanner message={formError} />}
             <View className="flex-row gap-2 mt-1">
-              <Pressable onPress={handleSave} disabled={saving} className="flex-1 bg-igb-yellow rounded-lg py-3 items-center disabled:opacity-60">
+              {/* ponytail: disabled: no aplica en RN Web — opacity a mano. */}
+              <Pressable onPress={handleSave} disabled={saving} className={`flex-1 bg-igb-yellow rounded-lg py-3 items-center ${saving ? 'opacity-60' : ''}`}>
                 {saving ? <ActivityIndicator color="#221b00" /> : <Text className="text-igb-on-yellow font-bold">Guardar</Text>}
               </Pressable>
               <Pressable onPress={() => setEditing(false)} className="flex-1 border border-igb-outline rounded-lg py-3 items-center">

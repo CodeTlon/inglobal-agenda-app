@@ -53,7 +53,11 @@ export default function LoginScreen() {
         <Image
           source={require('../../../assets/images/logo-inglobal.png')}
           resizeMode="contain"
-          className="w-full h-16 mb-6"
+          // ponytail: mismo motivo que perfil/index.tsx — sin un style con
+          // tamaño real, RN Web renderiza el logo a su resolución nativa y
+          // desborda el ancho de pantalla.
+          style={{ width: '100%', height: 64 }}
+          className="mb-6"
         />
         <Text className="text-igb-secondary text-center mb-8">Agenda — Ingresá con tu cuenta del panel</Text>
 
@@ -89,10 +93,11 @@ export default function LoginScreen() {
 
         {error && <Text className="text-igb-error mb-4">{error}</Text>}
 
+        {/* ponytail: disabled: no aplica en RN Web — opacity a mano. */}
         <Pressable
           onPress={handleLogin}
           disabled={loading}
-          className="bg-igb-yellow rounded-lg py-3.5 items-center mt-4 disabled:opacity-60"
+          className={`bg-igb-yellow rounded-lg py-3.5 items-center mt-4 ${loading ? 'opacity-60' : ''}`}
         >
           {loading ? <ActivityIndicator color="#221b00" /> : <Text className="text-igb-on-yellow font-bold">Ingresar</Text>}
         </Pressable>

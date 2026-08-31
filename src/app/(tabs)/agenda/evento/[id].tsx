@@ -156,11 +156,12 @@ export default function EventoScreen() {
             <Text className="text-igb-on-surface font-medium mb-1">Cambiar estado</Text>
             <View className="flex-row flex-wrap gap-2">
               {TRANSICIONES_VALIDAS[estadoVisual].map((siguiente) => (
+                // ponytail: disabled: no aplica en RN Web — opacity a mano.
                 <Pressable
                   key={siguiente}
                   disabled={cambiandoEstado}
                   onPress={() => handleCambiarEstado(siguiente)}
-                  className={`px-3 py-2 rounded-lg border ${estadoColorClassesLight(siguiente)} disabled:opacity-60`}
+                  className={`px-3 py-2 rounded-lg border ${estadoColorClassesLight(siguiente)} ${cambiandoEstado ? 'opacity-60' : ''}`}
                 >
                   <Text className="text-xs font-bold">{formatEstado(siguiente)}</Text>
                 </Pressable>

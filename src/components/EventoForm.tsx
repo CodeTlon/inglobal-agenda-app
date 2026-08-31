@@ -379,10 +379,13 @@ export function EventoForm({
 
       {error && <ErrorBanner message={error} />}
 
+      {/* ponytail: disabled: no aplica en RN Web — opacity a mano. Importa
+          bien acá: con evento cancelado/finalizado (locked) el botón se
+          bloquea pero antes se veía idéntico a uno activo. */}
       <Pressable
         onPress={handleSubmit}
         disabled={saving || locked}
-        className="bg-igb-yellow rounded-lg py-3.5 items-center mt-2 disabled:opacity-60"
+        className={`bg-igb-yellow rounded-lg py-3.5 items-center mt-2 ${saving || locked ? 'opacity-60' : ''}`}
       >
         {saving ? <ActivityIndicator color="#221b00" /> : <Text className="text-igb-on-yellow font-bold">{isEdit ? 'Guardar cambios' : 'Crear evento'}</Text>}
       </Pressable>

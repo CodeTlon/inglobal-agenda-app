@@ -37,7 +37,13 @@ export default function PerfilScreen() {
         <Image
           source={require('../../../../assets/images/logo-isotype-master.png')}
           resizeMode="contain"
-          className="w-14 h-14 rounded-xl"
+          // ponytail: RN Web no traduce w-14/h-14 a un tamaño real para
+          // <Image> — sin esto, el ícono crecía a su tamaño nativo y le
+          // robaba todo el ancho al email/stats de al lado (quedaban en
+          // ancho 0, invisibles). El style explícito es necesario en las
+          // tres plataformas para que el layout no dependa de esa laguna.
+          style={{ width: 56, height: 56 }}
+          className="rounded-xl"
         />
         <View className="flex-1">
           <Text className="text-igb-on-surface font-semibold" numberOfLines={1}>

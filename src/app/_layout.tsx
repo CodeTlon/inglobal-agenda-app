@@ -76,6 +76,7 @@ function RootLayoutNav() {
         </CenteredMessage>
       ) : (
         <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
           <Stack.Protected guard={!!session}>
             <Stack.Screen name="(tabs)" />
           </Stack.Protected>

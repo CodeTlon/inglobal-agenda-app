@@ -100,7 +100,10 @@ export default function GruasScreen() {
 
         {error && <ErrorBanner message={error} />}
 
-        <Pressable onPress={handleSave} disabled={saving} className="bg-igb-yellow rounded-lg py-3.5 items-center mb-3 disabled:opacity-60">
+        {/* ponytail: disabled: no aplica en RN Web (Pressable no es un
+            control real con :disabled) — el opacity condicional a mano
+            funciona en las tres plataformas. */}
+        <Pressable onPress={handleSave} disabled={saving} className={`bg-igb-yellow rounded-lg py-3.5 items-center mb-3 ${saving ? 'opacity-60' : ''}`}>
           {saving ? <ActivityIndicator color="#221b00" /> : <Text className="text-igb-on-yellow font-bold">Guardar</Text>}
         </Pressable>
         <Pressable onPress={() => setShowForm(false)} className="items-center py-2">

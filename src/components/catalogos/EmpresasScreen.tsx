@@ -48,6 +48,8 @@ export default function EmpresasScreen() {
     // Mismo formato que valida el backend (empresaAgendaSchema en
     // inglobal-site/lib/validations/agenda.ts).
     if (!/^[\d\s()+-]+$/.test(form.telefono)) return 'El teléfono tiene caracteres inválidos.'
+    // El regex de arriba solo filtra caracteres — "1" o "-" solos lo pasaban.
+    if (form.telefono.replace(/\D/g, '').length < 6) return 'El teléfono parece incompleto.'
     return null
   }
 
@@ -102,7 +104,8 @@ export default function EmpresasScreen() {
 
         {error && <ErrorBanner message={error} />}
 
-        <Pressable onPress={handleSave} disabled={saving} className="bg-igb-yellow rounded-lg py-3.5 items-center mb-3 disabled:opacity-60">
+        {/* ponytail: disabled: no aplica en RN Web — opacity a mano. */}
+        <Pressable onPress={handleSave} disabled={saving} className={`bg-igb-yellow rounded-lg py-3.5 items-center mb-3 ${saving ? 'opacity-60' : ''}`}>
           {saving ? <ActivityIndicator color="#221b00" /> : <Text className="text-igb-on-yellow font-bold">Guardar</Text>}
         </Pressable>
         <Pressable onPress={() => setShowForm(false)} className="items-center py-2">
