@@ -406,7 +406,7 @@ export default function AgendaScreen() {
       const bottom = Math.min(days.length * DAY_HEIGHT, endDayIdx * DAY_HEIGHT + (endMin / 60) * PX_PER_HOUR)
       return { key: `${s.ev.id}-${s.dayStr}`, ev: s.ev, top, height: Math.max(bottom - top, MIN_CARD_HEIGHT), lane: slot.lane, lanes: slot.lanes }
     })
-  }, [eventos, days])
+  }, [eventos, days, windowStart, windowEnd])
 
   // ponytail: la grilla de horas (24 * days.length filas) no depende de eventos/foco/tick,
   // solo de `days` — sin memo se reconstruía en cada render (cada 60s del reloj, cada

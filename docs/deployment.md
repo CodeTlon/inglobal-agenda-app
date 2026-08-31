@@ -15,7 +15,7 @@ La app no tiene backend propio — pega contra `inglobal-site` (Next.js, repo se
 ```
 owner:         codetlon
 slug:          inglobal-app
-projectId:     3e7abcfa-9976-4f57-9960-e9983c066337
+projectId:     d3b93c02-aadf-4f1a-acf5-a4920d5ef4fb
 bundleId/pkg:  com.gruasinglobal.agenda   (mismo para iOS y Android)
 ```
 
@@ -28,7 +28,7 @@ Esto es lo que hay activo hoy. Publica el JS a los servers de Expo, se abre desd
 - Canal: **`preview`** (creado y linkeado a la branch `preview` con `eas channel:create`).
 - Link fijo para el equipo (no cambia entre publicaciones):
   ```
-  exp://u.expo.dev/3e7abcfa-9976-4f57-9960-e9983c066337?channel-name=preview
+  exp://u.expo.dev/d3b93c02-aadf-4f1a-acf5-a4920d5ef4fb?channel-name=preview
   ```
 - Para republicar después de cambios:
   ```bash

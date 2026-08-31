@@ -50,7 +50,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "InGlobal Agenda usa tus fotos para elegir el logo de una empresa."
+          "photosPermission": "InGlobal Agenda usa tus fotos para elegir la foto de una grúa, un operario o el logo de una empresa."
         }
       ]
     ],

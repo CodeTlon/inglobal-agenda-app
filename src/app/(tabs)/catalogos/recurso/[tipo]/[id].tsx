@@ -53,7 +53,12 @@ async function subirFoto(carpeta: string, id: string, uri: string): Promise<stri
     upsert: true,
   })
   if (error) throw error
-  return supabase.storage.from('media').getPublicUrl(path).data.publicUrl
+  // `upsert: true` sube siempre al mismo path — la publicUrl da idéntica antes y
+  // después de reemplazar la foto, así que <Image> (cachea por URL) puede seguir
+  // mostrando la vieja después de subir una nueva, en este dispositivo y en el de
+  // cualquiera que ya la haya visto. Cache-buster en la URL que se guarda (no solo
+  // al renderizar) para que el cambio se note para todos, no solo localmente.
+  return `${supabase.storage.from('media').getPublicUrl(path).data.publicUrl}?t=${Date.now()}`
 }
 
 function fotoDe(tipo: Tipo, recurso: Recurso): string | null {
