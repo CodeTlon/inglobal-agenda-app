@@ -94,6 +94,7 @@ export default function RecursoDetalleScreen() {
       .finally(() => setLoading(false))
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount clásico, load() ya resetea loading/error antes de pedir datos
   useEffect(load, [tipo, id])
 
   async function handleElegirFoto() {

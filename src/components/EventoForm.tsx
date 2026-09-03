@@ -86,6 +86,7 @@ export function EventoForm({
     // sigue siendo la última pedida, si no `ocupados` podía terminar
     // reflejando la disponibilidad de un horario distinto al elegido.
     const requestId = ++ocupadosRequestRef.current
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- limpia el error previo antes de re-pedir; requestId ya evita condiciones de carrera
     setOcupadosError(false)
     getRecursosOcupados({ fecha, fechaHasta: fechaHasta || null, horaInicio, horaFin: horaFin || null, excludeEventoId: initial?.id })
       .then((data) => {

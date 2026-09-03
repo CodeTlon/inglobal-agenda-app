@@ -52,6 +52,7 @@ export function AgendaMonthView({
   // toda la grilla detrás de un spinner de pantalla completa aunque los
   // datos ya estuvieran cacheados.
   const hasLoadedOnceRef = useRef(false)
+  /* eslint-disable react-hooks/preserve-manual-memoization -- desde/hasta salen de `weeks` (getMonthMatrix), el compiler no puede probar que no mutan; el guard `cancelled` ya evita condiciones de carrera a mano */
   useFocusEffect(
     useCallback(() => {
       let cancelled = false
@@ -75,6 +76,7 @@ export function AgendaMonthView({
       }
     }, [desde, hasta]),
   )
+  /* eslint-enable react-hooks/preserve-manual-memoization */
 
   return (
     <View className="flex-1 bg-igb-surface">
