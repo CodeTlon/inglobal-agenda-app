@@ -25,6 +25,10 @@ export default function EmpresasScreen() {
   const [error, setError] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [fotoUri, setFotoUri] = useState<string | null>(null)
+  // Si falla la subida de logo después de crear la empresa, guardamos el id
+  // acá para que "Guardar" de nuevo reintente sobre el mismo id en vez de
+  // crear una empresa duplicada — el form se queda abierto con la selección.
+  const [createdId, setCreatedId] = useState<string | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -42,6 +46,7 @@ export default function EmpresasScreen() {
   function openNew() {
     setForm(EMPTY)
     setFotoUri(null)
+    setCreatedId(null)
     setError(null)
     setShowForm(true)
   }
@@ -71,21 +76,28 @@ export default function EmpresasScreen() {
     }
     setSaving(true)
     setError(null)
+    const yaCreada = !!createdId
+    let id = createdId
     try {
       const payload = { nombre: form.nombre, contacto: form.contacto, telefono: form.telefono, notas: form.notas || null }
-      const { id } = await createEmpresaAgenda(payload)
+      if (!id) {
+        id = (await createEmpresaAgenda(payload)).id
+        setCreatedId(id)
+      }
       if (fotoUri) {
-        try {
-          const logo_url = await subirFoto('empresa-logos', id, fotoUri)
-          await updateEmpresaAgenda(id, { ...payload, logo_url })
-        } catch (e) {
-          showApiError(e, 'La empresa se creó pero no se pudo subir el logo.', 'No se pudo subir el logo')
-        }
+        const logo_url = await subirFoto('empresa-logos', id, fotoUri)
+        await updateEmpresaAgenda(id, { ...payload, logo_url })
+      } else if (yaCreada) {
+        await updateEmpresaAgenda(id, payload)
       }
       setShowForm(false)
+      setCreatedId(null)
       load()
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'No se pudo guardar.')
+      // Si ya se creó pero falló el logo (o una edición en el reintento), no
+      // se cierra el form ni se pierde la selección — "Guardar" de nuevo
+      // reintenta sobre el mismo id, no duplica la empresa.
+      setError(e instanceof ApiError ? e.message : id ? 'Se creó pero no se pudo subir el logo. Probá guardar de nuevo.' : 'No se pudo guardar.')
     } finally {
       setSaving(false)
     }

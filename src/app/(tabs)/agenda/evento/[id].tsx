@@ -77,7 +77,7 @@ export default function EventoScreen() {
             await updateEvento(evento.id, payload)
             setEvento({ ...evento, estado: nuevo })
           } catch (e) {
-            showApiError(e, 'No se pudo cambiar el estado.', 'No se pudo cambiar el estado')
+            showApiError(e, 'Revisá tu conexión e intentá de nuevo.', 'No se pudo cambiar el estado')
           } finally {
             setCambiandoEstado(false)
           }
@@ -171,9 +171,13 @@ export default function EventoScreen() {
           </View>
         )}
 
-        <Pressable onPress={() => setEditando(true)} className="bg-igb-yellow rounded-lg py-3.5 items-center">
-          <Text className="text-igb-on-yellow font-bold">Editar</Text>
-        </Pressable>
+        {/* En en_curso/cancelado/finalizado no se puede editar — EventoForm
+            bloquea los campos igual, pero mejor ni ofrecer el botón. */}
+        {!['en_curso', 'cancelado', 'finalizado'].includes(estadoVisual) && (
+          <Pressable onPress={() => setEditando(true)} className="bg-igb-yellow rounded-lg py-3.5 items-center">
+            <Text className="text-igb-on-yellow font-bold">Editar</Text>
+          </Pressable>
+        )}
 
         <Pressable onPress={handleDelete} className="border border-igb-error/30 rounded-lg py-2.5 items-center">
           <Text className="text-igb-error font-medium">Eliminar evento</Text>

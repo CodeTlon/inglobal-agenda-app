@@ -469,8 +469,11 @@ export default function AgendaScreen() {
                   // ponytail: setViewMode primero para que el ScrollView de día
                   // (timelineRef) llegue a montar antes de que goTo intente scrollear;
                   // si no, scrollTo es un no-op y la vista día abre en el día equivocado.
+                  // animated=false: al cambiar de nivel de zoom (semana→día) el
+                  // salto debe ser instantáneo — la animación se reserva para
+                  // moverse dentro del mismo nivel (flechas prev/next día).
                   setViewMode('day')
-                  requestAnimationFrame(() => goTo(d))
+                  requestAnimationFrame(() => goTo(d, false))
                 }}
                 onChangeWeek={setFocused}
                 onBack={() => setViewMode('month')}

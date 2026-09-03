@@ -31,12 +31,17 @@ export default function GruasScreen() {
   // URI local elegida en el picker — todavía no hay id de grúa para subirla
   // al storage, se sube recién en handleSave una vez creada.
   const [fotoUri, setFotoUri] = useState<string | null>(null)
+  // Si falla la subida de foto después de crear la grúa, guardamos el id acá
+  // para que "Guardar" de nuevo reintente la foto en vez de crear un
+  // duplicado — el form se queda abierto con la selección intacta.
+  const [createdId, setCreatedId] = useState<string | null>(null)
 
   // Editar una grúa existente vive en su pantalla de detalle, no acá — este
   // form solo se usa para dar de alta una nueva.
   function openNew() {
     setForm(EMPTY)
     setFotoUri(null)
+    setCreatedId(null)
     setError(null)
     setShowForm(true)
   }
@@ -64,25 +69,30 @@ export default function GruasScreen() {
     }
     setSaving(true)
     setError(null)
+    // Ya creada de un intento anterior (falló la foto) — reintentamos sobre
+    // el mismo id en vez de crear una grúa duplicada.
+    const yaCreada = !!createdId
+    let id = createdId
     try {
       const payload = { nombre: form.nombre, patente: form.patente, capacidad_toneladas: Number(form.capacidad_toneladas), tipo: form.tipo }
-      const { id } = await createGrua(payload)
+      if (!id) {
+        id = (await createGrua(payload)).id
+        setCreatedId(id)
+      }
       if (fotoUri) {
-        // La grúa ya existe en este punto — si falla la subida no hacemos
-        // rollback, queda creada sin foto y se puede agregar después desde
-        // la edición (mismo criterio de tolerancia a fallos que usa esa
-        // pantalla para su propio picker de foto).
-        try {
-          const foto_url = await subirFoto('grua-fotos', id, fotoUri)
-          await updateGrua(id, { ...payload, foto_url })
-        } catch (e) {
-          showApiError(e, 'La grúa se creó pero no se pudo subir la foto.', 'No se pudo subir la foto')
-        }
+        const foto_url = await subirFoto('grua-fotos', id, fotoUri)
+        await updateGrua(id, { ...payload, foto_url })
+      } else if (yaCreada) {
+        await updateGrua(id, payload)
       }
       setShowForm(false)
+      setCreatedId(null)
       load()
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'No se pudo guardar.')
+      // Si ya se creó pero falló la foto (o una edición en el reintento), no
+      // se cierra el form ni se pierde la selección — "Guardar" de nuevo
+      // reintenta sobre el mismo id (ver createdId), no duplica la grúa.
+      setError(e instanceof ApiError ? e.message : id ? 'Se creó pero no se pudo subir la foto. Probá guardar de nuevo.' : 'No se pudo guardar.')
     } finally {
       setSaving(false)
     }

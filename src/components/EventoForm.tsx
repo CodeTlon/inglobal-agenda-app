@@ -16,12 +16,22 @@ import {
   type EventoPayload,
 } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
-import { toDateInput, formatEstado } from '@/lib/agenda-view'
+import { toDateInput, formatEstado, getEstadoVisual } from '@/lib/agenda-view'
 import { type EstadoEvento, type EventoAgenda, type Grua, type EmpresaAgenda, type Operario } from '@/lib/types'
 import { colors } from '@/lib/colors'
 
 // Lista de horarios en pasos de 15' (00:00..23:45) para elegir hora rápido
 // tipeando/scrolleando en vez de girar la rueda del picker nativo.
+// Mismo umbral que exige el server (MIN_DURACION_MIN en
+// inglobal-site/lib/validations/agenda.ts) — validado acá también para no
+// hacer ida y vuelta al server por algo que se puede saber al tipear.
+const MIN_DURACION_MIN = 15
+
+function minutosDelDia(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number)
+  return h * 60 + m
+}
+
 const TIME_OPTIONS = Array.from({ length: 24 * 4 }, (_, i) => {
   const h = String(Math.floor(i / 4)).padStart(2, '0')
   const m = String((i % 4) * 15).padStart(2, '0')
@@ -38,7 +48,11 @@ export function EventoForm({
   footer?: ReactNode
 }) {
   const isEdit = !!initial
-  const locked = isEdit && ['en_curso', 'cancelado', 'finalizado'].includes(initial.estado)
+  // Usa el estado VISUAL (no el crudo de la DB) — un evento que el usuario ve
+  // como "Finalizado" por ventana horaria vencida puede seguir en estado
+  // 'programado' en la base hasta que alguien vuelva a leerlo (ver
+  // getEstadoVisual), y no debería quedar editable solo por ese desfasaje.
+  const locked = isEdit && ['en_curso', 'cancelado', 'finalizado'].includes(getEstadoVisual(initial))
 
   const [gruas, setGruas] = useState<Grua[]>([])
   const [empresas, setEmpresas] = useState<EmpresaAgenda[]>([])
@@ -55,6 +69,21 @@ export function EventoForm({
   const [notas, setNotas] = useState(initial?.notas ?? '')
   const [estado, setEstado] = useState<EstadoEvento>(initial?.estado ?? 'programado')
   const [operarioIds, setOperarioIds] = useState<string[]>(initial?.operarios.map((o) => o.id) ?? [])
+
+  // Al crear un evento hoy no tiene sentido ofrecer horas de inicio ya
+  // pasadas — esto NO toca el picker de hora de fin, que en el caso
+  // nocturno (22:00→02:00) es del día siguiente y "menor" en el reloj.
+  const todayStr = toDateInput(new Date())
+  const nowMinutes = minutosDelDia(`${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`)
+  const horaInicioOptions = !isEdit && fecha === todayStr ? TIME_OPTIONS.filter((t) => minutosDelDia(t) >= nowMinutes) : TIME_OPTIONS
+
+  useEffect(() => {
+    if (!isEdit && fecha === todayStr && horaInicioOptions.length > 0 && !horaInicioOptions.includes(horaInicio)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- corrige un horaInicio que quedó en el pasado al cambiar de fecha, no un fetch
+      setHoraInicio(horaInicioOptions[0])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo debe reaccionar a cambios de fecha, no en cada minuto que pasa
+  }, [fecha])
 
   const [ocupados, setOcupados] = useState<{ gruaIds: string[]; operarioIds: string[] }>({ gruaIds: [], operarioIds: [] })
   const [ocupadosError, setOcupadosError] = useState(false)
@@ -153,6 +182,19 @@ export function EventoForm({
       setError('La hora de fin debe ser posterior a la hora de inicio.')
       return
     }
+    // Duración mínima — mismo umbral que ya validaba el server (por eso
+    // este error se veía recién después de guardar). Cruza medianoche:
+    // la duración real suma lo que queda del día 1 más lo del día 2.
+    const crossesMidnight = !fechaHasta && !!horaFin && horaFin <= horaInicio
+    if (horaFin && (crossesMidnight || fechaHasta === fecha)) {
+      const durMin = crossesMidnight
+        ? 24 * 60 - minutosDelDia(horaInicio) + minutosDelDia(horaFin)
+        : minutosDelDia(horaFin) - minutosDelDia(horaInicio)
+      if (durMin < MIN_DURACION_MIN) {
+        setError(`La hora de fin debe ser al menos ${MIN_DURACION_MIN} minutos después de la de inicio.`)
+        return
+      }
+    }
     setSaving(true)
     setError(null)
     const payload: EventoPayload = {
@@ -216,7 +258,7 @@ export function EventoForm({
           <Field label="Hora de inicio">
             <View className="border border-igb-outline rounded-lg bg-white">
               <Picker enabled={!locked} selectedValue={horaInicio} onValueChange={setHoraInicio}>
-                {TIME_OPTIONS.map((t) => (
+                {horaInicioOptions.map((t) => (
                   <Picker.Item key={t} label={t} value={t} />
                 ))}
               </Picker>
@@ -250,17 +292,17 @@ export function EventoForm({
           minimumDate={!isEdit ? (showPicker === 'fechaHasta' ? new Date(`${fecha}T00:00:00`) : new Date()) : undefined}
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          // En iOS el spinner dispara onChange en cada vuelta de rueda (a
+          // En iOS el spinner dispara onValueChange en cada vuelta de rueda (a
           // diferencia del diálogo modal de Android, que confirma una sola
           // vez) — cerrar acá lo desmontaba apenas el usuario tocaba el
           // selector, sin dejarlo llegar a la fecha elegida. En iOS solo
           // actualiza el valor; el botón "Listo" de abajo cierra.
-          onChange={(_, date) => {
+          onValueChange={(_, date) => {
             if (Platform.OS !== 'ios') setShowPicker(null)
-            if (!date) return
             if (showPicker === 'fecha') setFecha(toDateInput(date))
             else setFechaHasta(toDateInput(date))
           }}
+          onDismiss={() => setShowPicker(null)}
         />
       )}
       {showPicker && Platform.OS === 'ios' && (
@@ -280,16 +322,17 @@ export function EventoForm({
             .map((g) => {
               const ocupada = ocupados.gruaIds.includes(g.id)
               const selected = gruaId === g.id
+              const isDisabled = locked || (ocupada && !selected)
               return (
                 <Pressable
                   key={g.id}
                   // Ya seleccionada se deja elegible para no trabar el form si
                   // se ocupó después de elegirla (ej. se cambió el horario).
-                  disabled={locked || (ocupada && !selected)}
+                  disabled={isDisabled}
                   onPress={() => setGruaId(g.id)}
                   className="flex-row items-center py-2 px-1"
                 >
-                  <View className={`w-5 h-5 rounded-full border mr-3 items-center justify-center ${selected ? 'border-igb-yellow' : 'border-igb-outline'}`}>
+                  <View className={`w-5 h-5 rounded-full border mr-3 items-center justify-center ${isDisabled ? 'opacity-40' : ''} ${selected ? 'border-igb-yellow' : 'border-igb-outline'}`}>
                     {selected && <View className="w-2.5 h-2.5 rounded-full bg-igb-yellow" />}
                   </View>
                   <Text className={ocupada ? 'text-igb-error flex-1' : !g.activo ? 'text-igb-secondary flex-1' : 'text-igb-on-surface flex-1'} numberOfLines={1}>
@@ -322,16 +365,17 @@ export function EventoForm({
             .map((o) => {
             const selected = operarioIds.includes(o.id)
             const ocupado = ocupados.operarioIds.includes(o.id)
+            const isDisabled = locked || (ocupado && !selected)
             return (
               <Pressable
                 key={o.id}
                 // Ya seleccionado se deja togglable para no trabar la lista si
                 // se ocupó después de elegirlo (ej. se cambió el horario).
-                disabled={locked || (ocupado && !selected)}
+                disabled={isDisabled}
                 onPress={() => toggleOperario(o.id)}
                 className="flex-row items-center py-2 px-1"
               >
-                <View className={`w-5 h-5 rounded border mr-3 items-center justify-center ${selected ? 'bg-igb-yellow border-igb-yellow' : 'border-igb-outline'}`}>
+                <View className={`w-5 h-5 rounded border mr-3 items-center justify-center ${isDisabled ? 'opacity-40' : ''} ${selected ? 'bg-igb-yellow border-igb-yellow' : 'border-igb-outline'}`}>
                   {selected && <Ionicons name="checkmark" size={14} color={colors.onYellow} />}
                 </View>
                 <Text className={ocupado ? 'text-igb-error flex-1' : !o.activo ? 'text-igb-secondary flex-1' : 'text-igb-on-surface flex-1'} numberOfLines={1}>

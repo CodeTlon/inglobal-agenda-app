@@ -13,7 +13,15 @@ const NETWORK_ERROR_MESSAGE = 'No se pudo conectar. Revisá tu conexión a inter
 // falta persistirlo, es solo para frenar reintentos rápidos de credenciales
 // mientras el rate limit real de Supabase (más laxo) no llega a dispararse.
 const MAX_FAILED_ATTEMPTS = 5
-const COOLDOWN_MS = 30_000
+const BASE_COOLDOWN_MS = 30_000
+const MAX_COOLDOWN_MS = 5 * 60_000
+
+// Backoff exponencial: 30s, 60s, 120s, 240s, tope 5min — cooldownStreak
+// cuenta cuántos bloqueos van seguidos (solo se resetea con un login
+// exitoso, a diferencia de failedAttempts que se resetea en cada bloqueo).
+function cooldownFor(streak: number): number {
+  return Math.min(BASE_COOLDOWN_MS * 2 ** streak, MAX_COOLDOWN_MS)
+}
 
 function authErrorMessage(error: AuthError): string {
   if (error.code === 'invalid_credentials') return 'Email o contraseña incorrectos.'
@@ -40,6 +48,7 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null)
   const [failedAttempts, setFailedAttempts] = useState(0)
   const [coolingDown, setCoolingDown] = useState(false)
+  const [cooldownStreak, setCooldownStreak] = useState(0)
 
   // El error de login queda pegado en pantalla para siempre si no lo
   // limpiamos nosotros — se auto-oculta a los 5s, salvo el aviso de cooldown
@@ -65,13 +74,15 @@ export default function LoginScreen() {
         if (authError.status !== 0) {
           const next = failedAttempts + 1
           if (next >= MAX_FAILED_ATTEMPTS) {
+            const ms = cooldownFor(cooldownStreak)
             setFailedAttempts(0)
+            setCooldownStreak((s) => s + 1)
             setCoolingDown(true)
-            setError('Demasiados intentos fallidos. Esperá 30 segundos e intentá de nuevo.')
+            setError(`Demasiados intentos fallidos. Esperá ${Math.round(ms / 1000)}s e intentá de nuevo.`)
             setTimeout(() => {
               setCoolingDown(false)
               setError(null)
-            }, COOLDOWN_MS)
+            }, ms)
             return
           }
           setFailedAttempts(next)
@@ -79,6 +90,7 @@ export default function LoginScreen() {
         setError(authErrorMessage(authError))
       } else {
         setFailedAttempts(0)
+        setCooldownStreak(0)
       }
     } catch (e) {
       console.error('[login] network/unexpected error', e)

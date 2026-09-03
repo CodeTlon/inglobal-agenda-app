@@ -108,7 +108,7 @@ export default function RecursoDetalleScreen() {
       await guardarRecurso(tipo, id, recurso, url)
       load()
     } catch (e) {
-      showApiError(e, 'No se pudo subir la foto.', 'No se pudo subir la foto')
+      showApiError(e, 'Revisá tu conexión e intentá de nuevo.', 'No se pudo subir la foto')
     } finally {
       setUploading(false)
     }

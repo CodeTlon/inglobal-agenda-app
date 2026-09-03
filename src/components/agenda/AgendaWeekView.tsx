@@ -39,6 +39,9 @@ export function AgendaWeekView({
   const todayStr = toDateInput(new Date())
   const weekStartStr = toDateInput(weekStart)
   const weekEndStr = toDateInput(addDays(weekStart, 6))
+  // Mismo criterio que AgendaMonthView: en la semana actual se pinta solo
+  // hoy; en cualquier otra, el primer día de esa semana hace de ancla.
+  const isCurrentWeekView = weekStartStr <= todayStr && todayStr <= weekEndStr
 
   // useFocusEffect (no un useEffect atado solo a [weekStartStr, weekEndStr])
   // para que también recargue al volver de crear/editar/borrar un evento.
@@ -77,13 +80,17 @@ export function AgendaWeekView({
         <Pressable onPress={onBack} className="p-2">
           <Text className="text-sm text-igb-secondary">◂ Mes</Text>
         </Pressable>
-        <Pressable onPress={() => onChangeWeek(addDays(weekStart, -7))} className="p-2">
+        {/* Navega desde el día enfocado (no desde el lunes de weekStart) para
+            preservar el día de semana al ir y volver — si no, "focused"
+            quedaba pegado al lunes y podía pintar dos días a la vez (el
+            lunes por foco, hoy por ancla) al volver a la semana actual. */}
+        <Pressable onPress={() => onChangeWeek(addDays(new Date(`${focusedStr}T00:00:00`), -7))} className="p-2">
           <Text className="text-lg">‹</Text>
         </Pressable>
         <Text className="font-semibold text-igb-on-surface">
           {weekStart.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })} - {addDays(weekStart, 6).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
         </Text>
-        <Pressable onPress={() => onChangeWeek(addDays(weekStart, 7))} className="p-2">
+        <Pressable onPress={() => onChangeWeek(addDays(new Date(`${focusedStr}T00:00:00`), 7))} className="p-2">
           <Text className="text-lg">›</Text>
         </Pressable>
         <EstadoLegend />
@@ -102,6 +109,7 @@ export function AgendaWeekView({
           {weekDays.map((day, i) => {
             const dStr = toDateInput(day)
             const isToday = dStr === todayStr
+            const isAnchor = isCurrentWeekView ? isToday : dStr === weekStartStr
             const isFocused = dStr === focusedStr
             const delDia = eventos
               .filter((ev) => eventoOcurreEn(ev, dStr))
@@ -110,7 +118,7 @@ export function AgendaWeekView({
               <View key={dStr} className="flex-1 border-r border-igb-outline">
                 <Pressable
                   onPress={() => onSelectDay(day)}
-                  className={`items-center py-2 ${isFocused ? 'bg-igb-yellow' : isToday ? 'bg-igb-yellow/10' : ''}`}
+                  className={`items-center py-2 ${isFocused ? 'bg-igb-yellow' : isAnchor ? 'bg-igb-yellow/10' : ''}`}
                 >
                   <Text className={`text-[10px] ${isFocused ? 'text-igb-on-yellow' : 'text-igb-secondary'}`}>{DIAS[i]}</Text>
                   <Text className={`text-sm font-semibold ${isFocused ? 'text-igb-on-yellow' : 'text-igb-on-surface'}`}>

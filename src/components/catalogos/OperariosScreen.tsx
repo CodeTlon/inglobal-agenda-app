@@ -28,12 +28,17 @@ export default function OperariosScreen() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fotoUri, setFotoUri] = useState<string | null>(null)
+  // Si falla la subida de foto después de crear el operario, guardamos el id
+  // acá para que "Guardar" de nuevo reintente sobre el mismo id en vez de
+  // crear un duplicado — el form se queda abierto con la selección intacta.
+  const [createdId, setCreatedId] = useState<string | null>(null)
 
   // Editar un operario existente vive en su pantalla de detalle, no acá —
   // este form solo se usa para dar de alta uno nuevo.
   function openNew() {
     setForm(EMPTY)
     setFotoUri(null)
+    setCreatedId(null)
     setError(null)
     setShowForm(true)
   }
@@ -63,20 +68,27 @@ export default function OperariosScreen() {
     }
     setSaving(true)
     setError(null)
+    const yaCreado = !!createdId
+    let id = createdId
     try {
-      const { id } = await createOperario(form)
+      if (!id) {
+        id = (await createOperario(form)).id
+        setCreatedId(id)
+      }
       if (fotoUri) {
-        try {
-          const foto_url = await subirFoto('operario-fotos', id, fotoUri)
-          await updateOperario(id, { ...form, foto_url })
-        } catch (e) {
-          showApiError(e, 'El operario se creó pero no se pudo subir la foto.', 'No se pudo subir la foto')
-        }
+        const foto_url = await subirFoto('operario-fotos', id, fotoUri)
+        await updateOperario(id, { ...form, foto_url })
+      } else if (yaCreado) {
+        await updateOperario(id, form)
       }
       setShowForm(false)
+      setCreatedId(null)
       load()
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'No se pudo guardar.')
+      // Si ya se creó pero falló la foto (o una edición en el reintento), no
+      // se cierra el form ni se pierde la selección — "Guardar" de nuevo
+      // reintenta sobre el mismo id, no duplica el operario.
+      setError(e instanceof ApiError ? e.message : id ? 'Se creó pero no se pudo subir la foto. Probá guardar de nuevo.' : 'No se pudo guardar.')
     } finally {
       setSaving(false)
     }
