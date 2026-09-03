@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { Text } from '@/components/Text'
 import { ESTADOS_EVENTO } from '@/lib/types'
 import { estadoStripColor, formatEstado } from '@/lib/agenda-view'
+import { colors } from '@/lib/colors'
 
 /** Ícono de info que despliega, en un modal, qué significa cada color de estado. */
 export function EstadoLegend() {
@@ -12,7 +13,7 @@ export function EstadoLegend() {
   return (
     <>
       <Pressable onPress={() => setOpen(true)} hitSlop={8}>
-        <Ionicons name="information-circle-outline" size={18} color="#575d78" />
+        <Ionicons name="information-circle-outline" size={18} color={colors.secondary} />
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>

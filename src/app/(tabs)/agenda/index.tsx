@@ -22,6 +22,7 @@ import type { EventoAgenda } from '@/lib/types'
 import { EstadoLegend } from '@/components/EstadoLegend'
 import { AgendaMonthView } from '@/components/agenda/AgendaMonthView'
 import { AgendaWeekView } from '@/components/agenda/AgendaWeekView'
+import { colors } from '@/lib/colors'
 
 const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const PX_PER_HOUR = 60
@@ -534,11 +535,11 @@ export default function AgendaScreen() {
 
       {loading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color="#f5d100" />
+          <ActivityIndicator color={colors.yellow} />
         </View>
       ) : error ? (
         <View className="flex-1 items-center px-4 pt-8">
-          <Text className="text-red-600 text-center">{error}</Text>
+          <Text className="text-igb-error text-center">{error}</Text>
         </View>
       ) : (
         <ScrollView
@@ -555,7 +556,7 @@ export default function AgendaScreen() {
 
             {todayIdx !== -1 && (
               <View
-                className="absolute left-[48px] right-3 h-[2px] bg-red-500 z-10"
+                className="absolute left-[48px] right-3 h-[2px] bg-igb-error z-10"
                 style={{ top: todayIdx * DAY_HEIGHT + (nowMinutes() / 60) * PX_PER_HOUR }}
               />
             )}

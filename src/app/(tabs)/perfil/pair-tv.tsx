@@ -4,6 +4,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera'
 import { Ionicons } from '@expo/vector-icons'
 import { Text } from '@/components/Text'
 import { api, ApiError } from '@/lib/api'
+import { colors } from '@/lib/colors'
 
 function extractToken(scanned: string): string | null {
   try {
@@ -57,7 +58,7 @@ export default function PairTvScreen() {
           <Text className="text-igb-on-surface text-center mb-4">
             El acceso a la cámara está denegado. Activalo desde Ajustes para escanear el código QR de la TV.
           </Text>
-          <Pressable onPress={() => Linking.openSettings()} className="bg-igb-yellow rounded-lg px-6 py-3">
+          <Pressable onPress={() => Linking.openSettings()} className="bg-igb-yellow rounded-lg px-6 py-3.5">
             <Text className="text-igb-on-yellow font-bold">Abrir Ajustes</Text>
           </Pressable>
         </View>
@@ -66,7 +67,7 @@ export default function PairTvScreen() {
     return (
       <View className="flex-1 items-center justify-center bg-igb-surface p-8">
         <Text className="text-igb-on-surface text-center mb-4">Necesitamos acceso a la cámara para escanear el código QR de la TV.</Text>
-        <Pressable onPress={requestPermission} className="bg-igb-yellow rounded-lg px-6 py-3">
+        <Pressable onPress={requestPermission} className="bg-igb-yellow rounded-lg px-6 py-3.5">
           <Text className="text-igb-on-yellow font-bold">Dar permiso</Text>
         </Pressable>
       </View>
@@ -76,10 +77,10 @@ export default function PairTvScreen() {
   if (result === 'ok') {
     return (
       <View className="flex-1 items-center justify-center bg-igb-surface p-8">
-        <Ionicons name="checkmark-circle" size={48} color="#16a34a" style={{ marginBottom: 16 }} />
+        <Ionicons name="checkmark-circle" size={48} color={colors.success} style={{ marginBottom: 16 }} />
         <Text className="text-igb-on-surface font-semibold text-lg mb-2 text-center">TV vinculada</Text>
         <Text className="text-igb-secondary text-center mb-6">La televisión ya debería mostrar la agenda.</Text>
-        <Pressable onPress={reset} className="bg-igb-yellow rounded-lg px-6 py-3">
+        <Pressable onPress={reset} className="bg-igb-yellow rounded-lg px-6 py-3.5">
           <Text className="text-igb-on-yellow font-bold">Vincular otra</Text>
         </Pressable>
       </View>
@@ -89,12 +90,12 @@ export default function PairTvScreen() {
   if (scannedToken) {
     return (
       <View className="flex-1 items-center justify-center bg-igb-surface p-8">
-        <Ionicons name="tv-outline" size={48} color="#1C357F" style={{ marginBottom: 16 }} />
+        <Ionicons name="tv-outline" size={48} color={colors.navy} style={{ marginBottom: 16 }} />
         <Text className="text-igb-on-surface font-semibold text-lg mb-2 text-center">¿Aprobar el inicio de sesión en esta TV?</Text>
         {result === 'error' && <Text className="text-igb-error text-center mb-4">{errorMsg}</Text>}
         {/* ponytail: disabled: no aplica en RN Web — opacity a mano. */}
-        <Pressable onPress={handleApprove} disabled={approving} className={`bg-igb-yellow rounded-lg px-6 py-3 mb-3 w-full items-center ${approving ? 'opacity-60' : ''}`}>
-          {approving ? <ActivityIndicator color="#221b00" /> : <Text className="text-igb-on-yellow font-bold">Aprobar</Text>}
+        <Pressable onPress={handleApprove} disabled={approving} className={`bg-igb-yellow rounded-lg py-3.5 mb-3 w-full items-center ${approving ? 'opacity-60' : ''}`}>
+          {approving ? <ActivityIndicator color={colors.onYellow} /> : <Text className="text-igb-on-yellow font-bold">Aprobar</Text>}
         </Pressable>
         <Pressable onPress={reset} hitSlop={8} className="items-center py-2">
           <Text className="text-igb-secondary">Cancelar</Text>

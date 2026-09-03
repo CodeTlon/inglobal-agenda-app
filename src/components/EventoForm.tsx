@@ -18,6 +18,7 @@ import {
 import { ApiError } from '@/lib/api'
 import { toDateInput, formatEstado } from '@/lib/agenda-view'
 import { type EstadoEvento, type EventoAgenda, type Grua, type EmpresaAgenda, type Operario } from '@/lib/types'
+import { colors } from '@/lib/colors'
 
 // Lista de horarios en pasos de 15' (00:00..23:45) para elegir hora rápido
 // tipeando/scrolleando en vez de girar la rueda del picker nativo.
@@ -143,7 +144,11 @@ export function EventoForm({
       setError('La fecha de fin no puede ser anterior a la fecha de inicio.')
       return
     }
-    if ((!fechaHasta || fechaHasta === fecha) && horaFin && horaFin <= horaInicio) {
+    // Sin fecha_hasta, hora_fin <= hora_inicio significa "cruza medianoche"
+    // (turno nocturno, ej. 22:00→02:00) — caso válido, mismo criterio que
+    // crossesMidnight en agenda-view.ts/agenda/index.tsx. Solo es error de
+    // verdad cuando el rango es explícitamente el mismo día.
+    if (fechaHasta === fecha && horaFin && horaFin <= horaInicio) {
       setError('La hora de fin debe ser posterior a la hora de inicio.')
       return
     }
@@ -175,7 +180,7 @@ export function EventoForm({
   if (loadingCatalogos) {
     return (
       <View className="flex-1 items-center justify-center bg-igb-surface">
-        <ActivityIndicator color="#f5d100" />
+        <ActivityIndicator color={colors.yellow} />
       </View>
     )
   }
@@ -326,7 +331,7 @@ export function EventoForm({
                 className="flex-row items-center py-2 px-1"
               >
                 <View className={`w-5 h-5 rounded border mr-3 items-center justify-center ${selected ? 'bg-igb-yellow border-igb-yellow' : 'border-igb-outline'}`}>
-                  {selected && <Ionicons name="checkmark" size={14} color="#221b00" />}
+                  {selected && <Ionicons name="checkmark" size={14} color={colors.onYellow} />}
                 </View>
                 <Text className={ocupado ? 'text-igb-error flex-1' : !o.activo ? 'text-igb-secondary flex-1' : 'text-igb-on-surface flex-1'} numberOfLines={1}>
                   {o.nombre}{ocupado ? ' (ocupado)' : ''}{!o.activo ? ' (inactivo)' : ''}
@@ -387,7 +392,7 @@ export function EventoForm({
         disabled={saving || locked}
         className={`bg-igb-yellow rounded-lg py-3.5 items-center mt-2 ${saving || locked ? 'opacity-60' : ''}`}
       >
-        {saving ? <ActivityIndicator color="#221b00" /> : <Text className="text-igb-on-yellow font-bold">{isEdit ? 'Guardar cambios' : 'Crear evento'}</Text>}
+        {saving ? <ActivityIndicator color={colors.onYellow} /> : <Text className="text-igb-on-yellow font-bold">{isEdit ? 'Guardar cambios' : 'Crear evento'}</Text>}
       </Pressable>
       {footer}
     </ScrollView>

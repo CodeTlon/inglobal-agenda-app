@@ -3,7 +3,6 @@ import { View, ScrollView, Pressable, ActivityIndicator, Image, Alert } from 're
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Picker } from '@react-native-picker/picker'
 import { Ionicons } from '@expo/vector-icons'
-import * as ImagePicker from 'expo-image-picker'
 import { Text } from '@/components/Text'
 import { TextInput } from '@/components/TextInput'
 import { ErrorBanner } from '@/components/ErrorBanner'
@@ -21,9 +20,10 @@ import {
 } from '@/lib/agenda-api'
 import { showApiError } from '@/lib/alert'
 import { formatEstado, estadoColorClassesLight } from '@/lib/agenda-view'
-import { supabase } from '@/lib/supabase'
+import { subirFoto, elegirFotoDeGaleria } from '@/lib/media-upload'
 import { TIPOS_GRUA } from '@/lib/types'
 import type { Grua, EmpresaAgenda, Operario, EventoAgenda } from '@/lib/types'
+import { colors } from '@/lib/colors'
 
 type Tipo = 'gruas' | 'empresas' | 'operarios'
 type Recurso = Grua | EmpresaAgenda | Operario
@@ -39,27 +39,6 @@ const ICONO: Record<Tipo, 'car-outline' | 'business-outline' | 'people-outline'>
   operarios: 'people-outline',
 }
 const NOMBRE_TIPO: Record<Tipo, string> = { gruas: 'grúa', empresas: 'empresa', operarios: 'operario' }
-
-// La foto/logo se sube al bucket `media` que ya existe para el resto del
-// sitio (ver inglobal-site/supabase/migrations/006_storage_media.sql) —
-// nada de bucket ni políticas nuevas, solo una carpeta propia por tipo.
-async function subirFoto(carpeta: string, id: string, uri: string): Promise<string> {
-  const res = await fetch(uri)
-  const buffer = await res.arrayBuffer()
-  const esPng = uri.toLowerCase().endsWith('.png')
-  const path = `${carpeta}/${id}.${esPng ? 'png' : 'jpg'}`
-  const { error } = await supabase.storage.from('media').upload(path, buffer, {
-    contentType: esPng ? 'image/png' : 'image/jpeg',
-    upsert: true,
-  })
-  if (error) throw error
-  // `upsert: true` sube siempre al mismo path — la publicUrl da idéntica antes y
-  // después de reemplazar la foto, así que <Image> (cachea por URL) puede seguir
-  // mostrando la vieja después de subir una nueva, en este dispositivo y en el de
-  // cualquiera que ya la haya visto. Cache-buster en la URL que se guarda (no solo
-  // al renderizar) para que el cambio se note para todos, no solo localmente.
-  return `${supabase.storage.from('media').getPublicUrl(path).data.publicUrl}?t=${Date.now()}`
-}
 
 function fotoDe(tipo: Tipo, recurso: Recurso): string | null {
   return tipo === 'empresas' ? (recurso as EmpresaAgenda).logo_url : (recurso as Grua | Operario).foto_url
@@ -119,22 +98,12 @@ export default function RecursoDetalleScreen() {
 
   async function handleElegirFoto() {
     if (!recurso) return
-    const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync()
-    if (!permiso.granted) return
-    // allowsEditing abre el editor nativo del OS (iOS/Android) para
-    // recortar/centrar antes de confirmar — el "estándar" de subir foto,
-    // sin reinventar una UI de recorte a mano en RN.
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    })
-    if (result.canceled) return
+    const uri = await elegirFotoDeGaleria()
+    if (!uri) return
     setUploading(true)
     try {
       const carpeta = tipo === 'gruas' ? 'grua-fotos' : tipo === 'operarios' ? 'operario-fotos' : 'empresa-logos'
-      const url = await subirFoto(carpeta, id, result.assets[0].uri)
+      const url = await subirFoto(carpeta, id, uri)
       await guardarRecurso(tipo, id, recurso, url)
       load()
     } catch (e) {
@@ -226,7 +195,7 @@ export default function RecursoDetalleScreen() {
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center">
-        <ActivityIndicator color="#f5d100" />
+        <ActivityIndicator color={colors.yellow} />
       </View>
     )
   }
@@ -259,7 +228,7 @@ export default function RecursoDetalleScreen() {
             <Image source={{ uri: foto }} className="w-20 h-20 rounded-full mb-1" />
           ) : (
             <View className="w-20 h-20 rounded-full bg-igb-navy/10 items-center justify-center mb-1">
-              <Ionicons name={ICONO[tipo]} size={32} color="#1C357F" />
+              <Ionicons name={ICONO[tipo]} size={32} color={colors.navy} />
             </View>
           )}
           <Text className="text-igb-navy text-xs font-medium">{uploading ? 'Subiendo…' : foto ? 'Cambiar foto' : 'Agregar foto'}</Text>
@@ -298,10 +267,10 @@ export default function RecursoDetalleScreen() {
             {formError && <ErrorBanner message={formError} />}
             <View className="flex-row gap-2 mt-1">
               {/* ponytail: disabled: no aplica en RN Web — opacity a mano. */}
-              <Pressable onPress={handleSave} disabled={saving} className={`flex-1 bg-igb-yellow rounded-lg py-3 items-center ${saving ? 'opacity-60' : ''}`}>
-                {saving ? <ActivityIndicator color="#221b00" /> : <Text className="text-igb-on-yellow font-bold">Guardar</Text>}
+              <Pressable onPress={handleSave} disabled={saving} className={`flex-1 bg-igb-yellow rounded-lg py-3.5 items-center ${saving ? 'opacity-60' : ''}`}>
+                {saving ? <ActivityIndicator color={colors.onYellow} /> : <Text className="text-igb-on-yellow font-bold">Guardar</Text>}
               </Pressable>
-              <Pressable onPress={() => setEditing(false)} className="flex-1 border border-igb-outline rounded-lg py-3 items-center">
+              <Pressable onPress={() => setEditing(false)} className="flex-1 border border-igb-outline rounded-lg py-3.5 items-center">
                 <Text className="text-igb-secondary">Cancelar</Text>
               </Pressable>
             </View>

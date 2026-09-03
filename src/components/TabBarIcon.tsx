@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import type { ComponentProps } from 'react'
+import { colors } from '@/lib/colors'
 
 // Ítem de bottom tab: inactivo es ícono+label apilado gris; activo pasa a un
 // chip amarillo compacto, como en las referencias de diseño. tabBarShowLabel
@@ -23,14 +24,14 @@ export function TabBarIcon({
   if (focused) {
     return (
       <View style={styles.focusedPill}>
-        <Ionicons name={name} size={20} color="#221b00" />
+        <Ionicons name={name} size={20} color={colors.onYellow} />
         <Text style={styles.focusedLabel} numberOfLines={1}>{label}</Text>
       </View>
     )
   }
   return (
     <View style={styles.item}>
-      <Ionicons name={name} size={20} color="#575d78" />
+      <Ionicons name={name} size={20} color={colors.secondary} />
       <Text style={styles.label} numberOfLines={1}>{label}</Text>
     </View>
   )

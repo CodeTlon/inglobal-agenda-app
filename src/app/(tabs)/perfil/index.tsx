@@ -9,6 +9,7 @@ import { useSession } from '@/lib/session'
 import { getEventosAgendaCached } from '@/lib/agenda-api'
 import { getEstadoVisual, toDateInput } from '@/lib/agenda-view'
 import type { EventoAgenda } from '@/lib/types'
+import { colors } from '@/lib/colors'
 
 export default function PerfilScreen() {
   const router = useRouter()
@@ -81,21 +82,21 @@ export default function PerfilScreen() {
         className="bg-white border border-igb-outline rounded-lg p-4 mb-3 flex-row items-center"
       >
         <View className="w-9 h-9 rounded-lg bg-igb-navy/10 items-center justify-center mr-3">
-          <Ionicons name="tv-outline" size={18} color="#1C357F" />
+          <Ionicons name="tv-outline" size={18} color={colors.navy} />
         </View>
         <View className="flex-1">
           <Text className="text-sm font-semibold text-igb-on-surface">Vincular TV</Text>
           <Text className="text-igb-secondary text-xs mt-0.5">Escaneá el QR de una TV para loguearla</Text>
         </View>
-        <Ionicons name="chevron-forward" size={16} color="#575d78" />
+        <Ionicons name="chevron-forward" size={16} color={colors.secondary} />
       </Pressable>
 
       <Pressable
         onPress={() => supabase.auth.signOut()}
-        className="bg-white border border-red-200 rounded-lg py-3.5 mt-4 flex-row items-center justify-center gap-2"
+        className="bg-white border border-igb-error/30 rounded-lg py-3.5 mt-4 flex-row items-center justify-center gap-2"
       >
-        <Ionicons name="log-out-outline" size={16} color="#dc2626" />
-        <Text className="text-red-600 font-medium text-center">Cerrar sesión</Text>
+        <Ionicons name="log-out-outline" size={16} color={colors.error} />
+        <Text className="text-igb-error font-medium text-center">Cerrar sesión</Text>
       </Pressable>
 
       <Text className="text-igb-secondary/60 text-[11px] text-center mt-6">

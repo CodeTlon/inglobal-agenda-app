@@ -7,6 +7,7 @@ import { ApiError } from '@/lib/api'
 import { getMonthMatrix, toDateInput, estadoStripColor, getEstadoVisual } from '@/lib/agenda-view'
 import type { EventoAgenda } from '@/lib/types'
 import { EstadoLegend } from '@/components/EstadoLegend'
+import { colors } from '@/lib/colors'
 
 const MESES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -109,7 +110,7 @@ export function AgendaMonthView({
 
       {loading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color="#f5d100" />
+          <ActivityIndicator color={colors.yellow} />
         </View>
       ) : error ? (
         <View className="flex-1 items-center justify-center p-6">

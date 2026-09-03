@@ -7,6 +7,7 @@ import { ApiError } from '@/lib/api'
 import { getWeekDays, addDays, toDateInput, estadoStripColor, getEstadoVisual } from '@/lib/agenda-view'
 import type { EventoAgenda } from '@/lib/types'
 import { EstadoLegend } from '@/components/EstadoLegend'
+import { colors } from '@/lib/colors'
 
 const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
@@ -90,7 +91,7 @@ export function AgendaWeekView({
 
       {loading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color="#f5d100" />
+          <ActivityIndicator color={colors.yellow} />
         </View>
       ) : error ? (
         <View className="flex-1 items-center justify-center p-6">

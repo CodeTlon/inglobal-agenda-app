@@ -2,6 +2,7 @@ import { View, Pressable, Switch, Image } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { Text } from '@/components/Text'
 import type { ComponentProps } from 'react'
+import { colors } from '@/lib/colors'
 
 // Disponible/Ocupado se derivan en cada pantalla cruzando los eventos de hoy
 // (ver OperariosScreen/GruasScreen) — no hay campo de turno/estado en el
@@ -67,7 +68,7 @@ export function CatalogRow({
         </View>
       </Pressable>
       <Switch value={activo} onValueChange={onToggle} trackColor={{ true: '#f5d100' }} style={{ transform: [{ scale: 0.85 }] }} />
-      <Ionicons name="chevron-forward" size={18} color="#575d78" style={{ marginLeft: 6 }} />
+      <Ionicons name="chevron-forward" size={18} color={colors.secondary} style={{ marginLeft: 6 }} />
     </View>
   )
 }

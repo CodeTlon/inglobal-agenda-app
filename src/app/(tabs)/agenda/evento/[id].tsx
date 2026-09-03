@@ -8,6 +8,7 @@ import { getEventoAgendaById, deleteEvento, updateEvento, type EventoPayload } f
 import { showApiError } from '@/lib/alert'
 import { estadoColorClassesLight, formatEstado, getEstadoVisual } from '@/lib/agenda-view'
 import { TRANSICIONES_VALIDAS, type EstadoEvento, type EventoAgenda } from '@/lib/types'
+import { colors } from '@/lib/colors'
 
 export default function EventoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -88,7 +89,7 @@ export default function EventoScreen() {
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center bg-igb-surface">
-        <ActivityIndicator color="#f5d100" />
+        <ActivityIndicator color={colors.yellow} />
       </View>
     )
   }
@@ -96,7 +97,7 @@ export default function EventoScreen() {
   if (error || !evento) {
     return (
       <View className="flex-1 items-center justify-center bg-igb-surface p-8">
-        <Text className="text-red-600 text-center">{error ?? 'Evento no encontrado.'}</Text>
+        <Text className="text-igb-error text-center">{error ?? 'Evento no encontrado.'}</Text>
       </View>
     )
   }
@@ -109,8 +110,8 @@ export default function EventoScreen() {
           initial={evento}
           onDone={() => router.back()}
           footer={
-            <Pressable onPress={handleDelete} className="items-center py-3 mt-3">
-              <Text className="text-red-600 font-medium">Eliminar evento</Text>
+            <Pressable onPress={handleDelete} className="border border-igb-error/30 rounded-lg py-2.5 items-center mt-3">
+              <Text className="text-igb-error font-medium">Eliminar evento</Text>
             </Pressable>
           }
         />
@@ -170,12 +171,12 @@ export default function EventoScreen() {
           </View>
         )}
 
-        <Pressable onPress={() => setEditando(true)} className="bg-igb-yellow rounded-xl py-3.5 items-center">
+        <Pressable onPress={() => setEditando(true)} className="bg-igb-yellow rounded-lg py-3.5 items-center">
           <Text className="text-igb-on-yellow font-bold">Editar</Text>
         </Pressable>
 
-        <Pressable onPress={handleDelete} className="items-center py-3">
-          <Text className="text-red-600 font-medium">Eliminar evento</Text>
+        <Pressable onPress={handleDelete} className="border border-igb-error/30 rounded-lg py-2.5 items-center">
+          <Text className="text-igb-error font-medium">Eliminar evento</Text>
         </Pressable>
       </ScrollView>
     </>
@@ -185,7 +186,7 @@ export default function EventoScreen() {
 function DetailRow({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: string }) {
   return (
     <View className="flex-row items-center gap-2">
-      <Ionicons name={icon} size={18} color="#575d78" />
+      <Ionicons name={icon} size={18} color={colors.secondary} />
       <Text className="text-igb-secondary flex-1">{text}</Text>
     </View>
   )

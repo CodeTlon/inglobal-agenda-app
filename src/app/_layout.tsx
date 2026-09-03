@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useSession, SessionProvider } from '@/lib/session'
 import { supabase } from '@/lib/supabase'
 import { Text } from '@/components/Text'
+import { colors } from '@/lib/colors'
 
 SplashScreen.preventAutoHideAsync()
 
@@ -60,7 +61,7 @@ function RootLayoutNav() {
         <StatusBar style="dark" />
       {loading ? (
         <CenteredMessage>
-          <ActivityIndicator color="#f5d100" size="large" />
+          <ActivityIndicator color={colors.yellow} size="large" />
         </CenteredMessage>
       ) : session && mustChangePassword ? (
         <CenteredMessage>
