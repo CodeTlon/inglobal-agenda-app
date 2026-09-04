@@ -1,11 +1,13 @@
-// Reimplementación 1:1 (sin tipos) de getEstadoVisual tal como quedó en
-// src/lib/agenda-view.ts, para verificar el fix de turnos nocturnos con un
-// caso runnable en vez de solo razonamiento.
+// Reimplementación 1:1 (sin tipos) de cruzaMedianoche/finDiaEfectivo/getEstadoVisual
+// tal como quedaron en src/lib/agenda-view.ts, para verificar el fix de turnos
+// nocturnos (con y sin fecha_hasta explícita) con un caso runnable en vez de
+// solo razonamiento.
 //
 // ponytail: sin runner de tests en el repo (no jest/vitest), agregar uno
 // para esto sería más infraestructura que el chequeo en sí — es una
 // reimplementación aparte, no importa el archivo real, así que si
-// getEstadoVisual cambia hay que actualizar esta copia a mano.
+// cruzaMedianoche/finDiaEfectivo/getEstadoVisual cambian hay que actualizar
+// esta copia a mano.
 // Correr: node scripts/check-estado-visual.mjs
 function toDateInput(d) {
   const y = d.getFullYear()
@@ -18,15 +20,28 @@ function addDays(d, days) {
   copy.setDate(copy.getDate() + days)
   return copy
 }
+// fecha_hasta === fecha es el único caso que NO es cruce de medianoche a
+// propósito (el usuario puso el mismo día como fin): ahí hora_fin <=
+// hora_inicio es un error de formulario de verdad, no un turno nocturno.
+function cruzaMedianoche(fecha, fechaHasta, horaInicio, horaFinEfectiva) {
+  if (fechaHasta === fecha) return false
+  return horaFinEfectiva <= horaInicio
+}
+function finDiaEfectivo(fecha, fechaHasta, horaInicio, horaFinEfectiva) {
+  if (fechaHasta) return fechaHasta
+  return cruzaMedianoche(fecha, fechaHasta, horaInicio, horaFinEfectiva)
+    ? toDateInput(addDays(new Date(`${fecha}T00:00:00`), 1))
+    : fecha
+}
 function getEstadoVisual(evento, now = new Date()) {
-  const ultimoDia = evento.fecha_hasta ?? evento.fecha
+  const horaInicioStr = evento.hora_inicio.slice(0, 8)
   const horaFinEfectiva = (evento.hora_fin ?? '18:00:00').slice(0, 8)
-  const inicioGlobal = new Date(`${evento.fecha}T${evento.hora_inicio.slice(0, 8)}`)
-  const crossesMidnight = !evento.fecha_hasta && horaFinEfectiva <= evento.hora_inicio.slice(0, 8)
-  const finDiaStr = crossesMidnight ? toDateInput(addDays(new Date(`${ultimoDia}T00:00:00`), 1)) : ultimoDia
+  const inicioGlobal = new Date(`${evento.fecha}T${horaInicioStr}`)
+  const crossesMidnight = cruzaMedianoche(evento.fecha, evento.fecha_hasta, horaInicioStr, horaFinEfectiva)
+  const finDiaStr = finDiaEfectivo(evento.fecha, evento.fecha_hasta, horaInicioStr, horaFinEfectiva)
   const finGlobal = new Date(`${finDiaStr}T${horaFinEfectiva}`)
   if (evento.estado === 'reserva') {
-    if (finGlobal < now) return 'cancelado'
+    if (inicioGlobal <= now) return 'cancelado'
   } else if (evento.estado === 'programado') {
     if (finGlobal < now) return 'finalizado'
     if (inicioGlobal > now) return 'programado'
@@ -34,6 +49,8 @@ function getEstadoVisual(evento, now = new Date()) {
     const horaActual = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
     const dentroDeVentanaHoraria = horaActual >= evento.hora_inicio.slice(0, 8) && horaActual < horaFinEfectiva
     return dentroDeVentanaHoraria ? 'en_curso' : 'programado'
+  } else if (evento.estado === 'en_curso') {
+    if (finGlobal < now) return 'finalizado'
   }
   return evento.estado
 }
@@ -62,14 +79,23 @@ assertEq('diurno antes (07:00)', getEstadoVisual(evDiurno, new Date('2026-08-27T
 assertEq('diurno en curso (10:00)', getEstadoVisual(evDiurno, new Date('2026-08-27T10:00:00')), 'en_curso')
 assertEq('diurno terminado (14:00)', getEstadoVisual(evDiurno, new Date('2026-08-27T14:00:00')), 'finalizado')
 
-// Multi-dia (fecha_hasta) NO usa crossesMidnight (mismo scope que index.tsx: el
-// fix solo aplica a eventos de un solo dia) -- un multi-dia con hora_inicio
-// nocturna y sin hora_fin queda con una ventana horaria diaria [20:00, 18:00)
-// que nunca matchea ningun horario real: se ve 'programado' todo el rango en
-// vez de 'en_curso'. Limitacion conocida, no cubierta por este fix (caso mas
-// raro: multi-dia + sin hora_fin + arranque nocturno, ninguno de los eventos
-// de ejemplo la dispara).
+// Turno nocturno CON fecha_hasta explícita (el bug reportado: 22:00 del día 27
+// a 02:00 del día 28, cargado poniendo "fecha fin" = día siguiente en vez de
+// dejarlo vacío). cruzaMedianoche ya no excluye este caso por tener
+// fecha_hasta puesta, así que se comporta igual que el turno nocturno sin
+// fecha_hasta: una sola ventana continua hasta fecha_hasta + hora_fin.
+const evNocturnoConFechaHasta = { fecha: '2026-08-27', fecha_hasta: '2026-08-28', hora_inicio: '22:00:00', hora_fin: '02:00:00', estado: 'programado' }
+assertEq('nocturno+fecha_hasta antes de empezar (21:00)', getEstadoVisual(evNocturnoConFechaHasta, new Date('2026-08-27T21:00:00')), 'programado')
+assertEq('nocturno+fecha_hasta en curso (23:00)', getEstadoVisual(evNocturnoConFechaHasta, new Date('2026-08-27T23:00:00')), 'en_curso')
+assertEq('nocturno+fecha_hasta post-medianoche (28 01:00)', getEstadoVisual(evNocturnoConFechaHasta, new Date('2026-08-28T01:00:00')), 'en_curso')
+assertEq('nocturno+fecha_hasta terminado (28 03:00)', getEstadoVisual(evNocturnoConFechaHasta, new Date('2026-08-28T03:00:00')), 'finalizado')
+
+// Multi-dia (fecha_hasta) con arranque nocturno y SIN hora_fin explícita: el
+// default de cierre (18:00) queda <= hora_inicio (20:00), así que también es
+// cruce de medianoche — antes del fix esto quedaba "programado" todo el
+// rango (fecha_hasta lo excluía de cruzaMedianoche); ahora arranca 'en_curso'
+// apenas empieza, igual que cualquier turno nocturno.
 const evMultiDia = { fecha: '2026-09-02', fecha_hasta: '2026-09-04', hora_inicio: '20:00:00', hora_fin: null, estado: 'programado' }
-assertEq('multi-dia nocturno sin hora_fin (limitacion conocida)', getEstadoVisual(evMultiDia, new Date('2026-09-02T21:00:00')), 'programado')
+assertEq('multi-dia nocturno sin hora_fin, en curso (21:00)', getEstadoVisual(evMultiDia, new Date('2026-09-02T21:00:00')), 'en_curso')
 
 process.exit(fails === 0 ? 0 : 1)
