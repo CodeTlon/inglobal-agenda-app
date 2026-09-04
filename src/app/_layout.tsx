@@ -1,10 +1,10 @@
 import '../global.css'
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
-import { View, ActivityIndicator, Pressable } from 'react-native'
+import { View, ActivityIndicator, Pressable, AppState, LogBox } from 'react-native'
 import * as SplashScreen from 'expo-splash-screen'
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter'
 import { Manrope_700Bold } from '@expo-google-fonts/manrope'
@@ -32,8 +32,25 @@ export default function RootLayout() {
   )
 }
 
+// El SDK de Supabase pausa/reanuda su ticker de auto-refresh de sesión según
+// esto (patrón oficial para RN) — sin esto corre siempre en background, y
+// cuando falla un refresh sin red hace console.warn/error, que LogBox
+// muestra como una alerta en pantalla ("Auto refresh tick failed...").
+// LogBox.ignoreLogs silencia ese warning puntual (es de la librería, no se
+// puede envolver en try/catch desde acá) — solo pasa en dev/Expo Go, un
+// build de producción no muestra LogBox en pantalla.
+LogBox.ignoreLogs(['Auto refresh tick failed', 'AuthRetryableFetchError'])
+
 function RootLayoutNav() {
   const { session, loading, mustChangePassword } = useSession()
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') supabase.auth.startAutoRefresh()
+      else supabase.auth.stopAutoRefresh()
+    })
+    return () => sub.remove()
+  }, [])
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
