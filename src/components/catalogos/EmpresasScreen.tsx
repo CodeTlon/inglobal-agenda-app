@@ -8,6 +8,7 @@ import { ErrorBanner } from '@/components/ErrorBanner'
 import { getEmpresasAgenda, createEmpresaAgenda, updateEmpresaAgenda, toggleEmpresaAgenda } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
 import { showApiError } from '@/lib/alert'
+import { confirmDialog } from '@/components/Dialog'
 import { subirFoto, elegirFotoDeGaleria } from '@/lib/media-upload'
 import type { EmpresaAgenda } from '@/lib/types'
 import { CatalogRow } from '@/components/CatalogRow'
@@ -25,10 +26,6 @@ export default function EmpresasScreen() {
   const [error, setError] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [fotoUri, setFotoUri] = useState<string | null>(null)
-  // Si falla la subida de logo después de crear la empresa, guardamos el id
-  // acá para que "Guardar" de nuevo reintente sobre el mismo id en vez de
-  // crear una empresa duplicada — el form se queda abierto con la selección.
-  const [createdId, setCreatedId] = useState<string | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -46,7 +43,6 @@ export default function EmpresasScreen() {
   function openNew() {
     setForm(EMPTY)
     setFotoUri(null)
-    setCreatedId(null)
     setError(null)
     setShowForm(true)
   }
@@ -76,28 +72,24 @@ export default function EmpresasScreen() {
     }
     setSaving(true)
     setError(null)
-    const yaCreada = !!createdId
-    let id = createdId
     try {
       const payload = { nombre: form.nombre, contacto: form.contacto, telefono: form.telefono, notas: form.notas || null }
-      if (!id) {
-        id = (await createEmpresaAgenda(payload)).id
-        setCreatedId(id)
-      }
-      if (fotoUri) {
-        const logo_url = await subirFoto('empresa-logos', id, fotoUri)
-        await updateEmpresaAgenda(id, { ...payload, logo_url })
-      } else if (yaCreada) {
-        await updateEmpresaAgenda(id, payload)
-      }
+      const id = (await createEmpresaAgenda(payload)).id
+      // La empresa ya quedó creada acá — lo que pase con el logo de ahora en
+      // más no debe tapar eso ni bloquear el alta.
       setShowForm(false)
-      setCreatedId(null)
       load()
+      if (fotoUri) {
+        try {
+          const logo_url = await subirFoto('empresa-logos', id, fotoUri)
+          await updateEmpresaAgenda(id, { ...payload, logo_url })
+          load()
+        } catch (e) {
+          confirmDialog('Guardado sin logo', e instanceof ApiError ? e.message : 'La empresa se creó, pero no se pudo subir el logo por un problema de conexión. Podés agregarlo después editando.')
+        }
+      }
     } catch (e) {
-      // Si ya se creó pero falló el logo (o una edición en el reintento), no
-      // se cierra el form ni se pierde la selección — "Guardar" de nuevo
-      // reintenta sobre el mismo id, no duplica la empresa.
-      setError(e instanceof ApiError ? e.message : id ? 'Se creó pero no se pudo subir el logo. Probá guardar de nuevo.' : 'No se pudo guardar.')
+      setError(e instanceof ApiError ? e.message : 'No se pudo guardar.')
     } finally {
       setSaving(false)
     }

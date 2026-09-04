@@ -6,13 +6,17 @@ import { File, Paths } from 'expo-file-system'
 // sitio (ver inglobal-site/supabase/migrations/006_storage_media.sql) —
 // nada de bucket ni políticas nuevas, solo una carpeta propia por tipo.
 export async function subirFoto(carpeta: string, id: string, uri: string): Promise<string> {
-  const res = await fetch(uri)
-  // Sin este chequeo, un fetch a un archivo local que ya no existe (ver
-  // comentario en elegirFotoDeGaleria) resuelve igual con un body de texto
-  // tipo "File not found" en vez de tirar — y ese texto terminaba subido al
-  // bucket como si fuera la foto, sin ningún error visible.
-  if (!res.ok) throw new Error(`No se pudo leer la foto elegida (${res.status}).`)
-  const buffer = await res.arrayBuffer()
+  // `fetch(uri)` sobre un archivo local `file://` es lo que venía usándose
+  // acá, pero en este armado de Expo/RN nunca completa la conexión (siempre
+  // tiraba "network request failed" / error de conexión, no importa el
+  // archivo) — `fetch` está pensado para requests de red, no para leer del
+  // filesystem. `File` (mismo módulo que ya usa elegirFotoDeGaleria) lee el
+  // archivo directo, sin pasar por la capa de red.
+  const file = new File(uri)
+  // Sin este chequeo, un archivo local que ya no existe (ver comentario en
+  // elegirFotoDeGaleria) tira un error críptico del lado nativo al leerlo.
+  if (!file.exists) throw new Error('No se pudo leer la foto elegida: el archivo ya no existe.')
+  const buffer = await file.arrayBuffer()
   const esPng = uri.toLowerCase().endsWith('.png')
   const path = `${carpeta}/${id}.${esPng ? 'png' : 'jpg'}`
   const { error } = await supabase.storage.from('media').upload(path, buffer, {

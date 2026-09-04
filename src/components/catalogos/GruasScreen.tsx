@@ -9,6 +9,7 @@ import { ErrorBanner } from '@/components/ErrorBanner'
 import { getGruas, createGrua, updateGrua, toggleGrua } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
 import { showApiError } from '@/lib/alert'
+import { confirmDialog } from '@/components/Dialog'
 import { useOcupacionDelDia, ordenarCatalogo } from '@/lib/catalog-ocupacion'
 import { subirFoto, elegirFotoDeGaleria } from '@/lib/media-upload'
 import { TIPOS_GRUA, type Grua } from '@/lib/types'
@@ -31,17 +32,12 @@ export default function GruasScreen() {
   // URI local elegida en el picker — todavía no hay id de grúa para subirla
   // al storage, se sube recién en handleSave una vez creada.
   const [fotoUri, setFotoUri] = useState<string | null>(null)
-  // Si falla la subida de foto después de crear la grúa, guardamos el id acá
-  // para que "Guardar" de nuevo reintente la foto en vez de crear un
-  // duplicado — el form se queda abierto con la selección intacta.
-  const [createdId, setCreatedId] = useState<string | null>(null)
 
   // Editar una grúa existente vive en su pantalla de detalle, no acá — este
   // form solo se usa para dar de alta una nueva.
   function openNew() {
     setForm(EMPTY)
     setFotoUri(null)
-    setCreatedId(null)
     setError(null)
     setShowForm(true)
   }
@@ -69,30 +65,24 @@ export default function GruasScreen() {
     }
     setSaving(true)
     setError(null)
-    // Ya creada de un intento anterior (falló la foto) — reintentamos sobre
-    // el mismo id en vez de crear una grúa duplicada.
-    const yaCreada = !!createdId
-    let id = createdId
     try {
       const payload = { nombre: form.nombre, patente: form.patente, capacidad_toneladas: Number(form.capacidad_toneladas), tipo: form.tipo }
-      if (!id) {
-        id = (await createGrua(payload)).id
-        setCreatedId(id)
-      }
-      if (fotoUri) {
-        const foto_url = await subirFoto('grua-fotos', id, fotoUri)
-        await updateGrua(id, { ...payload, foto_url })
-      } else if (yaCreada) {
-        await updateGrua(id, payload)
-      }
+      const id = (await createGrua(payload)).id
+      // La grúa ya quedó creada acá — lo que pase con la foto de ahora en
+      // más no debe tapar eso ni bloquear el alta.
       setShowForm(false)
-      setCreatedId(null)
       load()
+      if (fotoUri) {
+        try {
+          const foto_url = await subirFoto('grua-fotos', id, fotoUri)
+          await updateGrua(id, { ...payload, foto_url })
+          load()
+        } catch (e) {
+          confirmDialog('Guardado sin foto', e instanceof ApiError ? e.message : 'La grúa se creó, pero no se pudo subir la foto por un problema de conexión. Podés agregarla después editando.')
+        }
+      }
     } catch (e) {
-      // Si ya se creó pero falló la foto (o una edición en el reintento), no
-      // se cierra el form ni se pierde la selección — "Guardar" de nuevo
-      // reintenta sobre el mismo id (ver createdId), no duplica la grúa.
-      setError(e instanceof ApiError ? e.message : id ? 'Se creó pero no se pudo subir la foto. Probá guardar de nuevo.' : 'No se pudo guardar.')
+      setError(e instanceof ApiError ? e.message : 'No se pudo guardar.')
     } finally {
       setSaving(false)
     }
