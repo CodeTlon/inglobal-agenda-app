@@ -96,6 +96,46 @@ export function estadoStripColor(estado: string): string {
   return ESTADO_STRIP[estado] ?? ESTADO_STRIP.programado
 }
 
+/**
+ * ¿La ventana [hora_inicio, hora_fin) cruza medianoche? — usada tanto por
+ * `getEstadoVisual` como por el layout de cards en agenda/index.tsx, antes
+ * duplicada en los dos lados con el mismo criterio (`!fecha_hasta && ...`)
+ * que excluía de plano cualquier evento CON `fecha_hasta`, incluso cuando
+ * `hora_fin` es explícitamente <= `hora_inicio` (turno nocturno con fecha de
+ * fin puesta a mano, ej. 22:00 del día 22 a 02:00 del día 23). Ese caso
+ * quedaba "ni error ni turno nocturno": el form lo guardaba tal cual y el
+ * layout lo repetía día a día con la MISMA ventana horaria sin sentido
+ * (22:00→02:00 en cada día del rango, una card rota de pocos minutos por
+ * día en vez de un turno continuo). `fecha_hasta === fecha` sigue sin ser
+ * cruce — ahí el usuario puso el mismo día como fin a propósito, así que
+ * `hora_fin <= hora_inicio` es un error de formulario de verdad (ver
+ * EventoForm), no un turno nocturno.
+ */
+export function cruzaMedianoche(
+  fecha: string,
+  fechaHasta: string | null | undefined,
+  horaInicio: string,
+  horaFinEfectiva: string,
+): boolean {
+  if (fechaHasta === fecha) return false
+  return horaFinEfectiva <= horaInicio
+}
+
+/** Último día efectivo de la ventana del evento: `fecha_hasta` si está puesta
+ * (ya es el fin, cruce medianoche o no), o el día siguiente a `fecha` cuando
+ * cruza medianoche sin `fecha_hasta` explícita. */
+export function finDiaEfectivo(
+  fecha: string,
+  fechaHasta: string | null | undefined,
+  horaInicio: string,
+  horaFinEfectiva: string,
+): string {
+  if (fechaHasta) return fechaHasta
+  return cruzaMedianoche(fecha, fechaHasta, horaInicio, horaFinEfectiva)
+    ? toDateInput(addDays(new Date(`${fecha}T00:00:00`), 1))
+    : fecha
+}
+
 /** "en_curso" -> "En curso", "programado" -> "Programado". */
 export function formatEstado(estado: string): string {
   return estado.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase())
@@ -119,28 +159,23 @@ export function formatEstado(estado: string): string {
  *  - `programado` cuya ventana del último día ya terminó -> `finalizado`.
  *  - `en_curso` se cierra a mano (finalizarlo es una decisión, no algo automático).
  *
- * Turno nocturno sin `fecha_hasta` ni `hora_fin` explícita (ej. `hora_inicio`
- * 20:00, cierra al default 18:00): el default cae ANTES que el inicio en el
- * mismo día. Mismo criterio de `crossesMidnight` que ya usa `index.tsx` para
- * el layout de cards — sin esto el evento se mostraba `finalizado`/`cancelado`
- * antes de empezar (y nunca `en_curso`), un evento nocturno con la ventana
- * abierta se leía como si ya hubiera terminado.
- *
- * LIMITACIÓN CONOCIDA (no cubierta por el fix de arriba, mismo scope que
- * `crossesMidnight` en index.tsx): un evento CON `fecha_hasta` (multi-día)
- * cuya `hora_inicio` es nocturna y no tiene `hora_fin` queda con una ventana
- * horaria diaria [hora_inicio, 18:00) que nunca matchea ningún horario real
- * — se ve `programado` en vez de `en_curso` durante todo el rango. Caso más
- * raro (multi-día + sin hora_fin + arranque nocturno); si aparece en la
- * práctica, extender `crossesMidnight` para que también aplique día a día
- * dentro de un rango multi-día. Casos runnable: `scripts/check-estado-visual.mjs`.
+ * Turno nocturno sin `hora_fin` explícita (ej. `hora_inicio` 20:00, cierra al
+ * default 18:00): el default cae ANTES que el inicio en el mismo día. Mismo
+ * criterio de `cruzaMedianoche` (ver agenda-view.ts) que ya usa `index.tsx`
+ * para el layout de cards — sin esto el evento se mostraba
+ * `finalizado`/`cancelado` antes de empezar (y nunca `en_curso`), un evento
+ * nocturno con la ventana abierta se leía como si ya hubiera terminado. Esto
+ * también cubre el caso CON `fecha_hasta` (multi-día) arrancando de noche:
+ * `cruzaMedianoche` ya no excluye a los eventos con `fecha_hasta` puesta, así
+ * que la ventana se cierra en `fecha_hasta` (con `hora_fin` explícito) o al
+ * default de las 18:00 de ESE día. Casos runnable: `scripts/check-estado-visual.mjs`.
  */
 export function getEstadoVisual(evento: EventoAgenda, now = new Date()): string {
-  const ultimoDia = evento.fecha_hasta ?? evento.fecha
+  const horaInicioStr = evento.hora_inicio.slice(0, 8)
   const horaFinEfectiva = (evento.hora_fin ?? '18:00:00').slice(0, 8)
-  const inicioGlobal = new Date(`${evento.fecha}T${evento.hora_inicio.slice(0, 8)}`)
-  const crossesMidnight = !evento.fecha_hasta && horaFinEfectiva <= evento.hora_inicio.slice(0, 8)
-  const finDiaStr = crossesMidnight ? toDateInput(addDays(new Date(`${ultimoDia}T00:00:00`), 1)) : ultimoDia
+  const inicioGlobal = new Date(`${evento.fecha}T${horaInicioStr}`)
+  const crossesMidnight = cruzaMedianoche(evento.fecha, evento.fecha_hasta, horaInicioStr, horaFinEfectiva)
+  const finDiaStr = finDiaEfectivo(evento.fecha, evento.fecha_hasta, horaInicioStr, horaFinEfectiva)
   const finGlobal = new Date(`${finDiaStr}T${horaFinEfectiva}`)
   if (evento.estado === 'reserva') {
     // Tentativa sin confirmar: se cancela sola al llegar su día/hora, no

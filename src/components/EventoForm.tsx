@@ -16,7 +16,7 @@ import {
   type EventoPayload,
 } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
-import { toDateInput, formatEstado, getEstadoVisual } from '@/lib/agenda-view'
+import { toDateInput, formatEstado, getEstadoVisual, cruzaMedianoche } from '@/lib/agenda-view'
 import { type EstadoEvento, type EventoAgenda, type Grua, type EmpresaAgenda, type Operario } from '@/lib/types'
 import { colors } from '@/lib/colors'
 
@@ -174,9 +174,9 @@ export function EventoForm({
       setError('La fecha de fin no puede ser anterior a la fecha de inicio.')
       return
     }
-    // Sin fecha_hasta, hora_fin <= hora_inicio significa "cruza medianoche"
-    // (turno nocturno, ej. 22:00→02:00) — caso válido, mismo criterio que
-    // crossesMidnight en agenda-view.ts/agenda/index.tsx. Solo es error de
+    // hora_fin <= hora_inicio significa "cruza medianoche" (turno nocturno,
+    // ej. 22:00→02:00) — caso válido, mismo criterio que cruzaMedianoche en
+    // agenda-view.ts (compartido con agenda/index.tsx). Solo es error de
     // verdad cuando el rango es explícitamente el mismo día.
     if (fechaHasta === fecha && horaFin && horaFin <= horaInicio) {
       setError('La hora de fin debe ser posterior a la hora de inicio.')
@@ -185,7 +185,7 @@ export function EventoForm({
     // Duración mínima — mismo umbral que ya validaba el server (por eso
     // este error se veía recién después de guardar). Cruza medianoche:
     // la duración real suma lo que queda del día 1 más lo del día 2.
-    const crossesMidnight = !fechaHasta && !!horaFin && horaFin <= horaInicio
+    const crossesMidnight = !!horaFin && cruzaMedianoche(fecha, fechaHasta, horaInicio, horaFin)
     if (horaFin && (crossesMidnight || fechaHasta === fecha)) {
       const durMin = crossesMidnight
         ? 24 * 60 - minutosDelDia(horaInicio) + minutosDelDia(horaFin)

@@ -17,6 +17,8 @@ import {
   layoutDayEvents,
   formatEstado,
   getEstadoVisual,
+  cruzaMedianoche,
+  finDiaEfectivo,
 } from '@/lib/agenda-view'
 import type { EventoAgenda } from '@/lib/types'
 import { EstadoLegend } from '@/components/EstadoLegend'
@@ -365,36 +367,36 @@ export default function AgendaScreen() {
   // Un evento con fecha_hasta ocupa la MISMA ventana horaria [hora_inicio, hora_fin)
   // cada día del rango (igual que getEstadoVisual) — acá se arma un segmento por día
   // en vez de una sola card continua de punta a punta, que tapaba también las noches
-  // y madrugadas intermedias y se sentía como una columna sin fin. El cruce de
-  // medianoche explícito sin fecha_hasta (22:00-04:00) sigue siendo una sola card
-  // continua entre los dos bloques de día, sin costura.
+  // y madrugadas intermedias y se sentía como una columna sin fin. Cuando la ventana
+  // en sí cruza medianoche (hora_fin <= hora_inicio, turno nocturno) es siempre una
+  // sola card continua de punta a punta hasta finDiaEfectivo — mismo criterio que
+  // getEstadoVisual — tenga o no fecha_hasta puesta.
   const positioned = useMemo<Positioned[]>(() => {
     const dayIndex = new Map(days.map((d, i) => [toDateInput(d), i]))
     const windowStartStr = toDateInput(windowStart)
     const windowEndStr = toDateInput(windowEnd)
     const relevant = eventos.filter((ev) => (ev.fecha_hasta ?? ev.fecha) >= windowStartStr && ev.fecha <= windowEndStr)
 
-    const segments: { ev: EventoAgenda; dayStr: string; horaInicio: string; horaFin: string; crossesMidnight: boolean }[] = []
+    const segments: { ev: EventoAgenda; dayStr: string; horaInicio: string; horaFin: string; crossesMidnight: boolean; finDia: string }[] = []
     for (const ev of relevant) {
-      const startMin = toMinutes(ev.hora_inicio)
       const horaFinEfectiva = ev.hora_fin ?? '18:00'
-      const crossesMidnight = !ev.fecha_hasta && toMinutes(horaFinEfectiva) <= startMin
-      if (crossesMidnight) {
-        segments.push({ ev, dayStr: ev.fecha, horaInicio: ev.hora_inicio, horaFin: horaFinEfectiva, crossesMidnight: true })
+      if (cruzaMedianoche(ev.fecha, ev.fecha_hasta, ev.hora_inicio, horaFinEfectiva)) {
+        const finDia = finDiaEfectivo(ev.fecha, ev.fecha_hasta, ev.hora_inicio, horaFinEfectiva)
+        segments.push({ ev, dayStr: ev.fecha, horaInicio: ev.hora_inicio, horaFin: horaFinEfectiva, crossesMidnight: true, finDia })
         continue
       }
       const ultimoDia = ev.fecha_hasta ?? ev.fecha
       for (const d of days) {
         const dStr = toDateInput(d)
         if (dStr < ev.fecha || dStr > ultimoDia) continue
-        segments.push({ ev, dayStr: dStr, horaInicio: ev.hora_inicio, horaFin: horaFinEfectiva, crossesMidnight: false })
+        segments.push({ ev, dayStr: dStr, horaInicio: ev.hora_inicio, horaFin: horaFinEfectiva, crossesMidnight: false, finDia: dStr })
       }
     }
 
     const withKeys = segments.map((s) => ({
       ...s,
       hora_inicio: `${s.dayStr}T${s.horaInicio}`,
-      hora_fin: `${s.dayStr}T${s.horaFin}`,
+      hora_fin: `${s.finDia}T${s.horaFin}`,
     }))
     const layout = layoutDayEvents(withKeys)
     return withKeys.map((s) => {
@@ -402,7 +404,12 @@ export default function AgendaScreen() {
       const startMin = toMinutes(s.horaInicio)
       const endMin = toMinutes(s.horaFin)
       const dayIdx = dayIndex.get(s.dayStr) ?? 0
-      const endDayIdx = s.crossesMidnight ? dayIdx + 1 : dayIdx
+      // Días entre el inicio del segmento y finDia (0 salvo cruce de medianoche,
+      // 1 para una sola noche, más si fecha_hasta cae varios días después).
+      const diasHastaFin = s.crossesMidnight
+        ? Math.round((new Date(`${s.finDia}T00:00:00`).getTime() - new Date(`${s.dayStr}T00:00:00`).getTime()) / 86400000)
+        : 0
+      const endDayIdx = dayIdx + diasHastaFin
       const top = Math.max(0, dayIdx * DAY_HEIGHT + (startMin / 60) * PX_PER_HOUR)
       const bottom = Math.min(days.length * DAY_HEIGHT, endDayIdx * DAY_HEIGHT + (endMin / 60) * PX_PER_HOUR)
       return { key: `${s.ev.id}-${s.dayStr}`, ev: s.ev, top, height: Math.max(bottom - top, MIN_CARD_HEIGHT), lane: slot.lane, lanes: slot.lanes }
