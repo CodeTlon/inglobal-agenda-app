@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { View, ScrollView, ActivityIndicator, Pressable, Alert } from 'react-native'
+import { View, ScrollView, ActivityIndicator, Pressable } from 'react-native'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { Text } from '@/components/Text'
 import { EventoForm } from '@/components/EventoForm'
 import { getEventoAgendaById, deleteEvento, updateEvento, type EventoPayload } from '@/lib/agenda-api'
 import { showApiError } from '@/lib/alert'
+import { confirmDialog } from '@/components/Dialog'
 import { estadoColorClassesLight, formatEstado, getEstadoVisual } from '@/lib/agenda-view'
 import { TRANSICIONES_VALIDAS, type EstadoEvento, type EventoAgenda } from '@/lib/types'
 import { colors } from '@/lib/colors'
@@ -29,7 +30,7 @@ export default function EventoScreen() {
   }, [id])
 
   function handleDelete() {
-    Alert.alert('Eliminar evento', '¿Seguro que querés eliminar este evento?', [
+    confirmDialog('Eliminar evento', '¿Seguro que querés eliminar este evento?', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Eliminar',
@@ -51,7 +52,7 @@ export default function EventoScreen() {
   // el evento tal cual está más el nuevo estado: el PATCH exige el objeto completo.
   function handleCambiarEstado(nuevo: EstadoEvento) {
     if (!evento) return
-    Alert.alert('Cambiar estado', `¿Pasar a "${formatEstado(nuevo)}"?`, [
+    confirmDialog('Cambiar estado', `¿Pasar a "${formatEstado(nuevo)}"?`, [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Confirmar',
