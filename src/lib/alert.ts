@@ -1,4 +1,4 @@
-import { Alert } from 'react-native'
+import { confirmDialog } from '@/components/Dialog'
 import { ApiError } from './api'
 
 /**
@@ -7,5 +7,5 @@ import { ApiError } from './api'
  * si no, el fallback. Título contextual en vez de siempre "Error" a secas.
  */
 export function showApiError(e: unknown, fallback: string, title = 'No se pudo completar la acción') {
-  Alert.alert(title, e instanceof ApiError ? e.message : fallback)
+  confirmDialog(title, e instanceof ApiError ? e.message : fallback)
 }

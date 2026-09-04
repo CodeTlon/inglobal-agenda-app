@@ -13,6 +13,7 @@ import { useSession, SessionProvider } from '@/lib/session'
 import { supabase } from '@/lib/supabase'
 import { Text } from '@/components/Text'
 import { colors } from '@/lib/colors'
+import { DialogHost } from '@/components/Dialog'
 
 SplashScreen.preventAutoHideAsync()
 
@@ -103,6 +104,7 @@ function RootLayoutNav() {
           </Stack.Protected>
         </Stack>
       )}
+      <DialogHost />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   )

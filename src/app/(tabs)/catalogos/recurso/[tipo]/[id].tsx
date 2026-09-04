@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { View, ScrollView, Pressable, ActivityIndicator, Image, Alert } from 'react-native'
+import { View, ScrollView, Pressable, ActivityIndicator, Image } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Picker } from '@react-native-picker/picker'
 import { Ionicons } from '@expo/vector-icons'
@@ -19,6 +19,7 @@ import {
   deleteEmpresaAgenda,
 } from '@/lib/agenda-api'
 import { showApiError } from '@/lib/alert'
+import { confirmDialog } from '@/components/Dialog'
 import { formatEstado, estadoColorClassesLight } from '@/lib/agenda-view'
 import { subirFoto, elegirFotoDeGaleria } from '@/lib/media-upload'
 import { TIPOS_GRUA } from '@/lib/types'
@@ -171,10 +172,10 @@ export default function RecursoDetalleScreen() {
     if (!recurso) return
     const nombreTipo = NOMBRE_TIPO[tipo]
     if (recurso.activo) {
-      Alert.alert('Desactivá primero', `Para eliminar esta ${nombreTipo} primero desactivala.`)
+      confirmDialog('Desactivá primero', `Para eliminar esta ${nombreTipo} primero desactivala.`)
       return
     }
-    Alert.alert('Eliminar', `¿Eliminar "${recurso.nombre}"?`, [
+    confirmDialog('Eliminar', `¿Eliminar "${recurso.nombre}"?`, [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Eliminar',
