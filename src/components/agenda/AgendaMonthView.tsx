@@ -4,7 +4,7 @@ import { useFocusEffect } from 'expo-router'
 import { Text } from '@/components/Text'
 import { getEventosAgendaCached } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
-import { getMonthMatrix, toDateInput, estadoStripColor, getEstadoVisual } from '@/lib/agenda-view'
+import { getMonthMatrix, toDateInput, estadoStripColor, getEstadoVisual, finDiaEfectivoEvento } from '@/lib/agenda-view'
 import type { EventoAgenda } from '@/lib/types'
 import { EstadoLegend } from '@/components/EstadoLegend'
 import { colors } from '@/lib/colors'
@@ -17,7 +17,10 @@ const DIAS_CORTOS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const MAX_DOTS = 4
 
 function eventoOcurreEn(ev: EventoAgenda, fecha: string): boolean {
-  return ev.fecha <= fecha && fecha <= (ev.fecha_hasta ?? ev.fecha)
+  // finDiaEfectivoEvento (no `fecha_hasta ?? fecha`): un turno nocturno sin
+  // fecha_hasta (22:00→02:00) sigue vigente al día siguiente — con el bound
+  // viejo el mes nunca lo mostraba en esa columna.
+  return ev.fecha <= fecha && fecha <= finDiaEfectivoEvento(ev)
 }
 
 export function AgendaMonthView({

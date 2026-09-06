@@ -19,6 +19,7 @@ import {
   getEstadoVisual,
   cruzaMedianoche,
   finDiaEfectivo,
+  finDiaEfectivoEvento,
 } from '@/lib/agenda-view'
 import type { EventoAgenda } from '@/lib/types'
 import { EstadoLegend } from '@/components/EstadoLegend'
@@ -49,7 +50,11 @@ function nowMinutes(): number {
   return n.getHours() * 60 + n.getMinutes()
 }
 function eventoOcurreEn(ev: EventoAgenda, fecha: string): boolean {
-  return ev.fecha <= fecha && fecha <= (ev.fecha_hasta ?? ev.fecha)
+  // finDiaEfectivoEvento (no `fecha_hasta ?? fecha`): un turno nocturno sin
+  // fecha_hasta (22:00→02:00) sigue vigente al día siguiente — con el bound
+  // viejo el timeline de Día, el conteo de la píldora y el scroll-height
+  // nunca lo contaban en esa columna.
+  return ev.fecha <= fecha && fecha <= finDiaEfectivoEvento(ev)
 }
 
 type Positioned = { key: string; ev: EventoAgenda; top: number; height: number; lane: number; lanes: number }
@@ -417,7 +422,7 @@ export default function AgendaScreen() {
     const dayIndex = new Map(days.map((d, i) => [toDateInput(d), i]))
     const windowStartStr = toDateInput(windowStart)
     const windowEndStr = toDateInput(windowEnd)
-    const relevant = eventos.filter((ev) => (ev.fecha_hasta ?? ev.fecha) >= windowStartStr && ev.fecha <= windowEndStr)
+    const relevant = eventos.filter((ev) => finDiaEfectivoEvento(ev) >= windowStartStr && ev.fecha <= windowEndStr)
 
     const segments: { ev: EventoAgenda; dayStr: string; horaInicio: string; horaFin: string; crossesMidnight: boolean; finDia: string }[] = []
     for (const ev of relevant) {

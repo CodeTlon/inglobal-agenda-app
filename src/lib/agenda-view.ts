@@ -136,6 +136,21 @@ export function finDiaEfectivo(
     : fecha
 }
 
+/** Wrapper de finDiaEfectivo sobre un evento — única fuente del default de
+ * `hora_fin` (`'23:59'`) para bucketing/render por día, para no repetirlo (y
+ * potencialmente desalinearlo) en cada call site. Copiado 1:1 de
+ * inglobal-site/lib/agenda-view.ts. OJO: es un default distinto al de
+ * getEstadoVisual más abajo (`'18:00:00'`, otra política, otro propósito) —
+ * no unificar los dos. */
+export function finDiaEfectivoEvento(ev: {
+  fecha: string
+  fecha_hasta?: string | null
+  hora_inicio: string
+  hora_fin?: string | null
+}): string {
+  return finDiaEfectivo(ev.fecha, ev.fecha_hasta, ev.hora_inicio, ev.hora_fin ?? '23:59')
+}
+
 /** "en_curso" -> "En curso", "programado" -> "Programado". */
 export function formatEstado(estado: string): string {
   return estado.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase())

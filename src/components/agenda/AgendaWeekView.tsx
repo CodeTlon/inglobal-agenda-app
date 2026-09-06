@@ -4,7 +4,7 @@ import { useRouter, useFocusEffect } from 'expo-router'
 import { Text } from '@/components/Text'
 import { getEventosAgendaCached } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
-import { getWeekDays, addDays, toDateInput, estadoStripColor, getEstadoVisual } from '@/lib/agenda-view'
+import { getWeekDays, addDays, toDateInput, estadoStripColor, getEstadoVisual, finDiaEfectivoEvento } from '@/lib/agenda-view'
 import type { EventoAgenda } from '@/lib/types'
 import { EstadoLegend } from '@/components/EstadoLegend'
 import { colors } from '@/lib/colors'
@@ -12,7 +12,11 @@ import { colors } from '@/lib/colors'
 const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
 function eventoOcurreEn(ev: EventoAgenda, fecha: string): boolean {
-  return ev.fecha <= fecha && fecha <= (ev.fecha_hasta ?? ev.fecha)
+  // finDiaEfectivoEvento (no `fecha_hasta ?? fecha`): un turno nocturno sin
+  // fecha_hasta (22:00→02:00) sigue vigente al día siguiente — con el bound
+  // viejo esa columna nunca entraba acá y el evento desaparecía de su día de
+  // continuación en la semana.
+  return ev.fecha <= fecha && fecha <= finDiaEfectivoEvento(ev)
 }
 
 // Vista intermedia entre el mes (solo puntos) y el día (grilla horaria): lista
@@ -135,7 +139,7 @@ export function AgendaWeekView({
                       <View className={`w-1 ${estadoStripColor(getEstadoVisual(ev))}`} />
                       <View className="px-1 py-1 flex-1">
                         <Text className="text-[9px] text-igb-secondary" numberOfLines={1}>
-                          {ev.hora_inicio.slice(0, 5)}
+                          {ev.fecha === dStr ? ev.hora_inicio.slice(0, 5) : 'Cont.'}
                         </Text>
                         <Text className="text-[9px] font-medium text-igb-on-surface" numberOfLines={1}>
                           {ev.grua?.nombre ?? '—'}
