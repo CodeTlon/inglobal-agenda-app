@@ -196,15 +196,32 @@ export default function AgendaScreen() {
     }, [load, viewMode]),
   )
 
-  // Consume el scroll pendiente (posición inicial o navegación explícita a un
-  // día fuera de todo lo ya renderizado) recién cuando terminó de cargar.
+  // Reintenta entregar el scroll pendiente cada vez que `loading` cambia —
+  // proxy de "puede que el ScrollView acabe de montar". flushPendingScroll
+  // no hace nada si no está listo todavía (vuelve a intentarse en el
+  // próximo cambio, o en el siguiente goTo/navigateToDay).
   useEffect(() => {
-    if (loading || !pendingScrollRef.current) return
-    const { dateStr, animated } = pendingScrollRef.current
-    pendingScrollRef.current = null
-    scrollToDate(dateStr, animated)
+    flushPendingScroll()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading])
+
+  function armPendingScroll(date: Date, animated: boolean) {
+    pendingScrollRef.current = { dateStr: toDateInput(date), animated }
+  }
+
+  // Entrega pendingScrollRef si el ScrollView ya está montado. Se fija en
+  // timelineRef.current, no en `loading` — `loading` puede ya estar en
+  // `false` con el ScrollView igual sin montar (rama de error), y ahí un
+  // scrollTo sería un no-op silencioso que además pierde el pendiente sin
+  // dejar rastro. Si no está listo, no hace nada: la próxima vez que
+  // `loading` cambie (efecto de arriba) o que se llame a goTo de nuevo, se
+  // reintenta con el mismo destino, todavía guardado en el ref.
+  function flushPendingScroll(daysList: Date[] = days, eventosList: EventoAgenda[] = eventos) {
+    if (!timelineRef.current || !pendingScrollRef.current) return
+    const { dateStr, animated } = pendingScrollRef.current
+    pendingScrollRef.current = null
+    scrollToDate(dateStr, animated, daysList, eventosList)
+  }
 
   // `daysList`/`eventosList` son opcionales para poder scrollear a un destino
   // recién calculado (días/eventos de una ventana nueva) antes de que ese
@@ -257,17 +274,13 @@ export default function AgendaScreen() {
   // arma una ventana nueva centrada ahí (esto sí es un salto, pero es a
   // pedido explícito, no arrastrando el dedo).
   function goTo(date: Date, animated = true) {
-    // Invalida cualquier scroll pendiente (ej. el "ir a hoy" armado al montar,
-    // todavía sin consumir si esta es la primera vez que se entra a Día en la
-    // sesión) — goTo ya resuelve su propio scroll acá abajo; si no se limpia,
-    // ese pendiente se dispara solo cuando `loading` pasa a `false` (justo lo
-    // que dispara este mismo goTo al cambiar de vista) y pisa el día recién
-    // pedido con el de hoy.
-    pendingScrollRef.current = null
-    const dateStr = toDateInput(date)
     setFocused(date)
     if (date >= windowStart && date <= windowEnd) {
-      scrollToDate(dateStr, animated)
+      armPendingScroll(date, animated)
+      // flushPendingScroll no hace nada si el ScrollView todavía no está
+      // montado (ej. primera vez que se entra a Día en la sesión) — en ese
+      // caso queda armado y lo entrega el efecto de arriba apenas monte.
+      flushPendingScroll()
       return
     }
     // Destino fuera de la ventana renderizada: arma una ventana nueva sin
@@ -278,12 +291,34 @@ export default function AgendaScreen() {
     // carga; recién cuando `days`/`eventos` ya están puestos, un scroll NO
     // animado en el próximo frame (mismo patrón que `extend`) salta directo
     // al destino sin exponer un frame con offset viejo sobre contenido nuevo.
+    // animated:false siempre acá (aunque venga true): cruzar a una ventana
+    // nueva ya es un salto por diseño, no tiene sentido animarlo.
+    armPendingScroll(date, false)
     const newDays = Array.from({ length: INITIAL_BEFORE + INITIAL_AFTER + 1 }, (_, i) => addDays(date, i - INITIAL_BEFORE))
     setDays(newDays)
     fetchEventos(toDateInput(newDays[0]), toDateInput(newDays[newDays.length - 1])).then((data) => {
       setEventos(data)
-      requestAnimationFrame(() => scrollToDate(dateStr, false, newDays, data))
+      requestAnimationFrame(() => flushPendingScroll(newDays, data))
     })
+  }
+
+  // Único punto de entrada para saltar a Día desde OTRA vista (Semana). El
+  // pendingScroll se arma ACÁ, sincrónico — no alcanza con dejárselo a goTo,
+  // que recién corre un frame después (rAF, para que el ScrollView de Día
+  // llegue a montar tras el cambio de viewMode): cambiar viewMode también
+  // dispara el useFocusEffect de más arriba (load(), por el
+  // `[load, viewMode]` en sus dependencias), y si esos eventos ya están en
+  // cache esa promesa resuelve casi sincrónico — loading pasa a `false`
+  // ANTES de que goTo llegue a ejecutarse, y el efecto que consume
+  // pendingScrollRef dispara con lo que hubiera ahí en ese momento (el "ir a
+  // hoy" del mount, si es la primera vez que se entra a Día en la sesión).
+  // Armándolo acá primero, gane quien gane esa carrera, apunta al día
+  // correcto. Cualquier futura forma de saltar a un día desde afuera de esta
+  // vista debería pasar por acá, no reimplementar el mismo tejido a mano.
+  function navigateToDay(date: Date) {
+    armPendingScroll(date, false)
+    setViewMode('day')
+    requestAnimationFrame(() => goTo(date, false))
   }
 
   // Scroll infinito: al acercarse a cualquiera de los dos bordes de lo ya
@@ -479,16 +514,7 @@ export default function AgendaScreen() {
               <AgendaWeekView
                 weekStart={weekStart}
                 focusedStr={focusedStr}
-                onSelectDay={(d) => {
-                  // ponytail: setViewMode primero para que el ScrollView de día
-                  // (timelineRef) llegue a montar antes de que goTo intente scrollear;
-                  // si no, scrollTo es un no-op y la vista día abre en el día equivocado.
-                  // animated=false: al cambiar de nivel de zoom (semana→día) el
-                  // salto debe ser instantáneo — la animación se reserva para
-                  // moverse dentro del mismo nivel (flechas prev/next día).
-                  setViewMode('day')
-                  requestAnimationFrame(() => goTo(d, false))
-                }}
+                onSelectDay={navigateToDay}
                 onChangeWeek={setFocused}
                 onBack={() => setViewMode('month')}
               />
