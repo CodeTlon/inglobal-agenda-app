@@ -167,10 +167,22 @@ export default function AgendaScreen() {
   const load = useCallback(() => {
     setError(null)
     const d = daysRef.current
-    fetchEventos(toDateInput(d[0]), toDateInput(d[d.length - 1])).then((data) => {
-      setEventos(data)
+    const from = toDateInput(d[0])
+    const to = toDateInput(d[d.length - 1])
+    fetchEventos(from, to).then((data) => {
       setLoading(false)
       hasLoadedOnceRef.current = true
+      // Si mientras esperaba esta respuesta se pidió una ventana distinta
+      // (ej. goTo saltando a un día fuera de lo cargado, que arma la suya
+      // propia y hace su propio fetch — ver el comentario de más abajo sobre
+      // por qué este mismo load() se dispara también al entrar a Día desde
+      // Semana), esta respuesta quedó vieja: aplicarla pisaría los eventos
+      // correctos (los que goTo ya trajo) con los de la ventana anterior.
+      // Se descarta solo esto — loading/hasLoadedOnceRef igual se actualizan
+      // arriba, no hay que esperar a nadie más para eso.
+      const current = daysRef.current
+      if (toDateInput(current[0]) !== from || toDateInput(current[current.length - 1]) !== to) return
+      setEventos(data)
     })
   }, [])
 
@@ -224,6 +236,15 @@ export default function AgendaScreen() {
   function flushPendingScroll(daysList: Date[] = days, eventosList: EventoAgenda[] = eventos) {
     if (!timelineRef.current || !pendingScrollRef.current) return
     const { dateStr, animated } = pendingScrollRef.current
+    // Confirma que el día pedido esté en ESTA ventana antes de dar por
+    // entregado el pendiente — si no, scrollToDate no encuentra el índice y
+    // no hace nada (ver más abajo), pero ya lo habríamos limpiado del ref
+    // sin haber scrolleado a ningún lado. Puede pasar si el `[loading]` de
+    // abajo dispara con la ventana vieja (ver el comentario en load() sobre
+    // la respuesta descartada) antes de que goTo llegue a armar la ventana
+    // nueva que sí lo contiene — dejarlo intacto acá permite que ese goTo,
+    // un frame después, lo entregue bien.
+    if (!daysList.some((d) => toDateInput(d) === dateStr)) return
     pendingScrollRef.current = null
     scrollToDate(dateStr, animated, daysList, eventosList)
   }
