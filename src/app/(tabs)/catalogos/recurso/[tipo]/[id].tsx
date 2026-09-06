@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
-import { View, ScrollView, Pressable, ActivityIndicator, Image } from 'react-native'
+import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native'
+import { Image } from 'expo-image'
+import { cssInterop } from 'nativewind'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Picker } from '@react-native-picker/picker'
 import { Ionicons } from '@expo/vector-icons'
@@ -25,6 +27,9 @@ import { subirFoto, elegirFotoDeGaleria } from '@/lib/media-upload'
 import { TIPOS_GRUA } from '@/lib/types'
 import type { Grua, EmpresaAgenda, Operario, EventoAgenda } from '@/lib/types'
 import { colors } from '@/lib/colors'
+
+// Ver CatalogRow.tsx: mismo motivo (cache a disco, className vía cssInterop).
+cssInterop(Image, { className: 'style' })
 
 type Tipo = 'gruas' | 'empresas' | 'operarios'
 type Recurso = Grua | EmpresaAgenda | Operario
@@ -227,7 +232,7 @@ export default function RecursoDetalleScreen() {
       <View className="bg-white border border-igb-outline rounded-lg p-4 mb-4">
         <Pressable onPress={handleElegirFoto} disabled={uploading} className="items-center mb-3">
           {foto ? (
-            <Image source={{ uri: foto }} className="w-20 h-20 rounded-full mb-1" />
+            <Image source={{ uri: foto }} contentFit="cover" cachePolicy="disk" className="w-20 h-20 rounded-full mb-1" />
           ) : (
             <View className="w-20 h-20 rounded-full bg-igb-navy/10 items-center justify-center mb-1">
               <Ionicons name={ICONO[tipo]} size={32} color={colors.navy} />

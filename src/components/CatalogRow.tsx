@@ -1,8 +1,16 @@
-import { View, Pressable, Switch, Image } from 'react-native'
+import { View, Pressable, Switch } from 'react-native'
+import { Image } from 'expo-image'
+import { cssInterop } from 'nativewind'
 import { Ionicons } from '@expo/vector-icons'
 import { Text } from '@/components/Text'
 import type { ComponentProps } from 'react'
 import { colors } from '@/lib/colors'
+
+// expo-image en vez de <Image> de react-native: cachea a disco (no
+// re-descarga/re-decodifica la foto en cada visita a Catálogos, que es lo que
+// hacía notar la carga como lenta). cssInterop habilita className acá porque
+// nativewind solo lo hace automático para los componentes core de RN.
+cssInterop(Image, { className: 'style' })
 
 // Disponible/Ocupado se derivan en cada pantalla cruzando los eventos de hoy
 // (ver OperariosScreen/GruasScreen) — no hay campo de turno/estado en el
@@ -35,7 +43,7 @@ export function CatalogRow({
     <View className="flex-row items-center bg-white border border-igb-outline rounded-lg px-3 py-3 mb-2.5">
       <Pressable onPress={onOpenDetail} className="flex-1 flex-row items-center mr-2">
         {fotoUrl ? (
-          <Image source={{ uri: fotoUrl }} className="w-10 h-10 rounded-full mr-3" />
+          <Image source={{ uri: fotoUrl }} contentFit="cover" cachePolicy="disk" className="w-10 h-10 rounded-full mr-3" />
         ) : (
           <View className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${activo ? 'bg-igb-navy/10' : 'bg-igb-secondary/10'}`}>
             <Ionicons name={icon} size={20} color={activo ? '#1C357F' : '#575d78'} />

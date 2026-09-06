@@ -257,6 +257,13 @@ export default function AgendaScreen() {
   // arma una ventana nueva centrada ahí (esto sí es un salto, pero es a
   // pedido explícito, no arrastrando el dedo).
   function goTo(date: Date, animated = true) {
+    // Invalida cualquier scroll pendiente (ej. el "ir a hoy" armado al montar,
+    // todavía sin consumir si esta es la primera vez que se entra a Día en la
+    // sesión) — goTo ya resuelve su propio scroll acá abajo; si no se limpia,
+    // ese pendiente se dispara solo cuando `loading` pasa a `false` (justo lo
+    // que dispara este mismo goTo al cambiar de vista) y pisa el día recién
+    // pedido con el de hoy.
+    pendingScrollRef.current = null
     const dateStr = toDateInput(date)
     setFocused(date)
     if (date >= windowStart && date <= windowEnd) {
