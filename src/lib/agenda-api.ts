@@ -78,14 +78,45 @@ function eventoSeSuperponeCon(ev: EventoAgenda, desde: string, hasta: string): b
   return ev.fecha <= hasta && desde <= (ev.fecha_hasta ?? ev.fecha)
 }
 
+function addDay(fecha: string, delta = 1): string {
+  const d = new Date(`${fecha}T00:00:00`)
+  d.setDate(d.getDate() + delta)
+  return d.toISOString().slice(0, 10)
+}
+
 export async function getEventosAgendaCached(desde: string, hasta: string): Promise<EventoAgenda[]> {
-  if (eventosCache && eventosCache.desde <= desde && hasta <= eventosCache.hasta) {
-    return eventosCache.data.filter((ev) => eventoSeSuperponeCon(ev, desde, hasta))
+  const cache = eventosCache
+  if (cache && cache.desde <= desde && hasta <= cache.hasta) {
+    return cache.data.filter((ev) => eventoSeSuperponeCon(ev, desde, hasta))
   }
-  const nuevoDesde = eventosCache && eventosCache.desde < desde ? eventosCache.desde : desde
-  const nuevoHasta = eventosCache && eventosCache.hasta > hasta ? eventosCache.hasta : hasta
+  // Rango pedido contiguo o solapado con lo cacheado (el caso normal:
+  // flechas de mes/semana/día avanzando de a un paso): pedir solo el tramo
+  // que falta y pegarlo al cache, no todo el rango de nuevo — antes cada tap
+  // volvía a pedir la unión completa, cada vez más grande cuanto más se
+  // navegaba, y la respuesta tardaba cada vez más.
+  const contiguo = !!cache && desde <= addDay(cache.hasta) && cache.desde <= addDay(hasta)
   const generation = cacheGeneration
-  const data = await getEventosAgenda(nuevoDesde, nuevoHasta)
+  let nuevoDesde: string
+  let nuevoHasta: string
+  let data: EventoAgenda[]
+  if (cache && contiguo) {
+    nuevoDesde = cache.desde < desde ? cache.desde : desde
+    nuevoHasta = cache.hasta > hasta ? cache.hasta : hasta
+    const pedidos: Promise<EventoAgenda[]>[] = []
+    if (desde < cache.desde) pedidos.push(getEventosAgenda(desde, addDay(cache.desde, -1)))
+    if (hasta > cache.hasta) pedidos.push(getEventosAgenda(addDay(cache.hasta), hasta))
+    const nuevos = (await Promise.all(pedidos)).flat()
+    const porId = new Map(cache.data.map((ev) => [ev.id, ev]))
+    for (const ev of nuevos) porId.set(ev.id, ev)
+    data = Array.from(porId.values())
+  } else {
+    // Sin cache, o salto lejos que ni solapa ni toca lo cacheado: no tiene
+    // sentido traer el tramo intermedio nunca visitado — se pide solo lo
+    // pedido y se descarta el cache viejo.
+    nuevoDesde = desde
+    nuevoHasta = hasta
+    data = await getEventosAgenda(desde, hasta)
+  }
   // Si mientras esperábamos hubo una invalidación (crear/editar/borrar un
   // evento) o un fetch más nuevo ya escribió el cache, esta respuesta puede
   // llegar tarde y pisarlo con datos viejos — solo escribimos si seguimos
@@ -94,8 +125,8 @@ export async function getEventosAgendaCached(desde: string, hasta: string): Prom
     if (daysBetween(nuevoDesde, nuevoHasta) <= MAX_CACHE_DAYS) {
       eventosCache = { desde: nuevoDesde, hasta: nuevoHasta, data }
     } else {
-      // Unir con lo ya cacheado se pasaría del techo — en vez de acumular
-      // sin límite, arrancamos de nuevo desde lo recién pedido.
+      // Se pasaría del techo — en vez de acumular sin límite, arrancamos de
+      // nuevo desde lo recién pedido.
       eventosCache = { desde, hasta, data: data.filter((ev) => eventoSeSuperponeCon(ev, desde, hasta)) }
     }
   }

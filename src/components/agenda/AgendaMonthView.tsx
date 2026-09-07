@@ -8,6 +8,7 @@ import { getMonthMatrix, toDateInput, estadoStripColor, getEstadoVisual, finDiaE
 import type { EventoAgenda } from '@/lib/types'
 import { EstadoLegend } from '@/components/EstadoLegend'
 import { colors } from '@/lib/colors'
+import { useNavThrottle } from '@/lib/useNavThrottle'
 
 const MESES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -37,6 +38,7 @@ export function AgendaMonthView({
   const [eventos, setEventos] = useState<EventoAgenda[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const canNav = useNavThrottle()
   const weeks = getMonthMatrix(month)
   const today = new Date()
   const todayStr = toDateInput(today)
@@ -86,20 +88,22 @@ export function AgendaMonthView({
       <View className="bg-white border-b border-igb-outline px-4 pt-3 pb-3">
         <View className="flex-row justify-between items-center">
           <Pressable
-            onPress={() => onChangeMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}
-            className="p-2"
+            onPress={() => canNav() && onChangeMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}
+            className="p-3"
+            hitSlop={8}
           >
-            <Text className="text-lg">‹</Text>
+            <Text className="text-xl">‹</Text>
           </Pressable>
           <Text className="font-semibold text-igb-on-surface text-base">
             {MESES[month.getMonth()]} {month.getFullYear()}
           </Text>
           <View className="flex-row items-center">
             <Pressable
-              onPress={() => onChangeMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}
-              className="p-2"
+              onPress={() => canNav() && onChangeMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}
+              className="p-3"
+              hitSlop={8}
             >
-              <Text className="text-lg">›</Text>
+              <Text className="text-xl">›</Text>
             </Pressable>
             <EstadoLegend />
           </View>

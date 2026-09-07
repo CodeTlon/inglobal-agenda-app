@@ -8,6 +8,7 @@ import { getWeekDays, addDays, toDateInput, estadoStripColor, getEstadoVisual, f
 import type { EventoAgenda } from '@/lib/types'
 import { EstadoLegend } from '@/components/EstadoLegend'
 import { colors } from '@/lib/colors'
+import { useNavThrottle } from '@/lib/useNavThrottle'
 
 const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
@@ -39,6 +40,7 @@ export function AgendaWeekView({
   const [eventos, setEventos] = useState<EventoAgenda[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const canNav = useNavThrottle()
   const weekDays = getWeekDays(weekStart)
   const todayStr = toDateInput(new Date())
   const weekStartStr = toDateInput(weekStart)
@@ -88,14 +90,22 @@ export function AgendaWeekView({
             preservar el día de semana al ir y volver — si no, "focused"
             quedaba pegado al lunes y podía pintar dos días a la vez (el
             lunes por foco, hoy por ancla) al volver a la semana actual. */}
-        <Pressable onPress={() => onChangeWeek(addDays(new Date(`${focusedStr}T00:00:00`), -7))} className="p-2">
-          <Text className="text-lg">‹</Text>
+        <Pressable
+          onPress={() => canNav() && onChangeWeek(addDays(new Date(`${focusedStr}T00:00:00`), -7))}
+          className="p-3"
+          hitSlop={8}
+        >
+          <Text className="text-xl">‹</Text>
         </Pressable>
         <Text className="font-semibold text-igb-on-surface">
           {weekStart.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })} - {addDays(weekStart, 6).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
         </Text>
-        <Pressable onPress={() => onChangeWeek(addDays(new Date(`${focusedStr}T00:00:00`), 7))} className="p-2">
-          <Text className="text-lg">›</Text>
+        <Pressable
+          onPress={() => canNav() && onChangeWeek(addDays(new Date(`${focusedStr}T00:00:00`), 7))}
+          className="p-3"
+          hitSlop={8}
+        >
+          <Text className="text-xl">›</Text>
         </Pressable>
         <EstadoLegend />
       </View>

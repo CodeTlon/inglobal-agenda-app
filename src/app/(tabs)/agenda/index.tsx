@@ -26,6 +26,7 @@ import { EstadoLegend } from '@/components/EstadoLegend'
 import { AgendaMonthView } from '@/components/agenda/AgendaMonthView'
 import { AgendaWeekView } from '@/components/agenda/AgendaWeekView'
 import { colors } from '@/lib/colors'
+import { useNavThrottle } from '@/lib/useNavThrottle'
 
 const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const PX_PER_HOUR = 60
@@ -69,6 +70,7 @@ export default function AgendaScreen() {
     Array.from({ length: INITIAL_BEFORE + INITIAL_AFTER + 1 }, (_, i) => addDays(new Date(), i - INITIAL_BEFORE)),
   )
   const [focused, setFocused] = useState(() => new Date()) // día resaltado en el header, sigue el scroll
+  const canNavWeek = useNavThrottle()
   const [eventos, setEventos] = useState<EventoAgenda[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -556,14 +558,14 @@ export default function AgendaScreen() {
           <Pressable onPress={() => setViewMode('week')} className="p-2">
             <Text className="text-sm text-igb-secondary">◂ Semana</Text>
           </Pressable>
-          <Pressable onPress={() => goTo(addDays(focused, -7))} className="p-2">
-            <Text className="text-lg">‹</Text>
+          <Pressable onPress={() => canNavWeek() && goTo(addDays(focused, -7))} className="p-3" hitSlop={8}>
+            <Text className="text-xl">‹</Text>
           </Pressable>
           <Text className="font-semibold text-igb-on-surface">
             {weekStart.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })} - {addDays(weekStart, 6).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
           </Text>
-          <Pressable onPress={() => goTo(addDays(focused, 7))} className="p-2">
-            <Text className="text-lg">›</Text>
+          <Pressable onPress={() => canNavWeek() && goTo(addDays(focused, 7))} className="p-3" hitSlop={8}>
+            <Text className="text-xl">›</Text>
           </Pressable>
           <EstadoLegend />
         </View>
