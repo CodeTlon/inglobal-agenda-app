@@ -91,13 +91,13 @@ function RootLayoutNav() {
       <SafeAreaProvider>
         <StatusBar style="dark" />
       {cargando ? (
-        <View className="flex-1 items-center justify-center bg-white px-8">
+        <View className="flex-1 items-center justify-center bg-[#e8ddd4] px-8">
           <Image
             source={require('../../assets/images/codetlon-logo.png')}
-            style={{ width: 240, height: (240 * 217) / 1024 }}
+            style={{ width: 220, height: 220 }}
             resizeMode="contain"
           />
-          <Text className="font-headline text-igb-navy text-2xl text-center mt-7">
+          <Text className="font-headline text-igb-on-surface text-xl text-center mt-6">
             Desarrollado por CodeTlon
           </Text>
         </View>
