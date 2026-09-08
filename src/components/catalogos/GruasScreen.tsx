@@ -167,6 +167,14 @@ export default function GruasScreen() {
         </View>
       ) : (
         <ScrollView className="flex-1 px-4 pt-4">
+          {gruasOrdenadas.length === 0 && (
+            <View className="items-center pt-16 px-6">
+              <Ionicons name="car-outline" size={40} color={colors.secondary} />
+              <Text className="text-igb-secondary text-sm text-center mt-3">
+                Todavía no hay grúas cargadas.{'\n'}Tocá + para agregar la primera.
+              </Text>
+            </View>
+          )}
           {gruasOrdenadas.map((g) => (
             <CatalogRow
               key={g.id}

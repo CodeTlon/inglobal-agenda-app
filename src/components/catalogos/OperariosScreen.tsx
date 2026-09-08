@@ -149,6 +149,14 @@ export default function OperariosScreen() {
         </View>
       ) : (
         <ScrollView className="flex-1 px-4 pt-4">
+          {operariosOrdenados.length === 0 && (
+            <View className="items-center pt-16 px-6">
+              <Ionicons name="people-outline" size={40} color={colors.secondary} />
+              <Text className="text-igb-secondary text-sm text-center mt-3">
+                Todavía no hay operarios cargados.{'\n'}Tocá + para agregar el primero.
+              </Text>
+            </View>
+          )}
           {operariosOrdenados.map((o) => (
             <CatalogRow
               key={o.id}
