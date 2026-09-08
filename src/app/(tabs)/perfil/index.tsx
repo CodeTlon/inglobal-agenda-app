@@ -107,6 +107,7 @@ export default function PerfilScreen() {
       <Text className="text-igb-secondary/60 text-[11px] text-center mt-6">
         Grúas InGlobal · v{Constants.expoConfig?.version ?? '1.0.0'}
       </Text>
+      <Text className="text-igb-secondary/40 text-[10px] text-center mt-1">Desarrollado por CodeTlon</Text>
     </ScrollView>
   )
 }
