@@ -1,10 +1,10 @@
 import '../global.css'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
-import { View, ActivityIndicator, Pressable, AppState, LogBox } from 'react-native'
+import { View, Image, Pressable, AppState, LogBox } from 'react-native'
 import * as SplashScreen from 'expo-splash-screen'
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter'
 import { Manrope_700Bold } from '@expo-google-fonts/manrope'
@@ -12,7 +12,6 @@ import { Ionicons } from '@expo/vector-icons'
 import { useSession, SessionProvider } from '@/lib/session'
 import { supabase } from '@/lib/supabase'
 import { Text } from '@/components/Text'
-import { colors } from '@/lib/colors'
 import { DialogHost } from '@/components/Dialog'
 
 SplashScreen.preventAutoHideAsync()
@@ -68,25 +67,40 @@ function RootLayoutNav() {
   })
 
   // Se oculta el splash nativo apenas monta este árbol (no cuando terminan
-  // las fuentes): así la pantalla de carga de abajo (spinner + "Desarrollado
-  // por CodeTlon") queda visible durante TODO el hueco entre splash nativo y
-  // app lista, en vez de una carrera entre fontsLoaded y la sesión donde a
-  // veces ninguno de los dos alcanza a mostrarse.
+  // las fuentes): así la pantalla de abajo (isotipo + "Desarrollado por
+  // CodeTlon") queda visible durante TODO el hueco entre splash nativo y app
+  // lista, en vez de una carrera entre fontsLoaded y la sesión donde a veces
+  // ninguno de los dos alcanza a mostrarse.
   useEffect(() => {
     SplashScreen.hideAsync()
   }, [])
 
-  const cargando = !fontsLoaded || loading
+  // Piso de tiempo propio: fuentes + sesión suelen resolver en menos de un
+  // segundo, muy poco para que se alcance a leer. Fuerza un mínimo de 2.2s
+  // en pantalla aunque todo lo demás ya haya terminado.
+  const [pisoCumplido, setPisoCumplido] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setPisoCumplido(true), 2200)
+    return () => clearTimeout(t)
+  }, [])
+
+  const cargando = !fontsLoaded || loading || !pisoCumplido
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <StatusBar style="dark" />
       {cargando ? (
-        <CenteredMessage>
-          <ActivityIndicator color={colors.yellow} size="large" />
-          <Text className="text-igb-secondary/50 text-[11px] mt-4">Desarrollado por CodeTlon</Text>
-        </CenteredMessage>
+        <View className="flex-1 items-center justify-center bg-white px-8">
+          <Image
+            source={require('../../assets/images/codetlon-logo.png')}
+            style={{ width: 240, height: (240 * 217) / 1024 }}
+            resizeMode="contain"
+          />
+          <Text className="font-headline text-igb-navy text-2xl text-center mt-7">
+            Desarrollado por CodeTlon
+          </Text>
+        </View>
       ) : session && mustChangePassword ? (
         <CenteredMessage>
           <Text className="text-center font-semibold text-igb-on-surface text-lg mb-2">
