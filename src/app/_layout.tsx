@@ -4,7 +4,7 @@ import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
-import { View, Image, Pressable, AppState, LogBox } from 'react-native'
+import { View, Pressable, AppState, LogBox } from 'react-native'
 import * as SplashScreen from 'expo-splash-screen'
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter'
 import { Manrope_700Bold } from '@expo-google-fonts/manrope'
@@ -76,11 +76,11 @@ function RootLayoutNav() {
   }, [])
 
   // Piso de tiempo propio: fuentes + sesión suelen resolver en menos de un
-  // segundo, muy poco para que se alcance a leer. Fuerza un mínimo de 2.2s
-  // en pantalla aunque todo lo demás ya haya terminado.
+  // segundo, muy poco para que se alcance a leer. Fuerza un mínimo de 3s en
+  // pantalla aunque todo lo demás ya haya terminado.
   const [pisoCumplido, setPisoCumplido] = useState(false)
   useEffect(() => {
-    const t = setTimeout(() => setPisoCumplido(true), 2200)
+    const t = setTimeout(() => setPisoCumplido(true), 3000)
     return () => clearTimeout(t)
   }, [])
 
@@ -91,14 +91,11 @@ function RootLayoutNav() {
       <SafeAreaProvider>
         <StatusBar style="dark" />
       {cargando ? (
-        <View className="flex-1 items-center justify-center bg-[#e8ddd4] px-8">
-          <Image
-            source={require('../../assets/images/codetlon-logo.png')}
-            style={{ width: 220, height: 220 }}
-            resizeMode="contain"
-          />
-          <Text className="font-headline text-igb-on-surface text-xl text-center mt-6">
-            Desarrollado por CodeTlon
+        <View className="flex-1 items-center justify-center bg-white px-8">
+          <Text className="text-igb-on-surface text-xs tracking-[3px] uppercase mb-2">Desarrollado por</Text>
+          <Text className="font-headline text-4xl">
+            <Text className="font-headline text-4xl" style={{ color: '#053540' }}>Code</Text>
+            <Text className="font-headline text-4xl" style={{ color: '#e6691c' }}>Tlon</Text>
           </Text>
         </View>
       ) : session && mustChangePassword ? (
