@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native'
 import { Image } from 'expo-image'
 import { cssInterop } from 'nativewind'
@@ -25,7 +25,7 @@ import { confirmDialog } from '@/components/Dialog'
 import { formatEstado, estadoColorClassesLight } from '@/lib/agenda-view'
 import { subirFoto, elegirFotoDeGaleria } from '@/lib/media-upload'
 import { TIPOS_GRUA } from '@/lib/types'
-import type { Grua, EmpresaAgenda, Operario, EventoAgenda } from '@/lib/types'
+import type { Grua, EmpresaAgenda, Operario, EventoAgenda, EstadoEvento } from '@/lib/types'
 import { colors } from '@/lib/colors'
 
 // Ver CatalogRow.tsx: mismo motivo (cache a disco, className vía cssInterop).
@@ -87,6 +87,18 @@ export default function RecursoDetalleScreen() {
   const [form, setForm] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [filtroEstado, setFiltroEstado] = useState<EstadoEvento | null>(null)
+
+  const contadores = useMemo(() => {
+    return eventos.reduce<Record<string, number>>((acc, ev) => {
+      acc[ev.estado] = (acc[ev.estado] ?? 0) + 1
+      return acc
+    }, {})
+  }, [eventos])
+  const historial = useMemo(() => {
+    const filtrados = filtroEstado ? eventos.filter((ev) => ev.estado === filtroEstado) : eventos
+    return [...filtrados].reverse()
+  }, [eventos, filtroEstado])
 
   function load() {
     setLoading(true)
@@ -221,10 +233,6 @@ export default function RecursoDetalleScreen() {
     )
   }
 
-  const contadores = eventos.reduce<Record<string, number>>((acc, ev) => {
-    acc[ev.estado] = (acc[ev.estado] ?? 0) + 1
-    return acc
-  }, {})
   const foto = fotoDe(tipo, recurso)
 
   return (
@@ -312,19 +320,47 @@ export default function RecursoDetalleScreen() {
       </View>
 
       <View className="flex-row flex-wrap gap-2 mb-4">
-        <StatTile label="Total" value={eventos.length} />
-        <StatTile label="Finalizados" value={contadores.finalizado ?? 0} />
-        <StatTile label="Cancelados" value={contadores.cancelado ?? 0} />
-        <StatTile label="En curso" value={contadores.en_curso ?? 0} />
-        <StatTile label="Programados" value={contadores.programado ?? 0} />
-        <StatTile label="Reservados" value={contadores.reserva ?? 0} />
+        <StatTile label="Total" value={eventos.length} active={filtroEstado === null} onPress={() => setFiltroEstado(null)} />
+        <StatTile
+          label="Finalizados"
+          value={contadores.finalizado ?? 0}
+          active={filtroEstado === 'finalizado'}
+          onPress={() => setFiltroEstado((f) => (f === 'finalizado' ? null : 'finalizado'))}
+        />
+        <StatTile
+          label="Cancelados"
+          value={contadores.cancelado ?? 0}
+          active={filtroEstado === 'cancelado'}
+          onPress={() => setFiltroEstado((f) => (f === 'cancelado' ? null : 'cancelado'))}
+        />
+        <StatTile
+          label="En curso"
+          value={contadores.en_curso ?? 0}
+          active={filtroEstado === 'en_curso'}
+          onPress={() => setFiltroEstado((f) => (f === 'en_curso' ? null : 'en_curso'))}
+        />
+        <StatTile
+          label="Programados"
+          value={contadores.programado ?? 0}
+          active={filtroEstado === 'programado'}
+          onPress={() => setFiltroEstado((f) => (f === 'programado' ? null : 'programado'))}
+        />
+        <StatTile
+          label="Reservados"
+          value={contadores.reserva ?? 0}
+          active={filtroEstado === 'reserva'}
+          onPress={() => setFiltroEstado((f) => (f === 'reserva' ? null : 'reserva'))}
+        />
       </View>
 
       <Text className="text-igb-secondary text-xs font-semibold uppercase mb-2">Historial de eventos</Text>
       {eventos.length === 0 && (
         <Text className="text-igb-secondary text-sm">Todavía no tiene eventos asociados.</Text>
       )}
-      {[...eventos].reverse().map((ev) => (
+      {eventos.length > 0 && historial.length === 0 && (
+        <Text className="text-igb-secondary text-sm">No hay eventos con ese estado.</Text>
+      )}
+      {historial.map((ev) => (
         <View key={ev.id} className="bg-white border border-igb-outline rounded-lg p-3 mb-2">
           <View className="flex-row items-center justify-between mb-1">
             <Text className="text-igb-on-surface font-medium">
@@ -376,11 +412,15 @@ function Field({
   )
 }
 
-function StatTile({ label, value }: { label: string; value: number }) {
+function StatTile({ label, value, active, onPress }: { label: string; value: number; active: boolean; onPress: () => void }) {
   return (
-    <View className="bg-white border border-igb-outline rounded-lg px-3 py-2 items-center" style={{ minWidth: 84 }}>
-      <Text className="text-igb-on-surface font-headline text-lg">{value}</Text>
-      <Text className="text-igb-secondary text-[10px]">{label}</Text>
-    </View>
+    <Pressable
+      onPress={onPress}
+      className={`rounded-lg px-3 py-2 items-center border ${active ? 'bg-igb-navy border-igb-navy' : 'bg-white border-igb-outline'}`}
+      style={{ width: '31%' }}
+    >
+      <Text className={`font-headline text-lg ${active ? 'text-white' : 'text-igb-on-surface'}`}>{value}</Text>
+      <Text className={`text-[10px] ${active ? 'text-white/80' : 'text-igb-secondary'}`}>{label}</Text>
+    </Pressable>
   )
 }

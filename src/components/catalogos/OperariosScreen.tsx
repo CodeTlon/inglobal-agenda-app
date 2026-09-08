@@ -1,5 +1,7 @@
-import { useState } from 'react'
-import { View, ScrollView, Pressable, ActivityIndicator, Platform, KeyboardAvoidingView, Image } from 'react-native'
+import { useCallback, useMemo, useState } from 'react'
+import { View, ScrollView, Pressable, ActivityIndicator, Platform, KeyboardAvoidingView } from 'react-native'
+import { Image } from 'expo-image'
+import { cssInterop } from 'nativewind'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { Text } from '@/components/Text'
@@ -11,20 +13,25 @@ import { showApiError } from '@/lib/alert'
 import { confirmDialog } from '@/components/Dialog'
 import { useOcupacionDelDia, ordenarCatalogo } from '@/lib/catalog-ocupacion'
 import { subirFoto, elegirFotoDeGaleria } from '@/lib/media-upload'
-import type { Operario } from '@/lib/types'
+import type { Operario, EventoAgenda } from '@/lib/types'
 import { CatalogRow } from '@/components/CatalogRow'
 import { colors } from '@/lib/colors'
+
+// Ver CatalogRow.tsx: mismo motivo (cache a disco, className vía cssInterop).
+cssInterop(Image, { className: 'style' })
 
 const EMPTY = { nombre: '', telefono: '' }
 
 export default function OperariosScreen() {
   const router = useRouter()
+  const matcher = useCallback((ev: EventoAgenda, o: Operario) => ev.operarios.some((op) => op.id === o.id), [])
   const { items: operarios, loading, loadError, load, estadoDe } = useOcupacionDelDia(
     getOperarios,
-    (ev, o) => ev.operarios.some((op) => op.id === o.id),
+    matcher,
     'No se pudieron cargar los operarios.',
   )
   const [showForm, setShowForm] = useState(false)
+  const operariosOrdenados = useMemo(() => ordenarCatalogo(operarios, estadoDe), [operarios, estadoDe])
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -103,7 +110,7 @@ export default function OperariosScreen() {
       <ScrollView className="flex-1 bg-igb-surface px-4 pt-4" contentContainerStyle={{ paddingBottom: 40 }}>
         <Pressable onPress={handleElegirFoto} className="items-center mb-4">
           {fotoUri ? (
-            <Image source={{ uri: fotoUri }} className="w-20 h-20 rounded-full mb-1" />
+            <Image source={{ uri: fotoUri }} contentFit="cover" cachePolicy="disk" className="w-20 h-20 rounded-full mb-1" />
           ) : (
             <View className="w-20 h-20 rounded-full bg-igb-navy/10 items-center justify-center mb-1">
               <Ionicons name="people-outline" size={32} color={colors.navy} />
@@ -142,7 +149,7 @@ export default function OperariosScreen() {
         </View>
       ) : (
         <ScrollView className="flex-1 px-4 pt-4">
-          {ordenarCatalogo(operarios, estadoDe).map((o) => (
+          {operariosOrdenados.map((o) => (
             <CatalogRow
               key={o.id}
               icon="people-outline"

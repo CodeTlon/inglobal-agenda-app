@@ -80,3 +80,9 @@ export function CatalogRow({
     </View>
   )
 }
+
+// ponytail: se evaluó envolver esto en React.memo, pero onToggle/onOpenDetail
+// se arman inline por fila en el .map() de cada pantalla — memo quedaría sin
+// efecto sin además cambiar la firma para recibir id + un dispatcher estable
+// arriba, y las listas de catálogo son chicas (no virtualizadas). No vale el
+// refactor a esta escala; revisar si los catálogos crecen mucho.

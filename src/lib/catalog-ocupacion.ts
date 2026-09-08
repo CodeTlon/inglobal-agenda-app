@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 import { useFocusEffect } from 'expo-router'
 import { getEventosAgendaCached } from './agenda-api'
 import { ApiError } from './api'
-import { toDateInput } from './agenda-view'
+import { addDays, toDateInput } from './agenda-view'
 import type { EventoAgenda } from './types'
 import type { CatalogEstado } from '@/components/CatalogRow'
 
@@ -32,10 +32,14 @@ export function useOcupacionDelDia<T extends { id: string; activo: boolean }>(
     setLoading(true)
     setLoadError(null)
     const hoy = toDateInput(new Date())
-    Promise.all([fetchCatalogo(true), getEventosAgendaCached(hoy, hoy)])
+    // ponytail: [hoy, mañana] en vez de [hoy, hoy] — mismo caso que en
+    // perfil/index.tsx: pedir un rango de un solo día contra un caché en frío
+    // volvía vacío. Se filtra a "hoy" acá mismo.
+    const manana = toDateInput(addDays(new Date(), 1))
+    Promise.all([fetchCatalogo(true), getEventosAgendaCached(hoy, manana)])
       .then(([list, evs]) => {
         setItems(list)
-        setEventosDelDia(evs)
+        setEventosDelDia(evs.filter((ev) => ev.fecha <= hoy && hoy <= (ev.fecha_hasta ?? ev.fecha)))
       })
       .catch((e) => setLoadError(e instanceof ApiError ? e.message : errorMsg))
       .finally(() => setLoading(false))
@@ -47,12 +51,18 @@ export function useOcupacionDelDia<T extends { id: string; activo: boolean }>(
   // Disponible/Ocupado según si hay un evento vivo (no cancelado/finalizado)
   // hoy que matchee con este item — no hay campo de estado propio en el
   // catálogo.
-  function estadoDe(item: T): CatalogEstado | undefined {
-    if (!item.activo) return undefined
-    const ocupado = eventosDelDia.find((ev) => ESTADOS_VIVOS.includes(ev.estado) && matcher(ev, item))
-    if (!ocupado) return { kind: 'disponible' }
-    return { kind: 'ocupado', detail: `Libera ~${(ocupado.hora_fin ?? '18:00').slice(0, 5)}` }
-  }
+  // useCallback (no una función plana): así queda estable entre renders
+  // mientras no cambien eventosDelDia/matcher, y ordenarCatalogo() se puede
+  // memoizar en useMemo del lado de la pantalla sin que sea un memo inerte.
+  const estadoDe = useCallback(
+    (item: T): CatalogEstado | undefined => {
+      if (!item.activo) return undefined
+      const ocupado = eventosDelDia.find((ev) => ESTADOS_VIVOS.includes(ev.estado) && matcher(ev, item))
+      if (!ocupado) return { kind: 'disponible' }
+      return { kind: 'ocupado', detail: `Libera ~${(ocupado.hora_fin ?? '18:00').slice(0, 5)}` }
+    },
+    [eventosDelDia, matcher],
+  )
 
   return { items, loading, loadError, load, estadoDe }
 }

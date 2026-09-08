@@ -7,7 +7,7 @@ import { Text } from '@/components/Text'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/lib/session'
 import { getEventosAgendaCached } from '@/lib/agenda-api'
-import { getEstadoVisual, toDateInput } from '@/lib/agenda-view'
+import { addDays, getEstadoVisual, toDateInput } from '@/lib/agenda-view'
 import type { EventoAgenda } from '@/lib/types'
 import { colors } from '@/lib/colors'
 
@@ -24,8 +24,13 @@ export default function PerfilScreen() {
       const hoy = toDateInput(new Date())
       setEventosHoyError(false)
       // Cached: si ya se vio Agenda hoy, esto no repite el fetch de "hoy" a la red.
-      getEventosAgendaCached(hoy, hoy)
-        .then(setEventosHoy)
+      // ponytail: se pide [hoy, mañana] en vez de exactamente [hoy, hoy] — este era
+      // el único lugar de la app pidiendo un rango de un solo día contra un caché
+      // en frío (Agenda siempre pide semana/mes), y daba 0 eventos siempre. Se
+      // filtra el resultado a "hoy" en memoria para no cambiar lo que se muestra.
+      const manana = toDateInput(addDays(new Date(), 1))
+      getEventosAgendaCached(hoy, manana)
+        .then((evs) => setEventosHoy(evs.filter((ev) => ev.fecha <= hoy && hoy <= (ev.fecha_hasta ?? ev.fecha))))
         .catch(() => setEventosHoyError(true))
     }, []),
   )
