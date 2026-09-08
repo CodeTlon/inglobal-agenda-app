@@ -1,5 +1,5 @@
 import '../global.css'
-import { useCallback, useEffect } from 'react'
+import { useEffect } from 'react'
 import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
@@ -67,17 +67,22 @@ function RootLayoutNav() {
     ...Ionicons.font,
   })
 
-  const onLayout = useCallback(() => {
-    if (fontsLoaded) SplashScreen.hideAsync()
-  }, [fontsLoaded])
+  // Se oculta el splash nativo apenas monta este árbol (no cuando terminan
+  // las fuentes): así la pantalla de carga de abajo (spinner + "Desarrollado
+  // por CodeTlon") queda visible durante TODO el hueco entre splash nativo y
+  // app lista, en vez de una carrera entre fontsLoaded y la sesión donde a
+  // veces ninguno de los dos alcanza a mostrarse.
+  useEffect(() => {
+    SplashScreen.hideAsync()
+  }, [])
 
-  if (!fontsLoaded) return null
+  const cargando = !fontsLoaded || loading
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider onLayout={onLayout}>
+      <SafeAreaProvider>
         <StatusBar style="dark" />
-      {loading ? (
+      {cargando ? (
         <CenteredMessage>
           <ActivityIndicator color={colors.yellow} size="large" />
           <Text className="text-igb-secondary/50 text-[11px] mt-4">Desarrollado por CodeTlon</Text>
