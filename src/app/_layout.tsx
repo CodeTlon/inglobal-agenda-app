@@ -80,6 +80,7 @@ function RootLayoutNav() {
       {loading ? (
         <CenteredMessage>
           <ActivityIndicator color={colors.yellow} size="large" />
+          <Text className="text-igb-secondary/50 text-[11px] mt-4">Desarrollado por CodeTlon</Text>
         </CenteredMessage>
       ) : session && mustChangePassword ? (
         <CenteredMessage>
