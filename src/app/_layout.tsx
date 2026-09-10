@@ -4,7 +4,8 @@ import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
-import { View, Pressable, AppState, LogBox } from 'react-native'
+import { View, Pressable, AppState, LogBox, StyleSheet } from 'react-native'
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, runOnJS } from 'react-native-reanimated'
 import * as SplashScreen from 'expo-splash-screen'
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter'
 import { Manrope_700Bold } from '@expo-google-fonts/manrope'
@@ -86,41 +87,63 @@ function RootLayoutNav() {
 
   const cargando = !fontsLoaded || loading || !pisoCumplido
 
+  // Cross-fade en vez de corte duro: la pantalla de carga se desvanece
+  // mientras el contenido de abajo (ya montado, tapado) aparece debajo —
+  // sin esto el swap era instantáneo y de paso exponía un frame en blanco
+  // mientras el Stack/Tabs de abajo recién estaban montando.
+  const [loadingUnmounted, setLoadingUnmounted] = useState(false)
+  const loadingOpacity = useSharedValue(1)
+  useEffect(() => {
+    if (cargando) return
+    loadingOpacity.value = withTiming(0, { duration: 280 }, (finished) => {
+      if (finished) runOnJS(setLoadingUnmounted)(true)
+    })
+  }, [cargando])
+  const loadingStyle = useAnimatedStyle(() => ({ opacity: loadingOpacity.value }))
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <StatusBar style="dark" />
-      {cargando ? (
-        <View className="flex-1 items-center justify-center bg-white px-8">
+      <View style={{ flex: 1 }}>
+      {!cargando && (
+        session && mustChangePassword ? (
+          <CenteredMessage>
+            <Text className="text-center font-semibold text-igb-on-surface text-lg mb-2">
+              Tenés que cambiar tu contraseña
+            </Text>
+            <Text className="text-center text-igb-secondary">
+              Ingresá al panel web (gruasinglobal.com/dashboard) para cambiar tu contraseña temporal antes de usar la app.
+            </Text>
+            <Pressable onPress={() => supabase.auth.signOut()} className="mt-6 py-2 px-4">
+              <Text className="text-igb-navy font-semibold">Cerrar sesión</Text>
+            </Pressable>
+          </CenteredMessage>
+        ) : (
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#f8f9fa' } }}>
+            <Stack.Screen name="index" />
+            <Stack.Protected guard={!!session}>
+              <Stack.Screen name="(tabs)" />
+            </Stack.Protected>
+            <Stack.Protected guard={!session}>
+              <Stack.Screen name="(auth)" />
+            </Stack.Protected>
+          </Stack>
+        )
+      )}
+      {!loadingUnmounted && (
+        <Animated.View
+          pointerEvents={cargando ? 'auto' : 'none'}
+          style={[StyleSheet.absoluteFill, loadingStyle, { backgroundColor: '#f8f9fa', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }]}
+        >
           <Text className="text-igb-on-surface text-xs tracking-[3px] uppercase mb-2">Desarrollado por</Text>
           <Text className="font-headline text-4xl">
             <Text className="font-headline text-4xl" style={{ color: '#053540' }}>Code</Text>
             <Text className="font-headline text-4xl" style={{ color: '#e6691c' }}>Tlon</Text>
           </Text>
-        </View>
-      ) : session && mustChangePassword ? (
-        <CenteredMessage>
-          <Text className="text-center font-semibold text-igb-on-surface text-lg mb-2">
-            Tenés que cambiar tu contraseña
-          </Text>
-          <Text className="text-center text-igb-secondary">
-            Ingresá al panel web (gruasinglobal.com/dashboard) para cambiar tu contraseña temporal antes de usar la app.
-          </Text>
-          <Pressable onPress={() => supabase.auth.signOut()} className="mt-6 py-2 px-4">
-            <Text className="text-igb-navy font-semibold">Cerrar sesión</Text>
-          </Pressable>
-        </CenteredMessage>
-      ) : (
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
-          <Stack.Protected guard={!!session}>
-            <Stack.Screen name="(tabs)" />
-          </Stack.Protected>
-          <Stack.Protected guard={!session}>
-            <Stack.Screen name="(auth)" />
-          </Stack.Protected>
-        </Stack>
+        </Animated.View>
       )}
+      </View>
       <DialogHost />
       </SafeAreaProvider>
     </GestureHandlerRootView>
