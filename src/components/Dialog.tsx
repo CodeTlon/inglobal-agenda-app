@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Modal, Pressable, View } from 'react-native'
+import Animated, { FadeIn } from 'react-native-reanimated'
 import { Text } from '@/components/Text'
 
 type EstiloBoton = 'default' | 'cancel' | 'destructive'
@@ -43,22 +44,30 @@ export function DialogHost() {
   return (
     <Modal transparent animationType="fade" visible onRequestClose={() => setEstado(null)}>
       <Pressable className="flex-1 bg-black/50 items-center justify-center px-8" onPress={() => setEstado(null)}>
-        {/* Pressable interno vacío para que tocar la tarjeta no cierre el modal (no propaga al overlay) */}
-        <Pressable className="bg-white rounded-lg p-5 w-full" style={{ maxWidth: 340 }} onPress={() => {}}>
-          <Text className="font-headline text-lg text-igb-on-surface">{estado.title}</Text>
-          {estado.message ? <Text className="text-igb-secondary mt-2">{estado.message}</Text> : null}
-          <View className="mt-5 gap-2">
-            {estado.buttons.map((b, i) => (
-              <Pressable
-                key={i}
-                onPress={() => cerrar(b.onPress)}
-                className={`rounded-lg py-3 items-center ${BOTON_BG[b.style ?? 'default']}`}
-              >
-                <Text className={`font-semibold ${BOTON_TEXTO[b.style ?? 'default']}`}>{b.text}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </Pressable>
+        {/* La tarjeta entra con un fade+spring propio (Reanimated); el fondo ya
+            lo anima el animationType="fade" nativo del Modal. Nota: className
+            no funciona sobre Animated.View (NativeWind solo intercepta los
+            componentes de 'react-native' que registra explícitamente, no los
+            de reanimated) — por eso el estilo real va en el Pressable de adentro,
+            que sigue siendo un Pressable de 'react-native' normal. */}
+        <Animated.View entering={FadeIn.duration(180).springify()}>
+          {/* Pressable interno vacío para que tocar la tarjeta no cierre el modal (no propaga al overlay) */}
+          <Pressable className="bg-white rounded-lg p-5 w-full" style={{ maxWidth: 340 }} onPress={() => {}}>
+            <Text className="font-headline text-lg text-igb-on-surface">{estado.title}</Text>
+            {estado.message ? <Text className="text-igb-secondary mt-2">{estado.message}</Text> : null}
+            <View className="mt-5 gap-2">
+              {estado.buttons.map((b, i) => (
+                <Pressable
+                  key={i}
+                  onPress={() => cerrar(b.onPress)}
+                  className={`rounded-lg py-3 items-center ${BOTON_BG[b.style ?? 'default']}`}
+                >
+                  <Text className={`font-semibold ${BOTON_TEXTO[b.style ?? 'default']}`}>{b.text}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </Pressable>
+        </Animated.View>
       </Pressable>
     </Modal>
   )

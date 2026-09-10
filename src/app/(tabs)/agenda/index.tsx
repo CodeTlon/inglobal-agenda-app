@@ -41,6 +41,11 @@ const INITIAL_BEFORE = 7
 const INITIAL_AFTER = 23
 const EXTEND_CHUNK = 14
 const EDGE_TRIGGER = DAY_HEIGHT * 3
+// Techo del árbol montado: sin esto `extend` solo sumaba días y nunca
+// achicaba, así que con uso normal (scrollear bastante ida y vuelta) el
+// ScrollView terminaba con meses de días sin virtualizar montados a la vez,
+// degradando el scroll con el tiempo.
+const MAX_MOUNTED_DAYS = 90
 
 function toMinutes(hhmmss: string): number {
   const [h, m] = hhmmss.split(':').map(Number)
@@ -127,6 +132,37 @@ export default function AgendaScreen() {
     setFocused((f) => (viewMode === 'month' ? new Date(f.getFullYear(), f.getMonth() + 1, 1) : addDays(f, 7)))
   }
 
+  // Antes: al terminar el withTiming se saltaba translateX a 0 Y se pedía el
+  // cambio de foco en el mismo instante — como runOnJS cruza al JS thread de
+  // forma asíncrona, quedaba un hueco (contenido viejo ya afuera, nuevo
+  // todavía sin montar) justo cuando el usuario esperaba ver el período
+  // siguiente. Ahora el salto a 0 pasa a ser un salto al lado OPUESTO (sin
+  // animar) hecho junto con el cambio de foco, y recién ahí se anima de
+  // vuelta a 0 — el contenido nuevo entra deslizándose en vez de aparecer de
+  // golpe. Se usa tanto para el gesto como para los botones ‹› (antes esos
+  // botones cambiaban de foco sin ninguna animación).
+  function runNav(direction: 'next' | 'prev') {
+    'worklet'
+    // Se llama tanto desde JS thread (botones ‹›) como desde el worklet de
+    // panGesture.onEnd (UI thread) — sin el directive de arriba, la segunda
+    // llamada crashea (una función JS común no se puede invocar dentro de
+    // un worklet sin pasar por runOnJS).
+    const sign = direction === 'next' ? -1 : 1
+    translateX.value = withTiming(sign * screenWidth, { duration: 150 }, (finished) => {
+      if (!finished) return
+      translateX.value = -sign * screenWidth
+      // runOnJS necesita una referencia directa a la función, no un
+      // ternario armado adentro del call — con el ternario el plugin de
+      // worklets no lo resuelve bien y crashea en nativo.
+      if (direction === 'next') {
+        runOnJS(goToNextPeriod)()
+      } else {
+        runOnJS(goToPrevPeriod)()
+      }
+      translateX.value = withTiming(0, { duration: 150 })
+    })
+  }
+
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
       translateX.value = e.translationX
@@ -137,16 +173,8 @@ export default function AgendaScreen() {
         : e.translationX > screenWidth * 0.25 || e.velocityX > 800
           ? 'prev'
           : null
-      if (committed === 'next') {
-        translateX.value = withTiming(-screenWidth, { duration: 180 }, () => {
-          translateX.value = 0
-          runOnJS(goToNextPeriod)()
-        })
-      } else if (committed === 'prev') {
-        translateX.value = withTiming(screenWidth, { duration: 180 }, () => {
-          translateX.value = 0
-          runOnJS(goToPrevPeriod)()
-        })
+      if (committed) {
+        runNav(committed)
       } else {
         translateX.value = withSpring(0)
       }
@@ -386,12 +414,39 @@ export default function AgendaScreen() {
         isProgrammaticScrollRef.current = false
         scrollTargetYRef.current = null
       }, timeoutMs)
-      setDays((prev) => [...chunk, ...prev])
+      // El extremo futuro recortado acá siempre queda lejos del scroll (que
+      // está ahora arriba, contra el borde `past`) — no hace falta compensar
+      // offset, solo no dejar crecer el array de por vida.
+      setDays((prev) => {
+        const next = [...chunk, ...prev]
+        return next.length > MAX_MOUNTED_DAYS ? next.slice(0, MAX_MOUNTED_DAYS) : next
+      })
       requestAnimationFrame(() => {
         timelineRef.current?.scrollTo({ y, animated: false })
       })
     } else {
-      setDays((prev) => [...prev, ...chunk])
+      const overflow = days.length + EXTEND_CHUNK - MAX_MOUNTED_DAYS
+      if (overflow > 0) {
+        // Simétrico al caso 'past': recortar el extremo viejo (arriba) corre
+        // todo lo de abajo esa altura — armar la guarda de scroll ANTES de
+        // tocar `days`, mismo motivo que arriba.
+        const y = scrollYRef.current - overflow * DAY_HEIGHT
+        isProgrammaticScrollRef.current = true
+        scrollTargetYRef.current = y
+        if (programmaticScrollTimeoutRef.current) clearTimeout(programmaticScrollTimeoutRef.current)
+        const distance = Math.abs(y - scrollYRef.current)
+        const timeoutMs = Math.min(3000, 400 + distance / 4)
+        programmaticScrollTimeoutRef.current = setTimeout(() => {
+          isProgrammaticScrollRef.current = false
+          scrollTargetYRef.current = null
+        }, timeoutMs)
+        setDays((prev) => [...prev, ...chunk].slice(overflow))
+        requestAnimationFrame(() => {
+          timelineRef.current?.scrollTo({ y, animated: false })
+        })
+      } else {
+        setDays((prev) => [...prev, ...chunk])
+      }
     }
     extendingRef.current = null
   }
@@ -536,14 +591,14 @@ export default function AgendaScreen() {
                   setFocused(d)
                   setViewMode('week')
                 }}
-                onChangeMonth={setFocused}
+                onChangeMonth={(d) => runNav(d > focused ? 'next' : 'prev')}
               />
             ) : (
               <AgendaWeekView
                 weekStart={weekStart}
                 focusedStr={focusedStr}
                 onSelectDay={navigateToDay}
-                onChangeWeek={setFocused}
+                onChangeWeek={(d) => runNav(d > focused ? 'next' : 'prev')}
                 onBack={() => setViewMode('month')}
               />
             )}

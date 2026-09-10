@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { View, Pressable, ActivityIndicator, Linking } from 'react-native'
+import { useRouter } from 'expo-router'
 import { CameraView, useCameraPermissions } from 'expo-camera'
 import { Ionicons } from '@expo/vector-icons'
 import { Text } from '@/components/Text'
@@ -18,6 +19,7 @@ function extractToken(scanned: string): string | null {
 }
 
 export default function PairTvScreen() {
+  const router = useRouter()
   const [permission, requestPermission] = useCameraPermissions()
   const [scannedToken, setScannedToken] = useState<string | null>(null)
   const [approving, setApproving] = useState(false)
@@ -80,8 +82,8 @@ export default function PairTvScreen() {
         <Ionicons name="checkmark-circle" size={48} color={colors.success} style={{ marginBottom: 16 }} />
         <Text className="text-igb-on-surface font-semibold text-lg mb-2 text-center">TV vinculada</Text>
         <Text className="text-igb-secondary text-center mb-6">La televisión ya debería mostrar la agenda.</Text>
-        <Pressable onPress={reset} className="bg-igb-yellow rounded-lg px-6 py-3.5">
-          <Text className="text-igb-on-yellow font-bold">Vincular otra</Text>
+        <Pressable onPress={() => router.back()} className="bg-igb-yellow rounded-lg px-6 py-3.5">
+          <Text className="text-igb-on-yellow font-bold">Listo</Text>
         </Pressable>
       </View>
     )

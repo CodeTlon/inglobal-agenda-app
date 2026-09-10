@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { View, ScrollView, Pressable, ActivityIndicator, Platform, KeyboardAvoidingView } from 'react-native'
+import { useRouter } from 'expo-router'
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated'
 import DateTimePicker from '@react-native-community/datetimepicker'
 import { Picker } from '@react-native-picker/picker'
 import { Ionicons } from '@expo/vector-icons'
@@ -47,6 +49,7 @@ export function EventoForm({
   onDone: () => void
   footer?: ReactNode
 }) {
+  const router = useRouter()
   const isEdit = !!initial
   // Usa el estado VISUAL (no el crudo de la DB) — un evento que el usuario ve
   // como "Finalizado" por ventana horaria vencida puede seguir en estado
@@ -228,17 +231,48 @@ export function EventoForm({
     )
   }
 
+  // Para editar un evento existente igual hay grúa/empresa/operario (son los
+  // del propio evento) — el bloqueo es solo para no entrar a crear uno nuevo
+  // con los checklists vacíos.
+  if (!isEdit && (gruas.length === 0 || empresas.length === 0 || operarios.length === 0)) {
+    const faltantes = [
+      gruas.length === 0 && 'grúas',
+      operarios.length === 0 && 'operarios',
+      empresas.length === 0 && 'empresas',
+    ].filter(Boolean).join(', ')
+    return (
+      <View className="flex-1 items-center justify-center bg-igb-surface px-6">
+        <Ionicons name="alert-circle-outline" size={40} color={colors.secondary} />
+        <Text className="text-igb-on-surface font-semibold text-center mt-3">
+          Todavía no cargaste {faltantes}
+        </Text>
+        <Text className="text-igb-secondary text-center mt-1 mb-5">
+          Cargalas en Catálogos antes de crear un evento.
+        </Text>
+        <Pressable onPress={() => router.push('/catalogos')} className="bg-igb-yellow rounded-lg px-6 py-3">
+          <Text className="text-igb-on-yellow font-bold">Ir a Catálogos</Text>
+        </Pressable>
+      </View>
+    )
+  }
+
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
     <ScrollView className="flex-1 bg-igb-surface px-4 pt-4" contentContainerStyle={{ paddingBottom: 40 }}>
       {locked && (
-        <View className="bg-igb-navy/5 border border-igb-navy/20 rounded-lg p-3 mb-4">
-          <Text className="text-igb-navy text-sm">
-            {initial?.estado === 'en_curso'
-              ? 'Un evento en curso solo permite cambiar el estado.'
-              : 'Un evento cancelado o finalizado no se puede editar.'}
-          </Text>
-        </View>
+        // className no anda directo sobre Animated.View (NativeWind solo
+        // intercepta los componentes de 'react-native' que registra
+        // explícitamente, no los de reanimated) — por eso el estilo va en
+        // el View de adentro.
+        <Animated.View entering={FadeIn} exiting={FadeOut}>
+          <View className="bg-igb-navy/5 border border-igb-navy/20 rounded-lg p-3 mb-4">
+            <Text className="text-igb-navy text-sm">
+              {initial?.estado === 'en_curso'
+                ? 'Un evento en curso solo permite cambiar el estado.'
+                : 'Un evento cancelado o finalizado no se puede editar.'}
+            </Text>
+          </View>
+        </Animated.View>
       )}
 
       <Field label="Fecha">
@@ -280,6 +314,7 @@ export function EventoForm({
       </View>
 
       {showPicker && (
+        <Animated.View entering={FadeIn} exiting={FadeOut}>
         <DateTimePicker
           // new Date("YYYY-MM-DD") sin hora parsea como medianoche UTC, no
           // local — con Argentina en UTC-3 el picker terminaba abriendo (y a
@@ -304,11 +339,14 @@ export function EventoForm({
           }}
           onDismiss={() => setShowPicker(null)}
         />
+        </Animated.View>
       )}
       {showPicker && Platform.OS === 'ios' && (
+        <Animated.View entering={FadeIn} exiting={FadeOut}>
         <Pressable onPress={() => setShowPicker(null)} className="items-center py-2 bg-white border-t border-igb-outline mb-1">
           <Text className="text-igb-navy font-semibold">Listo</Text>
         </Pressable>
+        </Animated.View>
       )}
 
       <Field label="Grúa">
@@ -330,12 +368,12 @@ export function EventoForm({
                   // se ocupó después de elegirla (ej. se cambió el horario).
                   disabled={isDisabled}
                   onPress={() => setGruaId(g.id)}
-                  className="flex-row items-center py-2 px-1"
+                  className={`flex-row items-center py-2 px-1 ${ocupada && !selected ? 'opacity-50' : ''}`}
                 >
                   <View className={`w-5 h-5 rounded-full border mr-3 items-center justify-center ${isDisabled ? 'opacity-40' : ''} ${selected ? 'border-igb-yellow' : 'border-igb-outline'}`}>
                     {selected && <View className="w-2.5 h-2.5 rounded-full bg-igb-yellow" />}
                   </View>
-                  <Text className={ocupada ? 'text-igb-error flex-1' : !g.activo ? 'text-igb-secondary flex-1' : 'text-igb-on-surface flex-1'} numberOfLines={1}>
+                  <Text className={`flex-1 ${ocupada && !selected ? 'line-through' : ''} ${ocupada ? 'text-igb-error' : !g.activo ? 'text-igb-secondary' : 'text-igb-on-surface'}`} numberOfLines={1}>
                     {g.nombre}{ocupada ? ' (ocupada)' : ''}{!g.activo ? ' (inactiva)' : ''}
                   </Text>
                 </Pressable>
@@ -373,12 +411,12 @@ export function EventoForm({
                 // se ocupó después de elegirlo (ej. se cambió el horario).
                 disabled={isDisabled}
                 onPress={() => toggleOperario(o.id)}
-                className="flex-row items-center py-2 px-1"
+                className={`flex-row items-center py-2 px-1 ${ocupado && !selected ? 'opacity-50' : ''}`}
               >
                 <View className={`w-5 h-5 rounded border mr-3 items-center justify-center ${isDisabled ? 'opacity-40' : ''} ${selected ? 'bg-igb-yellow border-igb-yellow' : 'border-igb-outline'}`}>
                   {selected && <Ionicons name="checkmark" size={14} color={colors.onYellow} />}
                 </View>
-                <Text className={ocupado ? 'text-igb-error flex-1' : !o.activo ? 'text-igb-secondary flex-1' : 'text-igb-on-surface flex-1'} numberOfLines={1}>
+                <Text className={`flex-1 ${ocupado && !selected ? 'line-through' : ''} ${ocupado ? 'text-igb-error' : !o.activo ? 'text-igb-secondary' : 'text-igb-on-surface'}`} numberOfLines={1}>
                   {o.nombre}{ocupado ? ' (ocupado)' : ''}{!o.activo ? ' (inactivo)' : ''}
                 </Text>
               </Pressable>
@@ -427,7 +465,11 @@ export function EventoForm({
         </Field>
       )}
 
-      {error && <ErrorBanner message={error} />}
+      {error && (
+        <Animated.View entering={FadeIn} exiting={FadeOut}>
+          <ErrorBanner message={error} />
+        </Animated.View>
+      )}
 
       {/* ponytail: disabled: no aplica en RN Web — opacity a mano. Importa
           bien acá: con evento cancelado/finalizado (locked) el botón se

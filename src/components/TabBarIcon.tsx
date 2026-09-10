@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet } from 'react-native'
+import { Text, StyleSheet } from 'react-native'
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated'
 import { Ionicons } from '@expo/vector-icons'
 import type { ComponentProps } from 'react'
 import { colors } from '@/lib/colors'
@@ -21,19 +22,22 @@ export function TabBarIcon({
   name: ComponentProps<typeof Ionicons>['name']
   label: string
 }) {
+  // key distinto entre ramas para que React desmonte/monte al cambiar
+  // `focused` (si no, con el mismo tipo de elemento en la misma posición
+  // React solo actualiza props in-place y entering/exiting nunca dispara).
   if (focused) {
     return (
-      <View style={styles.focusedPill}>
+      <Animated.View key="active" entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)} style={styles.focusedPill}>
         <Ionicons name={name} size={20} color={colors.onYellow} />
         <Text style={styles.focusedLabel} numberOfLines={1}>{label}</Text>
-      </View>
+      </Animated.View>
     )
   }
   return (
-    <View style={styles.item}>
+    <Animated.View key="inactive" entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)} style={styles.item}>
       <Ionicons name={name} size={20} color={colors.secondary} />
       <Text style={styles.label} numberOfLines={1}>{label}</Text>
-    </View>
+    </Animated.View>
   )
 }
 
