@@ -21,7 +21,7 @@ function eventoOcurreEn(ev: EventoAgenda, fecha: string): boolean {
 }
 
 // Vista intermedia entre el mes (solo puntos) y el día (grilla horaria): lista
-// compacta por día, sin eje horario ni posicionamiento proporcional — eso lo
+// por día (tarjetas anchas, legibles en celular), sin eje horario ni posicionamiento proporcional — eso lo
 // resuelve la vista diaria, que ya existía y no cambia.
 export function AgendaWeekView({
   weekStart,
@@ -119,7 +119,10 @@ export function AgendaWeekView({
           <Text className="text-igb-error text-center">{error}</Text>
         </View>
       ) : (
-        <View className="flex-1 flex-row">
+        // flexGrow: la semana llena todo el alto disponible (cada día reparte
+        // el espacio sobrante); si un día tiene muchos servicios crece y la
+        // pantalla scrollea. paddingBottom deja lugar al botón "+".
+        <ScrollView className="flex-1" contentContainerStyle={{ flexGrow: 1, paddingBottom: 88 }}>
           {weekDays.map((day, i) => {
             const dStr = toDateInput(day)
             const isToday = dStr === todayStr
@@ -129,39 +132,55 @@ export function AgendaWeekView({
               .filter((ev) => eventoOcurreEn(ev, dStr))
               .sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio))
             return (
-              <View key={dStr} className="flex-1 border-r border-igb-outline">
-                <Pressable
-                  onPress={() => onSelectDay(day)}
-                  className={`items-center py-2 ${isFocused ? 'bg-igb-yellow' : isAnchor ? 'bg-igb-yellow/10' : ''}`}
-                >
-                  <Text className={`text-[10px] ${isFocused ? 'text-igb-on-yellow' : 'text-igb-secondary'}`}>{DIAS[i]}</Text>
-                  <Text className={`text-sm font-semibold ${isFocused ? 'text-igb-on-yellow' : 'text-igb-on-surface'}`}>
-                    {day.getDate()}
+              <View
+                key={dStr}
+                style={{ flexGrow: 1, minHeight: 84 }}
+                className={`flex-row border-b border-igb-outline ${isFocused ? 'bg-igb-yellow/10' : 'bg-white'}`}
+              >
+                <Pressable onPress={() => onSelectDay(day)} className="w-16 items-center pt-3 border-r border-igb-outline">
+                  <Text className={`text-[11px] uppercase tracking-wide ${isAnchor ? 'text-igb-on-surface font-semibold' : 'text-igb-secondary'}`}>
+                    {DIAS[i]}
                   </Text>
+                  <View className={`mt-1 w-9 h-9 rounded-full items-center justify-center ${isFocused ? 'bg-igb-yellow' : isAnchor ? 'bg-igb-yellow/30' : ''}`}>
+                    <Text className={`text-lg font-semibold ${isFocused || isAnchor ? 'text-igb-on-yellow' : 'text-igb-on-surface'}`}>
+                      {day.getDate()}
+                    </Text>
+                  </View>
                 </Pressable>
-                <ScrollView className="flex-1 px-0.5" contentContainerStyle={{ paddingBottom: 12 }}>
-                  {delDia.map((ev) => (
-                    <Pressable
-                      key={ev.id}
-                      onPress={() => router.push(`/agenda/evento/${ev.id}`)}
-                      className="mb-1 rounded overflow-hidden flex-row bg-white border border-igb-outline"
-                    >
-                      <View className={`w-1 ${estadoStripColor(getEstadoVisual(ev))}`} />
-                      <View className="px-1 py-1 flex-1">
-                        <Text className="text-[9px] text-igb-secondary" numberOfLines={1}>
-                          {ev.fecha === dStr ? ev.hora_inicio.slice(0, 5) : 'Cont.'}
-                        </Text>
-                        <Text className="text-[9px] font-medium text-igb-on-surface" numberOfLines={1}>
-                          {ev.grua?.nombre ?? '—'}
-                        </Text>
-                      </View>
-                    </Pressable>
-                  ))}
-                </ScrollView>
+                <View className="flex-1 py-2 px-2 justify-center">
+                  {delDia.length === 0 ? (
+                    <Text className="text-xs text-igb-secondary/70 px-2">Sin servicios</Text>
+                  ) : (
+                    delDia.map((ev) => (
+                      <Pressable
+                        key={ev.id}
+                        onPress={() => router.push(`/agenda/evento/${ev.id}`)}
+                        className="mb-1.5 rounded-lg overflow-hidden flex-row bg-white border border-igb-outline active:opacity-70"
+                      >
+                        <View className={`w-1.5 ${estadoStripColor(getEstadoVisual(ev))}`} />
+                        <View className="px-3 py-2 flex-1 flex-row items-center">
+                          <Text className="text-sm font-semibold text-igb-on-surface w-12">
+                            {ev.fecha === dStr ? ev.hora_inicio.slice(0, 5) : 'Cont.'}
+                          </Text>
+                          <View className="flex-1">
+                            <Text className="text-sm font-medium text-igb-on-surface" numberOfLines={1}>
+                              {ev.grua?.nombre ?? '—'}
+                            </Text>
+                            {ev.empresa?.nombre && (
+                              <Text className="text-xs text-igb-secondary" numberOfLines={1}>
+                                {ev.empresa.nombre}
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+                      </Pressable>
+                    ))
+                  )}
+                </View>
               </View>
             )
           })}
-        </View>
+        </ScrollView>
       )}
     </View>
   )

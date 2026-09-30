@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { Text } from '@/components/Text'
 import { TextInput } from '@/components/TextInput'
 import { ErrorBanner } from '@/components/ErrorBanner'
+import { SearchInput, normalizar } from '@/components/SearchInput'
 import { getEmpresasAgenda, createEmpresaAgenda, updateEmpresaAgenda, toggleEmpresaAgenda } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
 import { showApiError } from '@/lib/alert'
@@ -32,7 +33,14 @@ export default function EmpresasScreen() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [fotoUri, setFotoUri] = useState<string | null>(null)
 
-  const empresasOrdenadas = useMemo(() => [...empresas].sort((a, b) => Number(b.activo) - Number(a.activo)), [empresas])
+  const [busqueda, setBusqueda] = useState('')
+
+  const empresasOrdenadas = useMemo(() => {
+    const q = normalizar(busqueda)
+    return [...empresas]
+      .filter((e) => !q || normalizar(`${e.nombre} ${e.contacto ?? ''}`).includes(q))
+      .sort((a, b) => Number(b.activo) - Number(a.activo))
+  }, [empresas, busqueda])
 
   const load = useCallback(() => {
     setLoading(true)
@@ -165,12 +173,17 @@ export default function EmpresasScreen() {
           <Text className="text-igb-error text-center">{loadError}</Text>
         </View>
       ) : (
-        <ScrollView className="flex-1 px-4 pt-4">
+        <ScrollView className="flex-1 px-4 pt-4" keyboardShouldPersistTaps="handled">
+          <View className="mb-3">
+            <SearchInput value={busqueda} onChangeText={setBusqueda} placeholder="Buscar empresa" />
+          </View>
           {empresasOrdenadas.length === 0 && (
             <View className="items-center pt-16 px-6">
               <Ionicons name="business-outline" size={40} color={colors.secondary} />
               <Text className="text-igb-secondary text-sm text-center mt-3">
-                Todavía no hay empresas cargadas.{'\n'}Tocá + para agregar la primera.
+                {busqueda.trim()
+                  ? 'No se encontraron empresas con esa búsqueda.'
+                  : 'Todavía no hay empresas cargadas.\nTocá + para agregar la primera.'}
               </Text>
             </View>
           )}

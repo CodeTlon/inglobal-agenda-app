@@ -68,8 +68,7 @@ type Positioned = { key: string; ev: EventoAgenda; top: number; height: number; 
 export default function AgendaScreen() {
   const router = useRouter()
   const { width: screenWidth } = useWindowDimensions()
-  // Mes es la vista por defecto; Semana es un nivel intermedio; Día es el
-  // timeline horario de siempre, sin cambios funcionales, alcanzable por tap.
+  // Mes es la vista por defecto; tocar un día lleva a Semana (lista por día) y de ahí al timeline horario.
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('month')
   const [days, setDays] = useState(() =>
     Array.from({ length: INITIAL_BEFORE + INITIAL_AFTER + 1 }, (_, i) => addDays(new Date(), i - INITIAL_BEFORE)),

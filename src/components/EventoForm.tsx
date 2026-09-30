@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { View, ScrollView, Pressable, ActivityIndicator, Platform, KeyboardAvoidingView } from 'react-native'
 import { useRouter } from 'expo-router'
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated'
@@ -7,6 +7,7 @@ import { Picker } from '@react-native-picker/picker'
 import { Ionicons } from '@expo/vector-icons'
 import { Text } from '@/components/Text'
 import { TextInput } from '@/components/TextInput'
+import { SearchInput, normalizar } from '@/components/SearchInput'
 import { ErrorBanner } from '@/components/ErrorBanner'
 import {
   getGruas,
@@ -68,6 +69,7 @@ export function EventoForm({
   const [horaFin, setHoraFin] = useState(initial?.hora_fin?.slice(0, 5) ?? '')
   const [gruaId, setGruaId] = useState(initial?.grua_id ?? '')
   const [empresaId, setEmpresaId] = useState(initial?.empresa_id ?? '')
+  const [empresaBusqueda, setEmpresaBusqueda] = useState('')
   const [ubicacion, setUbicacion] = useState(initial?.ubicacion ?? '')
   const [notas, setNotas] = useState(initial?.notas ?? '')
   const [estado, setEstado] = useState<EstadoEvento>(initial?.estado ?? 'programado')
@@ -222,6 +224,11 @@ export function EventoForm({
       setSaving(false)
     }
   }
+
+  const empresasFiltradas = useMemo(() => {
+    const q = normalizar(empresaBusqueda)
+    return q ? empresas.filter((e) => e.id === empresaId || normalizar(e.nombre).includes(q)) : empresas
+  }, [empresas, empresaBusqueda, empresaId])
 
   if (loadingCatalogos) {
     return (
@@ -386,13 +393,26 @@ export function EventoForm({
       </Field>
 
       <Field label="Empresa">
-        <View className="border border-igb-outline rounded-lg bg-white">
-          <Picker enabled={!locked} selectedValue={empresaId} onValueChange={setEmpresaId}>
-            <Picker.Item label="Seleccioná una empresa" value="" />
-            {empresas.map((e) => (
-              <Picker.Item key={e.id} label={`${e.nombre}${!e.activo ? ' (inactiva)' : ''}`} value={e.id} color={!e.activo ? '#575d78' : undefined} />
-            ))}
-          </Picker>
+        <SearchInput value={empresaBusqueda} onChangeText={setEmpresaBusqueda} placeholder="Buscar empresa" />
+        <View className="border border-igb-outline rounded-lg bg-white mt-2" style={{ maxHeight: 220 }}>
+          <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled">
+            {empresasFiltradas.length === 0 && (
+              <Text className="text-igb-secondary text-sm p-3">Sin resultados.</Text>
+            )}
+            {empresasFiltradas.map((e) => {
+              const selected = e.id === empresaId
+              return (
+                <Pressable key={e.id} disabled={locked} onPress={() => setEmpresaId(e.id)} className="flex-row items-center py-2.5 px-3">
+                  <View className={`w-5 h-5 rounded-full border-2 items-center justify-center mr-3 ${selected ? 'border-igb-yellow' : 'border-igb-outline'}`}>
+                    {selected && <View className="w-2.5 h-2.5 rounded-full bg-igb-yellow" />}
+                  </View>
+                  <Text className={`flex-1 ${!e.activo ? 'text-igb-secondary' : 'text-igb-on-surface'}`} numberOfLines={1}>
+                    {e.nombre}{!e.activo ? ' (inactiva)' : ''}
+                  </Text>
+                </Pressable>
+              )
+            })}
+          </ScrollView>
         </View>
       </Field>
 
