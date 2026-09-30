@@ -55,7 +55,9 @@
         {
           "photosPermission": "InGlobal Agenda usa tus fotos para elegir la foto de una grúa, un operario o el logo de una empresa."
         }
-      ]
+      ],
+      "expo-image",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
