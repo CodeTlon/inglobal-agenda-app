@@ -1,5 +1,5 @@
 import { api } from './api'
-import type { EventoAgenda, Grua, EmpresaAgenda, Operario } from './types'
+import type { EventoAgenda, Grua, EmpresaAgenda, Operario, RolOperario } from './types'
 
 export function getEventosAgenda(desde?: string, hasta?: string) {
   const qs = new URLSearchParams()
@@ -169,7 +169,7 @@ export function deleteGrua(id: string) {
 export function getEmpresasAgenda(includeInactive = false) {
   return api.get<EmpresaAgenda[]>(`/agenda/empresas?includeInactive=${includeInactive}`)
 }
-export type EmpresaPayload = { nombre: string; contacto: string; telefono: string; notas?: string | null; logo_url?: string | null }
+export type EmpresaPayload = { nombre: string; contacto?: string | null; telefono?: string | null; tipo: 'frecuente' | 'particular'; notas?: string | null; logo_url?: string | null }
 export function createEmpresaAgenda(payload: EmpresaPayload) {
   return api.post<{ id: string }>('/agenda/empresas', payload)
 }
@@ -186,7 +186,10 @@ export function deleteEmpresaAgenda(id: string) {
 export function getOperarios(includeInactive = false) {
   return api.get<Operario[]>(`/agenda/operarios?includeInactive=${includeInactive}`)
 }
-export type OperarioPayload = { nombre: string; telefono: string; foto_url?: string | null }
+export function getOperariosEliminados() {
+  return api.get<Operario[]>('/agenda/operarios?eliminados=true')
+}
+export type OperarioPayload = { nombre: string; telefono?: string | null; roles?: RolOperario[]; foto_url?: string | null }
 export function createOperario(payload: OperarioPayload) {
   return api.post<{ id: string }>('/agenda/operarios', payload)
 }

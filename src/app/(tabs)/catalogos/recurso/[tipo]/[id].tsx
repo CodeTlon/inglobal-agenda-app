@@ -24,8 +24,8 @@ import { showApiError } from '@/lib/alert'
 import { confirmDialog } from '@/components/Dialog'
 import { formatEstado, estadoColorClassesLight } from '@/lib/agenda-view'
 import { subirFoto, elegirFotoDeGaleria } from '@/lib/media-upload'
-import { TIPOS_GRUA } from '@/lib/types'
-import type { Grua, EmpresaAgenda, Operario, EventoAgenda, EstadoEvento } from '@/lib/types'
+import { TIPOS_GRUA, ROLES_OPERARIO } from '@/lib/types'
+import type { Grua, EmpresaAgenda, Operario, EventoAgenda, EstadoEvento, RolOperario } from '@/lib/types'
 import { colors } from '@/lib/colors'
 
 // Ver CatalogRow.tsx: mismo motivo (cache a disco, className vía cssInterop).
@@ -53,16 +53,23 @@ function fotoDe(tipo: Tipo, recurso: Recurso): string | null {
 // Payload completo por tipo — las tres APIs son PATCH de objeto entero, no
 // parcial, así que hay que mandar todos los campos aunque solo haya
 // cambiado la foto.
+// Contacto y teléfono son opcionales; el formato solo se valida si se cargó.
+function validarTelefonoOpcional(tel?: string) {
+  if (!tel?.trim()) return
+  if (!/^[\d\s()+-]+$/.test(tel)) throw new Error('El teléfono tiene caracteres inválidos.')
+  if (tel.replace(/\D/g, '').length < 6) throw new Error('El teléfono parece incompleto.')
+}
+
 async function guardarRecurso(tipo: Tipo, id: string, recurso: Recurso, fotoUrl: string): Promise<void> {
   if (tipo === 'gruas') {
     const g = recurso as Grua
     await updateGrua(id, { nombre: g.nombre, patente: g.patente ?? '', capacidad_toneladas: g.capacidad_toneladas ?? 0, tipo: g.tipo, foto_url: fotoUrl })
   } else if (tipo === 'operarios') {
     const o = recurso as Operario
-    await updateOperario(id, { nombre: o.nombre, telefono: o.telefono ?? '', foto_url: fotoUrl })
+    await updateOperario(id, { nombre: o.nombre, telefono: o.telefono, roles: o.roles, foto_url: fotoUrl })
   } else {
     const e = recurso as EmpresaAgenda
-    await updateEmpresaAgenda(id, { nombre: e.nombre, contacto: e.contacto ?? '', telefono: e.telefono ?? '', notas: e.notas, logo_url: fotoUrl })
+    await updateEmpresaAgenda(id, { nombre: e.nombre, contacto: e.contacto, telefono: e.telefono, tipo: e.tipo, notas: e.notas, logo_url: fotoUrl })
   }
 }
 
@@ -139,10 +146,10 @@ export default function RecursoDetalleScreen() {
       setForm({ nombre: g.nombre, patente: g.patente ?? '', capacidad_toneladas: String(g.capacidad_toneladas ?? ''), tipo: g.tipo })
     } else if (tipo === 'operarios') {
       const o = recurso as Operario
-      setForm({ nombre: o.nombre, telefono: o.telefono ?? '' })
+      setForm({ nombre: o.nombre, telefono: o.telefono ?? '', roles: (o.roles ?? []).join(',') })
     } else {
       const e = recurso as EmpresaAgenda
-      setForm({ nombre: e.nombre, contacto: e.contacto ?? '', telefono: e.telefono ?? '', notas: e.notas ?? '' })
+      setForm({ nombre: e.nombre, contacto: e.contacto ?? '', telefono: e.telefono ?? '', tipo: e.tipo, notas: e.notas ?? '' })
     }
     setFormError(null)
     setEditing(true)
@@ -163,18 +170,11 @@ export default function RecursoDetalleScreen() {
         if (!Number.isFinite(capacidad) || capacidad <= 0) throw new Error('La capacidad debe ser un número mayor a 0.')
         await updateGrua(id, { nombre: form.nombre, patente: form.patente, capacidad_toneladas: capacidad, tipo: form.tipo, foto_url: (recurso as Grua).foto_url })
       } else if (tipo === 'operarios') {
-        if (!form.telefono?.trim()) throw new Error('El teléfono es obligatorio.')
-        if (!/^[\d\s()+-]+$/.test(form.telefono)) throw new Error('El teléfono tiene caracteres inválidos.')
-        // El regex de arriba solo filtra caracteres — "1" o "-" solos lo pasaban.
-        if (form.telefono.replace(/\D/g, '').length < 6) throw new Error('El teléfono parece incompleto.')
-        await updateOperario(id, { nombre: form.nombre, telefono: form.telefono, foto_url: (recurso as Operario).foto_url })
+        validarTelefonoOpcional(form.telefono)
+        await updateOperario(id, { nombre: form.nombre, telefono: form.telefono?.trim() || null, roles: (form.roles ? form.roles.split(',') : []) as RolOperario[], foto_url: (recurso as Operario).foto_url })
       } else {
-        if (!form.contacto?.trim()) throw new Error('El contacto es obligatorio.')
-        if (!form.telefono?.trim()) throw new Error('El teléfono es obligatorio.')
-        if (!/^[\d\s()+-]+$/.test(form.telefono)) throw new Error('El teléfono tiene caracteres inválidos.')
-        // El regex de arriba solo filtra caracteres — "1" o "-" solos lo pasaban.
-        if (form.telefono.replace(/\D/g, '').length < 6) throw new Error('El teléfono parece incompleto.')
-        await updateEmpresaAgenda(id, { nombre: form.nombre, contacto: form.contacto, telefono: form.telefono, notas: form.notas || null, logo_url: (recurso as EmpresaAgenda).logo_url })
+        validarTelefonoOpcional(form.telefono)
+        await updateEmpresaAgenda(id, { nombre: form.nombre, contacto: form.contacto?.trim() || null, telefono: form.telefono?.trim() || null, tipo: form.tipo === 'frecuente' ? 'frecuente' : 'particular', notas: form.notas || null, logo_url: (recurso as EmpresaAgenda).logo_url })
       }
       setEditing(false)
       load()
@@ -270,7 +270,23 @@ export default function RecursoDetalleScreen() {
               </>
             )}
             {tipo === 'operarios' && (
+              <>
               <Field label="Teléfono" value={form.telefono} onChange={(v) => setForm((f) => ({ ...f, telefono: v }))} placeholder="011 1234-5678" keyboardType="phone-pad" />
+              <Text className="text-igb-on-surface mb-1 font-medium">Roles</Text>
+              <View className="flex-row flex-wrap mb-3">
+                {ROLES_OPERARIO.map((r) => {
+                  const sel = (form.roles ? form.roles.split(',') : []).includes(r)
+                  return (
+                    <Pressable key={r} onPress={() => setForm((f) => {
+                      const cur = f.roles ? f.roles.split(',') : []
+                      return { ...f, roles: (sel ? cur.filter((x) => x !== r) : [...cur, r]).join(',') }
+                    })} className={`px-3 py-1.5 rounded-full mr-2 mb-2 border ${sel ? 'bg-igb-navy border-igb-navy' : 'bg-white border-igb-outline'}`}>
+                      <Text className={`text-sm ${sel ? 'text-white' : 'text-igb-on-surface'}`}>{r}</Text>
+                    </Pressable>
+                  )
+                })}
+              </View>
+              </>
             )}
             {tipo === 'empresas' && (
               <>
@@ -301,8 +317,11 @@ export default function RecursoDetalleScreen() {
             )}
             {tipo === 'empresas' && (
               <Text className="text-igb-secondary text-sm mt-1">
-                {(recurso as EmpresaAgenda).contacto} · {(recurso as EmpresaAgenda).telefono}
+                {[(recurso as EmpresaAgenda).contacto, (recurso as EmpresaAgenda).telefono].filter(Boolean).join(' · ')}
               </Text>
+            )}
+            {tipo === 'operarios' && (recurso as Operario).roles?.length > 0 && (
+              <Text className="text-igb-secondary text-sm mt-1">{(recurso as Operario).roles.join(' · ')}</Text>
             )}
             {tipo === 'operarios' && (recurso as Operario).telefono && (
               <Text className="text-igb-secondary text-sm mt-1">{(recurso as Operario).telefono}</Text>

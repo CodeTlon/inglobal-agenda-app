@@ -32,16 +32,22 @@ export interface EmpresaAgenda {
   telefono: string | null
   notas: string | null
   logo_url: string | null
+  tipo: 'frecuente' | 'particular'
   activo: boolean
   created_at: string
 }
+
+export const ROLES_OPERARIO = ['Gruista', 'Hidrogruista', 'Ayudante', 'Carretonero'] as const
+export type RolOperario = (typeof ROLES_OPERARIO)[number]
 
 export interface Operario {
   id: string
   nombre: string
   telefono: string | null
   foto_url: string | null
+  roles: RolOperario[]
   activo: boolean
+  eliminado_at: string | null
   created_at: string
 }
 

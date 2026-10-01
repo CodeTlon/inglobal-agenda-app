@@ -20,6 +20,12 @@ import { colors } from '@/lib/colors'
 // Ver CatalogRow.tsx: mismo motivo (cache a disco, className vía cssInterop).
 cssInterop(Image, { className: 'style' })
 
+type Tipo = 'frecuente' | 'particular'
+const TIPOS: { key: Tipo; label: string }[] = [
+  { key: 'frecuente', label: 'Clientes frecuentes' },
+  { key: 'particular', label: 'Particulares' },
+]
+
 const EMPTY = { nombre: '', contacto: '', telefono: '', notas: '' }
 
 export default function EmpresasScreen() {
@@ -34,13 +40,15 @@ export default function EmpresasScreen() {
   const [fotoUri, setFotoUri] = useState<string | null>(null)
 
   const [busqueda, setBusqueda] = useState('')
+  const [tipo, setTipo] = useState<Tipo>('frecuente')
 
   const empresasOrdenadas = useMemo(() => {
     const q = normalizar(busqueda)
     return [...empresas]
+      .filter((e) => e.tipo === tipo)
       .filter((e) => !q || normalizar(`${e.nombre} ${e.contacto ?? ''}`).includes(q))
       .sort((a, b) => Number(b.activo) - Number(a.activo))
-  }, [empresas, busqueda])
+  }, [empresas, busqueda, tipo])
 
   const load = useCallback(() => {
     setLoading(true)
@@ -69,8 +77,8 @@ export default function EmpresasScreen() {
 
   function validate(): string | null {
     if (!form.nombre.trim()) return 'El nombre es obligatorio.'
-    if (!form.contacto.trim()) return 'El contacto es obligatorio.'
-    if (!form.telefono.trim()) return 'El teléfono es obligatorio.'
+    // Contacto y teléfono son opcionales; el formato solo se valida si se cargó.
+    if (!form.telefono.trim()) return null
     // Mismo formato que valida el backend (empresaAgendaSchema en
     // inglobal-site/lib/validations/agenda.ts).
     if (!/^[\d\s()+-]+$/.test(form.telefono)) return 'El teléfono tiene caracteres inválidos.'
@@ -88,7 +96,7 @@ export default function EmpresasScreen() {
     setSaving(true)
     setError(null)
     try {
-      const payload = { nombre: form.nombre, contacto: form.contacto, telefono: form.telefono, notas: form.notas || null }
+      const payload = { nombre: form.nombre, contacto: form.contacto.trim() || null, telefono: form.telefono.trim() || null, tipo, notas: form.notas || null }
       const id = (await createEmpresaAgenda(payload)).id
       // La empresa ya quedó creada acá — lo que pase con el logo de ahora en
       // más no debe tapar eso ni bloquear el alta.
@@ -141,6 +149,15 @@ export default function EmpresasScreen() {
         <Text className="text-igb-on-surface mb-1 font-medium">Nombre</Text>
         <TextInput value={form.nombre} onChangeText={(v) => setForm((f) => ({ ...f, nombre: v }))} className="border border-igb-outline rounded-lg px-4 py-3 mb-4 bg-white text-igb-on-surface" placeholder="Ej: Transportes SRL" />
 
+        <Text className="text-igb-on-surface mb-1 font-medium">Tipo de cliente</Text>
+        <View className="flex-row mb-4">
+          {TIPOS.map((t) => (
+            <Pressable key={t.key} onPress={() => setTipo(t.key)} className={`flex-1 py-2.5 items-center rounded-lg mr-2 border ${tipo === t.key ? 'bg-igb-navy border-igb-navy' : 'bg-white border-igb-outline'}`}>
+              <Text className={`text-sm font-medium ${tipo === t.key ? 'text-white' : 'text-igb-on-surface'}`}>{t.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+
         <Text className="text-igb-on-surface mb-1 font-medium">Contacto</Text>
         <TextInput value={form.contacto} onChangeText={(v) => setForm((f) => ({ ...f, contacto: v }))} className="border border-igb-outline rounded-lg px-4 py-3 mb-4 bg-white text-igb-on-surface" placeholder="Nombre del contacto" />
 
@@ -174,6 +191,13 @@ export default function EmpresasScreen() {
         </View>
       ) : (
         <ScrollView className="flex-1 px-4 pt-4" keyboardShouldPersistTaps="handled">
+          <View className="flex-row mb-3">
+            {TIPOS.map((t) => (
+              <Pressable key={t.key} onPress={() => setTipo(t.key)} className={`flex-1 py-2.5 items-center rounded-lg mr-2 ${tipo === t.key ? 'bg-igb-navy' : 'bg-white border border-igb-outline'}`}>
+                <Text className={`text-sm font-medium ${tipo === t.key ? 'text-white' : 'text-igb-on-surface'}`}>{t.label}</Text>
+              </Pressable>
+            ))}
+          </View>
           <View className="mb-3">
             <SearchInput value={busqueda} onChangeText={setBusqueda} placeholder="Buscar empresa" />
           </View>
