@@ -19,8 +19,7 @@ import {
   getEstadoVisual,
   cruzaMedianoche,
   finDiaEfectivo,
-  finDiaEfectivoEvento,
-} from '@/lib/agenda-view'
+  finDiaEfectivoEvento, eventoOcurreEn } from '@/lib/agenda-view'
 import type { EventoAgenda } from '@/lib/types'
 import { EstadoLegend } from '@/components/EstadoLegend'
 import { AgendaMonthView } from '@/components/agenda/AgendaMonthView'
@@ -55,14 +54,6 @@ function nowMinutes(): number {
   const n = new Date()
   return n.getHours() * 60 + n.getMinutes()
 }
-function eventoOcurreEn(ev: EventoAgenda, fecha: string): boolean {
-  // finDiaEfectivoEvento (no `fecha_hasta ?? fecha`): un turno nocturno sin
-  // fecha_hasta (22:00→02:00) sigue vigente al día siguiente — con el bound
-  // viejo el timeline de Día, el conteo de la píldora y el scroll-height
-  // nunca lo contaban en esa columna.
-  return ev.fecha <= fecha && fecha <= finDiaEfectivoEvento(ev)
-}
-
 type Positioned = { key: string; ev: EventoAgenda; top: number; height: number; lane: number; lanes: number }
 
 export default function AgendaScreen() {
@@ -523,7 +514,7 @@ export default function AgendaScreen() {
       hora_fin: `${s.finDia}T${s.horaFin}`,
     }))
     const layout = layoutDayEvents(withKeys)
-    return withKeys.map((s) => {
+    const cards = withKeys.map((s) => {
       const slot = layout.get(s)!
       const startMin = toMinutes(s.horaInicio)
       const endMin = toMinutes(s.horaFin)
@@ -537,6 +528,14 @@ export default function AgendaScreen() {
       const top = Math.max(0, dayIdx * DAY_HEIGHT + (startMin / 60) * PX_PER_HOUR)
       const bottom = Math.min(days.length * DAY_HEIGHT, endDayIdx * DAY_HEIGHT + (endMin / 60) * PX_PER_HOUR)
       return { key: `${s.ev.id}-${s.dayStr}`, ev: s.ev, top, height: Math.max(bottom - top, MIN_CARD_HEIGHT), lane: slot.lane, lanes: slot.lanes }
+    })
+    // MIN_CARD_HEIGHT puede estirar un evento corto sobre el siguiente del mismo carril:
+    // se recorta al inicio de ese siguiente (con un piso para que siga siendo tocable).
+    return cards.map((c) => {
+      const next = cards
+        .filter((o) => o !== c && o.lane === c.lane && o.top > c.top && o.top < c.top + c.height)
+        .reduce<number | null>((min, o) => (min === null || o.top < min ? o.top : min), null)
+      return next === null ? c : { ...c, height: Math.max(next - c.top - 2, 24) }
     })
   }, [eventos, days, windowStart, windowEnd])
 
@@ -649,11 +648,11 @@ export default function AgendaScreen() {
           </View>
           <View className="flex-row items-center gap-1.5">
             <View className={`w-2.5 h-2.5 rounded-sm ${estadoStripColor('programado')}`} />
-            <Text className="text-xs text-igb-secondary">Confirmados <Text className="font-semibold text-igb-on-surface">{focusedCounts.confirmados}</Text></Text>
+            <Text className="text-xs text-igb-secondary">Programados <Text className="font-semibold text-igb-on-surface">{focusedCounts.confirmados}</Text></Text>
           </View>
           <View className="flex-row items-center gap-1.5">
             <View className={`w-2.5 h-2.5 rounded-sm ${estadoStripColor('reserva')}`} />
-            <Text className="text-xs text-igb-secondary">Pendientes <Text className="font-semibold text-igb-on-surface">{focusedCounts.pendientes}</Text></Text>
+            <Text className="text-xs text-igb-secondary">Reservas <Text className="font-semibold text-igb-on-surface">{focusedCounts.pendientes}</Text></Text>
           </View>
         </View>
       </View>
@@ -689,7 +688,8 @@ export default function AgendaScreen() {
             <View className="absolute top-0" style={{ left: 48, right: 12, height: days.length * DAY_HEIGHT }}>
               {positioned.map(({ key, ev, top, height, lane, lanes }) => {
                 const widthPct = 100 / lanes
-                const hasRoomForDetail = height >= 56
+                const compact = lanes >= 3
+                const hasRoomForDetail = height >= 56 && !compact
                 const hasRoomForOperarios = height >= 76 && ev.operarios.length > 0
                 const estadoVisual = getEstadoVisual(ev)
                 return (
@@ -708,20 +708,26 @@ export default function AgendaScreen() {
                     <View className={`w-1 ${estadoStripColor(estadoVisual)}`} />
                     <View className="flex-1 px-2 py-1">
                       <Text className="text-[11px] font-bold text-igb-on-surface" numberOfLines={1}>
-                        {ev.hora_inicio.slice(0, 5)}{ev.hora_fin ? `-${ev.hora_fin.slice(0, 5)}` : ''}
+                        {compact ? ev.hora_inicio.slice(0, 5) : `${ev.hora_inicio.slice(0, 5)}${ev.hora_fin ? `-${ev.hora_fin.slice(0, 5)}` : ''}`}
                       </Text>
-                      <Text className="text-xs font-semibold text-igb-on-surface" numberOfLines={1}>
-                        {ev.grua?.nombre ?? 'Sin grúa'} — {ev.empresa?.nombre ?? 'Sin empresa'}
-                      </Text>
+                      {compact ? (
+                        <Text className="text-xs font-semibold text-igb-on-surface" numberOfLines={Math.max(1, Math.floor((height - 24) / 14))}>
+                          {ev.empresa?.nombre ?? ev.grua?.nombre ?? 'Sin empresa'}
+                        </Text>
+                      ) : (
+                        <Text className="text-xs font-semibold text-igb-on-surface" numberOfLines={1}>
+                          {ev.grua?.nombre ?? 'Sin grúa'} — {ev.empresa?.nombre ?? 'Sin empresa'}
+                        </Text>
+                      )}
                       {hasRoomForDetail && (
                         <View className="flex-row items-center gap-1.5 mt-0.5">
-                          <View className={`px-1.5 py-0.5 rounded ${estadoColorClassesLight(estadoVisual)}`}>
-                            <Text className={`text-[9px] font-semibold ${estadoColorClassesLight(estadoVisual)}`} numberOfLines={1}>
+                          <View className={`px-1.5 py-0.5 rounded ${estadoColorClassesLight(estadoVisual).split(' ').filter((c) => !c.startsWith('text-')).join(' ')}`}>
+                            <Text className={`text-[11px] font-semibold ${estadoColorClassesLight(estadoVisual).split(' ').filter((c) => c.startsWith('text-')).join(' ')}`} numberOfLines={1}>
                               {formatEstado(estadoVisual)}
                             </Text>
                           </View>
                           {ev.ubicacion && (
-                            <Text className="text-[10px] text-igb-secondary flex-1" numberOfLines={1}>
+                            <Text className="text-[11px] text-igb-secondary flex-1" numberOfLines={1}>
                               {ev.ubicacion}
                             </Text>
                           )}

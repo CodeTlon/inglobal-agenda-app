@@ -4,7 +4,7 @@ import { useFocusEffect } from 'expo-router'
 import { Text } from '@/components/Text'
 import { getEventosAgendaCached } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
-import { getMonthMatrix, toDateInput, estadoStripColor, getEstadoVisual, finDiaEfectivoEvento } from '@/lib/agenda-view'
+import { getMonthMatrix, toDateInput, estadoStripColor, getEstadoVisual, eventoOcurreEn } from '@/lib/agenda-view'
 import type { EventoAgenda } from '@/lib/types'
 import { EstadoLegend } from '@/components/EstadoLegend'
 import { colors } from '@/lib/colors'
@@ -16,13 +16,6 @@ const MESES = [
 ]
 const DIAS_CORTOS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const MAX_DOTS = 4
-
-function eventoOcurreEn(ev: EventoAgenda, fecha: string): boolean {
-  // finDiaEfectivoEvento (no `fecha_hasta ?? fecha`): un turno nocturno sin
-  // fecha_hasta (22:00→02:00) sigue vigente al día siguiente — con el bound
-  // viejo el mes nunca lo mostraba en esa columna.
-  return ev.fecha <= fecha && fecha <= finDiaEfectivoEvento(ev)
-}
 
 export function AgendaMonthView({
   month,
@@ -138,6 +131,8 @@ export function AgendaMonthView({
                 const isAnchor = isCurrentMonthView ? isToday : day.getDate() === 1 && inMonth
                 const isFocused = dStr === focusedStr
                 const delDia = eventos.filter((ev) => eventoOcurreEn(ev, dStr))
+                // El número resume los servicios que cuentan; los cancelados solo se ven atenuados.
+                const vivos = delDia.filter((ev) => ev.estado !== 'cancelado').length
                 return (
                   <Pressable
                     key={dStr}
@@ -146,18 +141,23 @@ export function AgendaMonthView({
                       isFocused ? 'border-igb-yellow bg-igb-yellow/10' : isAnchor ? 'border-igb-navy/40' : 'border-igb-outline'
                     } ${inMonth ? 'bg-white' : 'bg-igb-surface'}`}
                   >
-                    <Text className={`text-xs font-medium ${inMonth ? 'text-igb-on-surface' : 'text-igb-secondary/50'}`}>
-                      {day.getDate()}
-                    </Text>
+                    <View className="flex-row items-center justify-between">
+                      <Text className={`text-xs font-medium ${inMonth ? 'text-igb-on-surface' : 'text-igb-secondary/50'}`}>
+                        {day.getDate()}
+                      </Text>
+                      {vivos > 0 && (
+                        <Text className={`text-[11px] font-bold ${inMonth ? 'text-igb-navy' : 'text-igb-secondary/50'}`}>{vivos}</Text>
+                      )}
+                    </View>
                     {delDia.length > 0 && (
                       <View className="flex-row flex-wrap gap-0.5 mt-1">
-                        {delDia.slice(0, MAX_DOTS).map((ev) => (
-                          <View key={ev.id} className={`w-2 h-2 rounded-full ${estadoStripColor(getEstadoVisual(ev))}`} />
-                        ))}
+                        {delDia.slice(0, MAX_DOTS).map((ev) => {
+                          const visual = getEstadoVisual(ev)
+                          return (
+                            <View key={ev.id} className={`w-2 h-2 rounded-full ${estadoStripColor(visual)} ${visual === 'cancelado' ? 'opacity-40' : ''}`} />
+                          )
+                        })}
                       </View>
-                    )}
-                    {delDia.length > MAX_DOTS && (
-                      <Text className="text-[10px] text-igb-secondary mt-0.5">+{delDia.length - MAX_DOTS}</Text>
                     )}
                   </Pressable>
                 )

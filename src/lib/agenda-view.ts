@@ -88,7 +88,7 @@ const ESTADO_STRIP: Record<string, string> = {
   reserva: 'bg-igb-navy',
   programado: 'bg-igb-yellow',
   en_curso: 'bg-blue-500',
-  finalizado: 'bg-zinc-300',
+  finalizado: 'bg-zinc-400',
   cancelado: 'bg-red-400',
 }
 
@@ -149,6 +149,14 @@ export function finDiaEfectivoEvento(ev: {
   hora_fin?: string | null
 }): string {
   return finDiaEfectivo(ev.fecha, ev.fecha_hasta, ev.hora_inicio, ev.hora_fin ?? '23:59')
+}
+
+/**
+ * ¿El evento ocurre ese día? Usa finDiaEfectivoEvento (no `fecha_hasta ?? fecha`): un
+ * turno nocturno sin fecha_hasta (22:00→02:00) sigue vigente al día siguiente.
+ */
+export function eventoOcurreEn(ev: EventoAgenda, fecha: string): boolean {
+  return ev.fecha <= fecha && fecha <= finDiaEfectivoEvento(ev)
 }
 
 /** "en_curso" -> "En curso", "programado" -> "Programado". */
