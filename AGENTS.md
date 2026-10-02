@@ -36,7 +36,8 @@ Detalle de setup, estructura y pairing de TV en `README.md`; build y deploy en `
 
 ## Entornos
 Tres entornos, definidos en `inglobal-site/.ai/context/ENVIRONMENTS.md` (fuente de verdad):
-desarrollo (Supabase local), homologación (perfil EAS `preview`, pendiente de definir) y producción (perfil `production`).
+desarrollo (Supabase local, rama `dev`), homologación (rama `test`, perfil EAS `preview`, pendiente de definir) y
+producción (rama `main`, perfil `production`). Flujo: `dev` → `test` → `main`.
 Plantillas de variables: `.env.staging.example` y `.env.production.example`.
 
 ### Entorno local
