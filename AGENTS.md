@@ -52,3 +52,7 @@ Plantillas de variables: `.env.staging.example` y `.env.production.example`.
 - Cambios de esquema (migraciones) se hacen en `inglobal-site/supabase/migrations`; acá solo se adaptan tipos y UI.
 - El `.env.local` apunta al mismo proyecto Supabase que el sitio (puede ser producción): no crear ni borrar datos
   de prueba sin limpiarlos.
+
+## Más contexto
+Decisiones, estado actual, issues conocidos y preguntas abiertas de ambos repos: `../inglobal-site/.ai/context/`
+(`DECISIONS.md`, `CURRENT_STATE.md`, `KNOWN_ISSUES.md`, `OPEN_QUESTIONS.md`). Este repo no duplica esa información.
