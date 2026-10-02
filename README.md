@@ -1,7 +1,7 @@
 # InGlobal Agenda (mobile)
 
 App Expo (React Native, Expo Router, NativeWind) para Grúas InGlobal — gestiona la Agenda
-(eventos, grúas, empresas, operarios) y el CMS del sitio (clientes, servicios) desde el celular.
+(eventos, grúas, empresas, operarios) desde el celular.
 Es un cliente HTTP puro de la API en `app/api/**` del repo `inglobal-site` (Route Handlers que
 reexportan la misma lógica de negocio que usa el dashboard web — ver `lib/agenda-business.ts`
 allá), autenticado con la sesión de Supabase Auth del propio dispositivo (Bearer JWT).
@@ -31,15 +31,14 @@ src/
     (tabs)/
       agenda/                      Calendario (día seleccionado + tira semanal) + alta/edición de eventos
       catalogos/                   Grúas / Empresas / Operarios (alta, edición, activo/inactivo, borrado)
-      clientes/                    CRUD de clientes destacados del sitio (con logo)
-      servicios/                   CRUD de servicios del sitio (con imagen)
-      perfil/                      Sesión + "Vincular TV" (pairing QR)
+      perfil/                      Sesión + "Vincular TV" (pairing QR, pair-tv.tsx)
   lib/
     supabase.ts                    Cliente Supabase con sesión persistida en expo-secure-store
     api.ts                         Wrapper fetch + Bearer JWT hacia app/api/** de inglobal-site
-    agenda-view.ts                 Copiado 1:1 de inglobal-site/lib/agenda-view.ts (mismo criterio de semana/estado visual que web y TV)
-    agenda-api.ts / clientes-api.ts / servicios-api.ts   Wrappers tipados por entidad
-    upload.ts                      Sube imágenes directo al bucket `media` de Supabase (bypass del API para el binario)
+    agenda-view.ts                 Helpers de vista (semana, estado visual, carriles). Adaptado de inglobal-site/lib/agenda-view.ts,
+                                   NO es copia: difiere en el fin de jornada por defecto (ver AGENTS.md)
+    agenda-api.ts                  Wrappers tipados de /api/agenda/* (eventos, grúas, empresas, operarios)
+    media-upload.ts                Sube imágenes directo al bucket `media` de Supabase (bypass del API para el binario)
 ```
 
 ## Pairing QR (vincular una TV)

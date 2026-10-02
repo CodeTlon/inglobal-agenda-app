@@ -62,7 +62,7 @@ Esto es lo que hay activo hoy. Publica el JS a los servers de Expo, se abre desd
 ### Antes de ir a producción pública
 Dado que es una herramienta interna (operarios de la empresa, no público general), vale la pena confirmar que **listado público** es realmente lo que se quiere — la alternativa (TestFlight interno + Play Internal Testing indefinido, sin pasar nunca a "producción" pública) evita el review completo de Apple y no expone la app a búsquedas de cualquiera. Es una decisión de negocio, no técnica.
 
-## Bugs reales encontrados y arreglados hoy (por si vuelven a aparecer)
+## Bugs conocidos (histórico, por si vuelven a aparecer)
 
 - `expo-secure-store` no tiene implementación en Node — crasheaba el dev server entero al bootear porque `web.output: "static"` hace que Expo Router prerenderice un bundle SSR en Node, y el storage adapter de Supabase lo llamaba sin guardarse. Fix: `Platform.OS !== 'web'` antes de tocar `SecureStore`, con fallback a `localStorage`/no-op. (`src/lib/supabase.ts`)
 - `verifyOtp` de Supabase no acepta `token_hash` + `email` juntos en la misma llamada — tirar los dos rompe el pairing de TV en silencio (redirect a `?error=1` sin loggear nada). (`inglobal-site/app/api/tv-pair/exchange/route.ts`)
