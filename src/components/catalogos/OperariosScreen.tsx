@@ -46,8 +46,19 @@ export default function OperariosScreen() {
 
   useEffect(() => {
     if (vista !== 'ex') return
-    setExError(null)
-    getOperariosEliminados().then(setExOperarios).catch(() => setExError('No se pudieron cargar los ex operarios.'))
+    let cancelado = false
+    getOperariosEliminados()
+      .then((lista) => {
+        if (cancelado) return
+        setExOperarios(lista)
+        setExError(null)
+      })
+      .catch(() => {
+        if (!cancelado) setExError('No se pudieron cargar los ex operarios.')
+      })
+    return () => {
+      cancelado = true
+    }
   }, [vista])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
