@@ -34,6 +34,17 @@ Detalle de setup, estructura y pairing de TV en `README.md`; build y deploy en `
 - Estados de evento: `reserva`, `programado`, `en_curso`, `finalizado`, `cancelado`. Una reserva vencida se
   muestra como cancelada (`getEstadoVisual`).
 
+## Entornos
+Tres entornos, definidos en `inglobal-site/.ai/context/ENVIRONMENTS.md` (fuente de verdad):
+desarrollo (Supabase local), homologación (perfil EAS `preview`, pendiente de definir) y producción (perfil `production`).
+Plantillas de variables: `.env.staging.example` y `.env.production.example`.
+
+### Entorno local
+1. En `../inglobal-site`: `npm run db:local:up` y `npm run dev:local`.
+2. En esta app: `npm run start:local` (celular físico en el mismo Wi-Fi) o `npm run start:local -- --emulator` (Android).
+   Inyecta las URLs locales sin tocar tu `.env.local` y se niega a correr si el Supabase no es local.
+3. Cuentas de prueba y datos del seed: `inglobal-site/.ai/context/ENVIRONMENTS.md` (todo lo ficticio lleva el prefijo `ZZ-PRUEBA`).
+
 ## Gotchas
 - **Fin de jornada por defecto (`hora_fin` vacío):** esta app usa 18:00 para el estado visual y 23:59 para
   ubicar el evento por día; `inglobal-site` usa 23:59. Divergencia vigente y deliberada; no la unifiques sin decidirlo.
