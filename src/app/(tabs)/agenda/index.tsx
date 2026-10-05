@@ -36,7 +36,9 @@ const MIN_CARD_HEIGHT = 44
 // a otro es scroll normal, no un salto de pantalla. La ventana arranca con
 // este tamaño y crece sola (ver `extend`) al acercarse al borde del scroll,
 // para atrás o para adelante, sin techo.
-const INITIAL_BEFORE = 7
+// Con 7, un día de hace ~4 días quedaba a menos de EDGE_TRIGGER del borde y el
+// primer scroll hacia arriba ya disparaba `extend('past')` en pleno gesto.
+const INITIAL_BEFORE = 21
 const INITIAL_AFTER = 23
 const EXTEND_CHUNK = 14
 const EDGE_TRIGGER = DAY_HEIGHT * 3
@@ -81,6 +83,12 @@ export default function AgendaScreen() {
   const timelineRef = useRef<ScrollView>(null)
   const scrollYRef = useRef(0)
   const extendingRef = useRef<'past' | 'future' | null>(null)
+  // Px (con signo) que `extend` corrió el contenido por arriba y que todavía
+  // hay que compensar con un scrollTo. Se aplica en onContentSizeChange (cuando
+  // el layout nuevo ya existe), no en un rAF a ciegas; el timeout es red de
+  // seguridad para cuando el tope de días montados deja el alto sin cambios.
+  const pendingScrollDeltaRef = useRef<number | null>(null)
+  const scrollDeltaTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Mientras un scrollTo animado está en vuelo, onScroll dispara en cada frame
   // intermedio con offsets que todavía no llegaron al destino — sin esta guarda,
   // ese onScroll pisaba el `focused` correcto que goTo ya había seteado (bug:
@@ -374,10 +382,20 @@ export default function AgendaScreen() {
   async function extend(direction: 'past' | 'future') {
     if (extendingRef.current) return
     extendingRef.current = direction
+    // Siempre desde el ref, no del closure: `windowStart`/`windowEnd` de este
+    // render pueden estar viejos si otra extensión ya aplicó (mismo chunk dos
+    // veces = claves duplicadas y otro salto de EXTEND_CHUNK días).
+    const base = daysRef.current
     const chunk = Array.from({ length: EXTEND_CHUNK }, (_, i) =>
-      direction === 'future' ? addDays(windowEnd, i + 1) : addDays(windowStart, i - EXTEND_CHUNK),
+      direction === 'future' ? addDays(base[base.length - 1], i + 1) : addDays(base[0], i - EXTEND_CHUNK),
     )
     const data = await fetchEventos(toDateInput(chunk[0]), toDateInput(chunk[chunk.length - 1]))
+    // goTo armó otra ventana mientras esperábamos la red: este chunk ya no
+    // encaja con ella, aplicarlo mezclaría días no contiguos.
+    if (daysRef.current !== base) {
+      extendingRef.current = null
+      return
+    }
     // Un evento con fecha_hasta que cruza el borde entre la ventana ya
     // cargada y este chunk nuevo viene en AMBOS fetches (el overlap-test de
     // agenda-api.ts así lo garantiza) — sin dedupe por id quedaba duplicado
@@ -386,58 +404,63 @@ export default function AgendaScreen() {
       const yaEstan = new Set(prev.map((ev) => ev.id))
       return [...prev, ...data.filter((ev) => !yaEstan.has(ev.id))]
     })
-    if (direction === 'past') {
-      // Mismo bug de fondo que scrollToDate ya sufrió ("salta de un día a
-      // otro sin relación"): si `days` se actualiza antes de armar la
-      // guarda, un scroll real que llegue entre el setDays y el
-      // requestAnimationFrame usa el offset viejo contra el array ya
-      // extendido — handleScroll calcula un día EXTEND_CHUNK (2 semanas) más
-      // atrás del real. Armar la guarda ANTES de tocar `days` cierra la
-      // ventana.
-      const y = scrollYRef.current + EXTEND_CHUNK * DAY_HEIGHT
-      isProgrammaticScrollRef.current = true
-      scrollTargetYRef.current = y
-      if (programmaticScrollTimeoutRef.current) clearTimeout(programmaticScrollTimeoutRef.current)
-      const distance = Math.abs(y - scrollYRef.current)
-      const timeoutMs = Math.min(3000, 400 + distance / 4)
-      programmaticScrollTimeoutRef.current = setTimeout(() => {
-        isProgrammaticScrollRef.current = false
-        scrollTargetYRef.current = null
-      }, timeoutMs)
-      // El extremo futuro recortado acá siempre queda lejos del scroll (que
-      // está ahora arriba, contra el borde `past`) — no hace falta compensar
-      // offset, solo no dejar crecer el array de por vida.
-      setDays((prev) => {
-        const next = [...chunk, ...prev]
-        return next.length > MAX_MOUNTED_DAYS ? next.slice(0, MAX_MOUNTED_DAYS) : next
-      })
-      requestAnimationFrame(() => {
-        timelineRef.current?.scrollTo({ y, animated: false })
-      })
-    } else {
-      const overflow = days.length + EXTEND_CHUNK - MAX_MOUNTED_DAYS
-      if (overflow > 0) {
-        // Simétrico al caso 'past': recortar el extremo viejo (arriba) corre
-        // todo lo de abajo esa altura — armar la guarda de scroll ANTES de
-        // tocar `days`, mismo motivo que arriba.
-        const y = scrollYRef.current - overflow * DAY_HEIGHT
-        isProgrammaticScrollRef.current = true
-        scrollTargetYRef.current = y
-        if (programmaticScrollTimeoutRef.current) clearTimeout(programmaticScrollTimeoutRef.current)
-        const distance = Math.abs(y - scrollYRef.current)
-        const timeoutMs = Math.min(3000, 400 + distance / 4)
-        programmaticScrollTimeoutRef.current = setTimeout(() => {
-          isProgrammaticScrollRef.current = false
-          scrollTargetYRef.current = null
-        }, timeoutMs)
-        setDays((prev) => [...prev, ...chunk].slice(overflow))
-        requestAnimationFrame(() => {
-          timelineRef.current?.scrollTo({ y, animated: false })
-        })
-      } else {
-        setDays((prev) => [...prev, ...chunk])
-      }
+    const extended = direction === 'past' ? [...chunk, ...base] : [...base, ...chunk]
+    const overflow = Math.max(0, extended.length - MAX_MOUNTED_DAYS)
+    // Se recorta el extremo opuesto al scroll para no dejar crecer el árbol de
+    // por vida: 'past' recorta abajo (no mueve nada), 'future' recorta arriba.
+    const next = direction === 'past' ? extended.slice(0, MAX_MOUNTED_DAYS) : extended.slice(overflow)
+    // Cuánto se corre el contenido bajo el dedo: 'past' suma días arriba,
+    // 'future' con recorte quita días arriba. Hay que compensar el scroll por eso.
+    const delta = direction === 'past' ? EXTEND_CHUNK * DAY_HEIGHT : -overflow * DAY_HEIGHT
+    if (delta === 0) {
+      setDays(next)
+      extendingRef.current = null
+      return
     }
+    // Mismo bug de fondo que scrollToDate ya sufrió ("salta de un día a otro
+    // sin relación"): si `days` se actualiza antes de armar la guarda, un
+    // scroll real que llegue entre el setDays y la compensación usa el offset
+    // viejo contra el array ya extendido. Armar la guarda ANTES de tocar `days`
+    // cierra la ventana.
+    const y = scrollYRef.current + delta
+    isProgrammaticScrollRef.current = true
+    scrollTargetYRef.current = y
+    if (programmaticScrollTimeoutRef.current) clearTimeout(programmaticScrollTimeoutRef.current)
+    programmaticScrollTimeoutRef.current = setTimeout(() => {
+      isProgrammaticScrollRef.current = false
+      scrollTargetYRef.current = null
+    }, 3000)
+    if (next.length === base.length) {
+      // Altura total igual (ya estaba en el tope): onContentSizeChange no va a
+      // disparar, así que se compensa en el frame siguiente.
+      setDays(next)
+      requestAnimationFrame(() => {
+        timelineRef.current?.scrollTo({ y: scrollYRef.current + delta, animated: false })
+        extendingRef.current = null
+      })
+      return
+    }
+    // La compensación va en onContentSizeChange: recién ahí el layout ya creció.
+    // Un scrollTo en un rAF corría antes y, con el dedo o el momentum activos,
+    // quedaba pisado: el offset seguía igual con 14 días más arriba = salto atrás.
+    pendingScrollDeltaRef.current = delta
+    setDays(next)
+    scrollDeltaTimeoutRef.current = setTimeout(applyPendingScrollDelta, 600)
+  }
+
+  // Aplica la compensación pendiente de `extend` (ver arriba). Idempotente: la
+  // llama onContentSizeChange y, de red de seguridad, un timeout.
+  function applyPendingScrollDelta() {
+    const delta = pendingScrollDeltaRef.current
+    if (delta === null) return
+    pendingScrollDeltaRef.current = null
+    if (scrollDeltaTimeoutRef.current) {
+      clearTimeout(scrollDeltaTimeoutRef.current)
+      scrollDeltaTimeoutRef.current = null
+    }
+    const y = scrollYRef.current + delta
+    scrollTargetYRef.current = y
+    timelineRef.current?.scrollTo({ y, animated: false })
     extendingRef.current = null
   }
 
@@ -671,6 +694,7 @@ export default function AgendaScreen() {
           className="flex-1"
           contentContainerStyle={{ paddingBottom: 96 }}
           onScroll={handleScroll}
+          onContentSizeChange={applyPendingScrollDelta}
           scrollEventThrottle={100}
           onScrollBeginDrag={clearProgrammaticScroll}
           onMomentumScrollEnd={clearProgrammaticScroll}
