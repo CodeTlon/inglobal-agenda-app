@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useFocusEffect } from 'expo-router'
 import { getEventosAgendaCached } from './agenda-api'
 import { ApiError } from './api'
@@ -28,8 +28,14 @@ export function useOcupacionDelDia<T extends { id: string; activo: boolean }>(
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
 
+  // Spinner de pantalla completa solo la primera vez: useFocusEffect corre en
+  // CADA foco (volver de un detalle, cambiar de pestaña), y mostrar el spinner
+  // ahí reemplazaba la lista que ya estaba cargada por una pantalla de carga
+  // y perdía el scroll. Los refrescos posteriores son en silencio.
+  const hasLoadedRef = useRef(false)
+
   const load = useCallback(() => {
-    setLoading(true)
+    if (!hasLoadedRef.current) setLoading(true)
     setLoadError(null)
     const hoy = toDateInput(new Date())
     // ponytail: [hoy, mañana] en vez de [hoy, hoy] — mismo caso que en
@@ -40,8 +46,12 @@ export function useOcupacionDelDia<T extends { id: string; activo: boolean }>(
       .then(([list, evs]) => {
         setItems(list)
         setEventosDelDia(evs.filter((ev) => ev.fecha <= hoy && hoy <= (ev.fecha_hasta ?? ev.fecha)))
+        hasLoadedRef.current = true
       })
-      .catch((e) => setLoadError(e instanceof ApiError ? e.message : errorMsg))
+      .catch((e) => {
+        // Un refresco fallido no debe tapar la lista ya cargada con un error.
+        if (!hasLoadedRef.current) setLoadError(e instanceof ApiError ? e.message : errorMsg)
+      })
       .finally(() => setLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

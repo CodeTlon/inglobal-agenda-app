@@ -76,7 +76,10 @@ export function CatalogRow({
         </View>
       </Pressable>
       <Switch value={activo} onValueChange={onToggle} trackColor={{ true: '#f5d100' }} style={{ transform: [{ scale: 0.85 }] }} />
-      <Ionicons name="chevron-forward" size={18} color={colors.secondary} style={{ marginLeft: 6 }} />
+      {/* La flecha también abre el detalle (antes era decorativa y no respondía al toque). */}
+      <Pressable onPress={onOpenDetail} hitSlop={{ top: 12, bottom: 12, left: 8, right: 12 }} style={{ marginLeft: 6 }}>
+        <Ionicons name="chevron-forward" size={18} color={colors.secondary} />
+      </Pressable>
     </View>
   )
 }

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { View, ScrollView, Pressable, ActivityIndicator, Platform, KeyboardAvoidingView } from 'react-native'
 import { Image } from 'expo-image'
 import { cssInterop } from 'nativewind'
@@ -50,12 +50,19 @@ export default function EmpresasScreen() {
       .sort((a, b) => Number(b.activo) - Number(a.activo))
   }, [empresas, busqueda, tipo])
 
+  // Spinner solo la primera vez; ver useOcupacionDelDia (mismo motivo).
+  const hasLoadedRef = useRef(false)
   const load = useCallback(() => {
-    setLoading(true)
+    if (!hasLoadedRef.current) setLoading(true)
     setLoadError(null)
     getEmpresasAgenda(true)
-      .then(setEmpresas)
-      .catch((e) => setLoadError(e instanceof ApiError ? e.message : 'No se pudieron cargar las empresas.'))
+      .then((lista) => {
+        setEmpresas(lista)
+        hasLoadedRef.current = true
+      })
+      .catch((e) => {
+        if (!hasLoadedRef.current) setLoadError(e instanceof ApiError ? e.message : 'No se pudieron cargar las empresas.')
+      })
       .finally(() => setLoading(false))
   }, [])
 
