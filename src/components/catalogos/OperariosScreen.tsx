@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { Text } from '@/components/Text'
 import { TextInput } from '@/components/TextInput'
 import { ErrorBanner } from '@/components/ErrorBanner'
-import { getOperarios, getOperariosEliminados, createOperario, updateOperario, toggleOperario } from '@/lib/agenda-api'
+import { getOperarios, getOperariosEliminados, createOperario, updateOperario, toggleOperario, reincorporarOperario, eliminarOperarioDefinitivo } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
 import { showApiError } from '@/lib/alert'
 import { confirmDialog } from '@/components/Dialog'
@@ -38,28 +38,66 @@ export default function OperariosScreen() {
   )
   const [showForm, setShowForm] = useState(false)
   const operariosOrdenados = useMemo(() => ordenarCatalogo(operarios, estadoDe), [operarios, estadoDe])
+  const operariosActivos = useMemo(() => operariosOrdenados.filter((o) => o.activo), [operariosOrdenados])
+  const operariosInactivos = useMemo(() => operariosOrdenados.filter((o) => !o.activo), [operariosOrdenados])
   const [form, setForm] = useState(EMPTY)
   const [roles, setRoles] = useState<RolOperario[]>([])
   const [vista, setVista] = useState<'activos' | 'ex'>('activos')
   const [exOperarios, setExOperarios] = useState<Operario[]>([])
   const [exError, setExError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (vista !== 'ex') return
-    let cancelado = false
-    getOperariosEliminados()
+  const cargarEx = useCallback(() => {
+    return getOperariosEliminados()
       .then((lista) => {
-        if (cancelado) return
-        setExOperarios(lista)
+        // Defensa ante un backend viejo que ignora ?eliminados=true y devuelve
+        // todos: un ex operario siempre tiene eliminado_at.
+        setExOperarios(lista.filter((o) => o.eliminado_at))
         setExError(null)
       })
-      .catch(() => {
-        if (!cancelado) setExError('No se pudieron cargar los ex operarios.')
-      })
-    return () => {
-      cancelado = true
-    }
-  }, [vista])
+      .catch(() => setExError('No se pudieron cargar los ex operarios.'))
+  }, [])
+
+  useEffect(() => {
+    if (vista === 'ex') cargarEx()
+  }, [vista, cargarEx])
+
+  // Salida de emergencia para errores de carga: el backend solo lo permite si el
+  // ex operario no tiene eventos; si los tiene, responde con el motivo.
+  function handleEliminarDefinitivo(o: Operario) {
+    confirmDialog('Eliminar definitivamente', `¿Eliminar a "${o.nombre}" para siempre? No se puede deshacer. Solo se puede si no tiene eventos en el historial.`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await eliminarOperarioDefinitivo(o.id)
+            await cargarEx()
+          } catch (err) {
+            showApiError(err, 'No se pudo eliminar.', 'No se pudo eliminar al operario')
+          }
+        },
+      },
+    ])
+  }
+
+  function handleReincorporar(o: Operario) {
+    confirmDialog('Reincorporar', `¿Reincorporar a "${o.nombre}"? Vuelve a Operarios como inactivo; activalo con el interruptor.`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Reincorporar',
+        onPress: async () => {
+          try {
+            await reincorporarOperario(o.id)
+            await cargarEx()
+            load()
+          } catch (err) {
+            showApiError(err, 'No se pudo reincorporar.', 'No se pudo reincorporar al operario')
+          }
+        },
+      },
+    ])
+  }
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fotoUri, setFotoUri] = useState<string | null>(null)
@@ -196,16 +234,27 @@ export default function OperariosScreen() {
             <Text className="text-igb-secondary text-sm text-center mt-12">Todavía no hay ex operarios.</Text>
           )}
           {exOperarios.map((o) => (
-            <CatalogRow
-              key={o.id}
-              icon="people-outline"
-              fotoUrl={o.foto_url}
-              title={o.nombre}
-              subtitle={[o.roles?.join(', '), o.eliminado_at ? `Baja: ${new Date(o.eliminado_at).toLocaleDateString('es-AR')}` : null].filter(Boolean).join(' — ')}
-              activo={false}
-              onToggle={() => {}}
-              onOpenDetail={() => {}}
-            />
+            <View key={o.id} className="flex-row items-center bg-white border border-igb-outline rounded-lg px-3 py-3 mb-2.5">
+              {o.foto_url ? (
+                <Image source={{ uri: o.foto_url }} contentFit="cover" cachePolicy="disk" className="w-10 h-10 rounded-full mr-3" />
+              ) : (
+                <View className="w-10 h-10 rounded-full items-center justify-center mr-3 bg-igb-secondary/10">
+                  <Ionicons name="people-outline" size={20} color={colors.secondary} />
+                </View>
+              )}
+              <View className="flex-1 mr-2">
+                <Text className="font-semibold text-igb-secondary" numberOfLines={1}>{o.nombre}</Text>
+                <Text className="text-igb-secondary text-xs mt-0.5" numberOfLines={1}>
+                  {[o.roles?.join(', '), o.eliminado_at ? `Baja: ${new Date(o.eliminado_at).toLocaleDateString('es-AR')}` : null].filter(Boolean).join(' — ')}
+                </Text>
+              </View>
+              <Pressable onPress={() => handleReincorporar(o)} className="border border-igb-navy/30 rounded-lg px-3 py-2">
+                <Text className="text-igb-navy text-sm font-medium">Reincorporar</Text>
+              </Pressable>
+              <Pressable onPress={() => handleEliminarDefinitivo(o)} hitSlop={8} className="ml-2 p-2" accessibilityLabel="Eliminar definitivamente">
+                <Ionicons name="trash-outline" size={20} color={colors.error} />
+              </Pressable>
+            </View>
           ))}
           <View className="h-24" />
         </ScrollView>
@@ -225,19 +274,34 @@ export default function OperariosScreen() {
               </Text>
             </View>
           )}
-          {operariosOrdenados.map((o) => (
-            <CatalogRow
-              key={o.id}
-              icon="people-outline"
-              fotoUrl={o.foto_url}
-              title={o.nombre}
-              subtitle={[o.roles?.join(', '), o.telefono].filter(Boolean).join(' — ')}
-              activo={o.activo}
-              estado={estadoDe(o)}
-              onToggle={() => handleToggle(o)}
-              onOpenDetail={() => router.push(`/catalogos/recurso/operarios/${o.id}`)}
-            />
-          ))}
+          {[
+            { titulo: null, lista: operariosActivos },
+            { titulo: 'Inactivos', lista: operariosInactivos },
+          ].map(({ titulo, lista }) =>
+            lista.length === 0 ? null : (
+              <View key={titulo ?? 'activos'}>
+                {titulo && (
+                  <View className="mt-3 mb-2">
+                    <Text className="text-igb-on-surface text-sm font-semibold">{titulo}</Text>
+                    <Text className="text-igb-secondary text-xs">No aparecen al crear eventos nuevos. Activalos con el interruptor.</Text>
+                  </View>
+                )}
+                {lista.map((o) => (
+                  <CatalogRow
+                    key={o.id}
+                    icon="people-outline"
+                    fotoUrl={o.foto_url}
+                    title={o.nombre}
+                    subtitle={[o.roles?.join(', '), o.telefono].filter(Boolean).join(' — ')}
+                    activo={o.activo}
+                    estado={estadoDe(o)}
+                    onToggle={() => handleToggle(o)}
+                    onOpenDetail={() => router.push(`/catalogos/recurso/operarios/${o.id}`)}
+                  />
+                ))}
+              </View>
+            ),
+          )}
           <View className="h-24" />
         </ScrollView>
       )}

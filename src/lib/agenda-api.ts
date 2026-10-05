@@ -199,6 +199,14 @@ export function updateOperario(id: string, payload: OperarioPayload) {
 export function toggleOperario(id: string, activo: boolean) {
   return api.patch<{ id: string }>(`/agenda/operarios/${id}`, { activo })
 }
+// Revierte la baja lógica: el ex operario vuelve a Operarios, inactivo.
+export function reincorporarOperario(id: string) {
+  return api.patch<{ id: string }>(`/agenda/operarios/${id}`, { reincorporar: true })
+}
+// Borrado real de un ex operario sin eventos; con historial el backend lo rechaza.
+export function eliminarOperarioDefinitivo(id: string) {
+  return api.delete<{ id: string }>(`/agenda/operarios/${id}?definitivo=true`)
+}
 export function deleteOperario(id: string) {
   return api.delete<{ id: string }>(`/agenda/operarios/${id}`)
 }

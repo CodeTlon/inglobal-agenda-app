@@ -188,14 +188,21 @@ export default function RecursoDetalleScreen() {
   function handleDelete() {
     if (!recurso) return
     const nombreTipo = NOMBRE_TIPO[tipo]
-    if (recurso.activo) {
+    const esBaja = tipo === 'operarios'
+    // Dar de baja a un operario va directo (activo o inactivo); grúas y empresas
+    // se siguen eliminando solo estando inactivas.
+    if (!esBaja && recurso.activo) {
       confirmDialog('Desactivá primero', `Para eliminar esta ${nombreTipo} primero desactivala.`)
       return
     }
-    confirmDialog('Eliminar', `¿Eliminar "${recurso.nombre}"?`, [
+    const accion = esBaja ? 'Dar de baja' : 'Eliminar'
+    const mensaje = esBaja
+      ? `¿Dar de baja a "${recurso.nombre}"? Pasará a Ex operarios y se conserva en el historial de eventos. Podés reincorporarlo después.`
+      : `¿Eliminar "${recurso.nombre}"?`
+    confirmDialog(accion, mensaje, [
       { text: 'Cancelar', style: 'cancel' },
       {
-        text: 'Eliminar',
+        text: accion,
         style: 'destructive',
         onPress: async () => {
           try {
@@ -204,7 +211,7 @@ export default function RecursoDetalleScreen() {
             else await deleteEmpresaAgenda(id)
             router.back()
           } catch (e) {
-            showApiError(e, 'No se pudo eliminar.', `No se pudo eliminar la ${nombreTipo}`)
+            showApiError(e, esBaja ? 'No se pudo dar de baja.' : 'No se pudo eliminar.', esBaja ? 'No se pudo dar de baja al operario' : `No se pudo eliminar la ${nombreTipo}`)
           }
         },
       },
@@ -290,6 +297,14 @@ export default function RecursoDetalleScreen() {
             )}
             {tipo === 'empresas' && (
               <>
+                <Text className="text-igb-on-surface mb-1 font-medium">Tipo de cliente</Text>
+                <View className="flex-row mb-4">
+                  {([['frecuente', 'Cliente frecuente'], ['particular', 'Particular']] as const).map(([key, label]) => (
+                    <Pressable key={key} onPress={() => setForm((f) => ({ ...f, tipo: key }))} className={`flex-1 py-2.5 items-center rounded-lg mr-2 border ${form.tipo === key ? 'bg-igb-navy border-igb-navy' : 'bg-white border-igb-outline'}`}>
+                      <Text className={`text-sm font-medium ${form.tipo === key ? 'text-white' : 'text-igb-on-surface'}`}>{label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
                 <Field label="Contacto" value={form.contacto} onChange={(v) => setForm((f) => ({ ...f, contacto: v }))} placeholder="Ej: Juan Pérez" />
                 <Field label="Teléfono" value={form.telefono} onChange={(v) => setForm((f) => ({ ...f, telefono: v }))} placeholder="011 1234-5678" keyboardType="phone-pad" />
                 <Field label="Notas" value={form.notas} onChange={(v) => setForm((f) => ({ ...f, notas: v }))} placeholder="Notas internas (opcional)" />
@@ -317,7 +332,7 @@ export default function RecursoDetalleScreen() {
             )}
             {tipo === 'empresas' && (
               <Text className="text-igb-secondary text-sm mt-1">
-                {[(recurso as EmpresaAgenda).contacto, (recurso as EmpresaAgenda).telefono].filter(Boolean).join(' · ')}
+                {[(recurso as EmpresaAgenda).tipo === 'frecuente' ? 'Cliente frecuente' : 'Particular', (recurso as EmpresaAgenda).contacto, (recurso as EmpresaAgenda).telefono].filter(Boolean).join(' · ')}
               </Text>
             )}
             {tipo === 'operarios' && (recurso as Operario).roles?.length > 0 && (
@@ -331,7 +346,7 @@ export default function RecursoDetalleScreen() {
                 <Text className="text-igb-navy font-medium">Editar</Text>
               </Pressable>
               <Pressable onPress={handleDelete} className="flex-1 border border-igb-error/30 rounded-lg py-2.5 items-center">
-                <Text className="text-igb-error font-medium">Eliminar</Text>
+                <Text className="text-igb-error font-medium">{tipo === 'operarios' ? 'Dar de baja' : 'Eliminar'}</Text>
               </Pressable>
             </View>
           </View>
