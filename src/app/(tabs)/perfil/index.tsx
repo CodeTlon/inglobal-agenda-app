@@ -4,7 +4,7 @@ import { useFocusEffect, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import Constants from 'expo-constants'
 import { Text } from '@/components/Text'
-import { supabase } from '@/lib/supabase'
+import { signOut } from '@/lib/auth'
 import { useSession } from '@/lib/session'
 import { apagarAvisos, avisosHabilitados, desregistrarPush, registrarPush } from '@/lib/push'
 import { confirmDialog } from '@/components/Dialog'
@@ -17,7 +17,6 @@ export default function PerfilScreen() {
   const router = useRouter()
   const { session } = useSession()
   const email = session?.user.email ?? ''
-  const esTrabajador = session?.user.app_metadata?.role === 'trabajador'
 
   const [eventosHoy, setEventosHoy] = useState<EventoAgenda[]>([])
   const [eventosHoyError, setEventosHoyError] = useState(false)
@@ -58,7 +57,7 @@ export default function PerfilScreen() {
   }
   const cerrarSesion = async () => {
     await desregistrarPush()
-    await supabase.auth.signOut()
+    await signOut()
   }
   const enCurso = eventosHoy.filter((ev) => getEstadoVisual(ev) === 'en_curso').length
   const pendientes = eventosHoy.filter((ev) => ['reserva', 'programado'].includes(getEstadoVisual(ev))).length
@@ -81,13 +80,6 @@ export default function PerfilScreen() {
           <Text className="text-igb-on-surface font-semibold" numberOfLines={1}>
             {email}
           </Text>
-          {esTrabajador && (
-            <View className="flex-row items-center gap-2 mt-1">
-              <View className="bg-igb-yellow/15 px-2 py-0.5 rounded">
-                <Text className="text-igb-yellow-dark text-[11px] font-semibold">Operario</Text>
-              </View>
-            </View>
-          )}
         </View>
       </View>
 

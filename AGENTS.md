@@ -16,11 +16,12 @@ Detalle de setup, estructura y pairing de TV en `README.md`; build y deploy en `
 - `eas update` / `eas build` — ver `docs/deployment.md`.
 
 ## Arquitectura en una mirada
-- Auth: Supabase Auth en el dispositivo; cada request a la API lleva `Authorization: Bearer <JWT>` (`src/lib/api.ts`).
-  Cuenta única: no hay roles de usuario. Las cuentas se crean desde `/dashboard/usuarios` del sitio.
+- Auth: Better Auth vía la API del sitio (`src/lib/auth.ts`, plugin bearer). La app guarda UN token en expo-secure-store
+  y cada request lleva `Authorization: Bearer <token>` (`src/lib/api.ts`). Cuenta única: no hay roles de usuario.
+  Las cuentas se crean desde `/dashboard/usuarios` del sitio.
 - Datos: toda lectura/escritura pasa por `src/lib/agenda-api.ts`. Los tipos viven en `src/lib/types.ts`.
   El backend (`inglobal-site`) es la fuente de verdad del esquema y de las reglas de negocio.
-- Imágenes: se suben directo al bucket `media` de Supabase (`src/lib/media-upload.ts`).
+- Imágenes: se suben a `POST /api/storage/upload` del sitio, que las guarda en el bucket `media` (S3/MinIO) y devuelve la URL (`src/lib/media-upload.ts`).
 - Vistas de agenda: mes, semana y día en `src/components/agenda/*` y `src/app/(tabs)/agenda/index.tsx`;
   helpers compartidos en `src/lib/agenda-view.ts`.
 
@@ -41,21 +42,22 @@ Destinatarios: todos los dispositivos logueados (sin vínculo operario-celular).
 
 ## Entornos
 Tres entornos, definidos en `inglobal-site/.ai/context/ENVIRONMENTS.md` (fuente de verdad):
-desarrollo (Supabase local, rama `dev`), homologación (rama `test`, perfil EAS `preview`, pendiente de definir) y
+desarrollo (Postgres + MinIO locales del sitio, rama `dev`), homologación (rama `test`, perfil EAS `preview`, pendiente de definir) y
 producción (rama `main`, perfil `production`). Flujo: `dev` → `test` → `main`. **Se trabaja en `dev`**; no commitear directo a `main` (producción).
 Plantillas de variables: `.env.staging.example` y `.env.production.example`.
 
 ### Entorno local
 1. En `../inglobal-site`: `npm run db:local:up` y `npm run dev:local`.
 2. En esta app: `npm run start:local` (celular físico en el mismo Wi-Fi) o `npm run start:local -- --emulator` (Android).
-   Inyecta las URLs locales sin tocar tu `.env.local` y se niega a correr si el Supabase no es local.
+   Inyecta la URL del sitio local sin tocar tu `.env.local`.
 3. Cuentas de prueba y datos del seed: `inglobal-site/.ai/context/ENVIRONMENTS.md` (todo lo ficticio lleva el prefijo `ZZ-PRUEBA`).
 
 ## Gotchas
 - **Fin de jornada por defecto (`hora_fin` vacío):** esta app usa 18:00 para el estado visual y 23:59 para
   ubicar el evento por día; `inglobal-site` usa 23:59. Divergencia vigente y deliberada; no la unifiques sin decidirlo.
-- Cambios de esquema (migraciones) se hacen en `inglobal-site/supabase/migrations`; acá solo se adaptan tipos y UI.
-- El `.env.local` apunta al mismo proyecto Supabase que el sitio (puede ser producción): no crear ni borrar datos
+- Cambios de esquema (migraciones Drizzle) se hacen en `inglobal-site/drizzle`; acá solo se adaptan tipos y UI.
+- El `.env.local` apunta al sitio (`EXPO_PUBLIC_API_BASE_URL`), que puede ser producción: no crear ni borrar datos
+  de prueba sin limpiarlos.
   de prueba sin limpiarlos.
 
 ## Más contexto

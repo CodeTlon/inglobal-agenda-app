@@ -4,7 +4,7 @@ App Expo (React Native, Expo Router, NativeWind) para Grúas InGlobal — gestio
 (eventos, grúas, empresas, operarios) desde el celular.
 Es un cliente HTTP puro de la API en `app/api/**` del repo `inglobal-site` (Route Handlers que
 reexportan la misma lógica de negocio que usa el dashboard web — ver `lib/agenda-business.ts`
-allá), autenticado con la sesión de Supabase Auth del propio dispositivo (Bearer JWT).
+allá), autenticado con la sesión de Better Auth del propio dispositivo (Bearer).
 
 No hay pantalla de registro: las cuentas se crean a mano desde `/dashboard/usuarios` en el
 sitio web, igual que hoy.
@@ -19,7 +19,6 @@ npx expo start
 
 Variables (`EXPO_PUBLIC_*`, van al bundle — mismo nivel de confianza que `NEXT_PUBLIC_*` en el sitio):
 
-- `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` — mismos valores que `inglobal-site` (dev o prod según con qué Supabase quieras probar).
 - `EXPO_PUBLIC_API_BASE_URL` — origin del sitio Next.js desplegado (ej. rama `dev` en Vercel Preview, o `https://gruasinglobal.com` en prod).
 
 ## Estructura
@@ -27,18 +26,18 @@ Variables (`EXPO_PUBLIC_*`, van al bundle — mismo nivel de confianza que `NEXT
 ```
 src/
   app/
-    (auth)/login.tsx              Login (Supabase Auth, sin registro)
+    (auth)/login.tsx              Login (Better Auth vía la API del sitio, sin registro)
     (tabs)/
       agenda/                      Calendario (día seleccionado + tira semanal) + alta/edición de eventos
       catalogos/                   Grúas / Empresas / Operarios (alta, edición, activo/inactivo, borrado)
       perfil/                      Sesión + "Vincular TV" (pairing QR, pair-tv.tsx)
   lib/
-    supabase.ts                    Cliente Supabase con sesión persistida en expo-secure-store
+    auth.ts                        Sesión: token en expo-secure-store, login/logout contra /api/auth/*
     api.ts                         Wrapper fetch + Bearer JWT hacia app/api/** de inglobal-site
     agenda-view.ts                 Helpers de vista (semana, estado visual, carriles). Adaptado de inglobal-site/lib/agenda-view.ts,
                                    NO es copia: difiere en el fin de jornada por defecto (ver AGENTS.md)
     agenda-api.ts                  Wrappers tipados de /api/agenda/* (eventos, grúas, empresas, operarios)
-    media-upload.ts                Sube imágenes directo al bucket `media` de Supabase (bypass del API para el binario)
+    media-upload.ts                Sube imágenes a POST /api/storage/upload del sitio
 ```
 
 ## Pairing QR (vincular una TV)

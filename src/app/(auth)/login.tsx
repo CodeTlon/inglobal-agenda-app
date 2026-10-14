@@ -1,17 +1,16 @@
 import { useState, useEffect } from 'react'
 import { View, Image, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import type { AuthError } from '@supabase/supabase-js'
+import { signInWithPassword, type AuthError } from '@/lib/auth'
 import { Text } from '@/components/Text'
 import { TextInput } from '@/components/TextInput'
 import { ErrorBanner } from '@/components/ErrorBanner'
-import { supabase } from '@/lib/supabase'
 import { colors } from '@/lib/colors'
 
 const NETWORK_ERROR_MESSAGE = 'No se pudo conectar. Revisá tu conexión a internet e intentá de nuevo.'
 // ponytail: contador en memoria, se resetea con reload de la app — no hace
 // falta persistirlo, es solo para frenar reintentos rápidos de credenciales
-// mientras el rate limit real de Supabase (más laxo) no llega a dispararse.
+// mientras el rate limit real del servidor (más laxo) no llega a dispararse.
 const MAX_FAILED_ATTEMPTS = 5
 const BASE_COOLDOWN_MS = 30_000
 const MAX_COOLDOWN_MS = 5 * 60_000
@@ -24,9 +23,8 @@ function cooldownFor(streak: number): number {
 }
 
 function authErrorMessage(error: AuthError): string {
-  if (error.code === 'invalid_credentials') return 'Email o contraseña incorrectos.'
-  if (error.code === 'email_not_confirmed') return 'Tu cuenta todavía no fue confirmada. Contactá al administrador.'
-  if (error.code === 'over_request_rate_limit' || error.code === 'over_email_send_rate_limit') {
+  if (error.status === 401 || error.code === 'INVALID_EMAIL_OR_PASSWORD') return 'Email o contraseña incorrectos.'
+  if (error.status === 429) {
     return 'Demasiados intentos. Esperá un momento y volvé a intentar.'
   }
   // signInWithPassword no tira excepción con la red cortada — resuelve con
@@ -67,7 +65,7 @@ export default function LoginScreen() {
     setLoading(true)
     setError(null)
     try {
-      const { error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+      const { error: authError } = await signInWithPassword(email.trim(), password)
       if (authError) {
         // Los fallos de red no cuentan como intento fallido — el contador es
         // para frenar adivinar contraseñas, no para penalizar mala señal.

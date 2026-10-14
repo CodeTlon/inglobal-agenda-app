@@ -5,14 +5,14 @@ import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
-import { View, Pressable, AppState, LogBox, StyleSheet } from 'react-native'
+import { View, Pressable, StyleSheet } from 'react-native'
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, runOnJS } from 'react-native-reanimated'
 import * as SplashScreen from 'expo-splash-screen'
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter'
 import { Manrope_700Bold } from '@expo-google-fonts/manrope'
 import { Ionicons } from '@expo/vector-icons'
 import { useSession, SessionProvider } from '@/lib/session'
-import { supabase } from '@/lib/supabase'
+import { signOut } from '@/lib/auth'
 import { avisosHabilitados, registrarPush, rutaDeAviso } from '@/lib/push'
 import { Text } from '@/components/Text'
 import { DialogHost } from '@/components/Dialog'
@@ -34,15 +34,6 @@ export default function RootLayout() {
     </SessionProvider>
   )
 }
-
-// El SDK de Supabase pausa/reanuda su ticker de auto-refresh de sesión según
-// esto (patrón oficial para RN) — sin esto corre siempre en background, y
-// cuando falla un refresh sin red hace console.warn/error, que LogBox
-// muestra como una alerta en pantalla ("Auto refresh tick failed...").
-// LogBox.ignoreLogs silencia ese warning puntual (es de la librería, no se
-// puede envolver en try/catch desde acá) — solo pasa en dev/Expo Go, un
-// build de producción no muestra LogBox en pantalla.
-LogBox.ignoreLogs(['Auto refresh tick failed', 'AuthRetryableFetchError'])
 
 let ultimoAvisoAbierto: string | null = null
 
@@ -72,13 +63,6 @@ function RootLayoutNav() {
     return () => sub.remove()
   }, [logueado, router])
 
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') supabase.auth.startAutoRefresh()
-      else supabase.auth.stopAutoRefresh()
-    })
-    return () => sub.remove()
-  }, [])
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -142,7 +126,7 @@ function RootLayoutNav() {
             <Text className="text-center text-igb-secondary">
               Ingresá al panel web (gruasinglobal.com/dashboard) para cambiar tu contraseña temporal antes de usar la app.
             </Text>
-            <Pressable onPress={() => supabase.auth.signOut()} className="mt-6 py-2 px-4">
+            <Pressable onPress={() => signOut()} className="mt-6 py-2 px-4">
               <Text className="text-igb-navy font-semibold">Cerrar sesión</Text>
             </Pressable>
           </CenteredMessage>

@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { getToken, signOut } from './auth'
 
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? ''
 
@@ -11,14 +11,14 @@ export class ApiError extends Error {
 }
 
 // fetch() nativo no tiene timeout — si el backend acepta la conexión y
-// después no responde (típico durante un restart del lado de Supabase/
-// Vercel), la promesa queda colgada para siempre y toda la app se ve
+// después no responde (típico durante un restart del lado del
+// servidor), la promesa queda colgada para siempre y toda la app se ve
 // "cargando" sin fin, sin ningún error que mostrar. 20s es margen de sobra
 // para una conexión lenta real.
 const TIMEOUT_MS = 20_000
 
 async function apiFetch(path: string, opts: RequestInit = {}) {
-  const { data: { session } } = await supabase.auth.getSession()
+  const token = await getToken()
   let res: Response
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
@@ -29,7 +29,7 @@ async function apiFetch(path: string, opts: RequestInit = {}) {
       headers: {
         'Content-Type': 'application/json',
         ...(opts.headers ?? {}),
-        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     })
   } catch (e) {
@@ -52,10 +52,10 @@ async function apiFetch(path: string, opts: RequestInit = {}) {
   const body = await res.json().catch(() => ({}))
   if (!res.ok) {
     // El backend revocó el token (usuario desactivado, sesión inválida) pero
-    // la sesión local de Supabase seguía "viva" — sin esto el usuario
+    // la sesión local seguía "viva" — sin esto el usuario
     // quedaba navegando la app viendo errores genéricos en cada pantalla,
     // sin ninguna señal de que tenía que volver a loguearse.
-    if (res.status === 401) supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+    if (res.status === 401) signOut({ remote: false }).catch(() => {})
     throw new ApiError(body.error ?? res.statusText ?? 'Error desconocido', res.status)
   }
   return body.data

@@ -1,10 +1,10 @@
-import { supabase } from '@/lib/supabase'
+import { ApiError } from '@/lib/api'
+import { getToken } from '@/lib/auth'
 import * as ImagePicker from 'expo-image-picker'
 import { File, Paths } from 'expo-file-system'
 
-// La foto/logo se sube al bucket `media` que ya existe para el resto del
-// sitio (ver inglobal-site/supabase/migrations/006_storage_media.sql) —
-// nada de bucket ni políticas nuevas, solo una carpeta propia por tipo.
+// La foto/logo se sube a la API del sitio (POST /api/storage/upload), que la guarda en el
+// bucket `media` y devuelve la URL pública. Una carpeta propia por tipo.
 export async function subirFoto(carpeta: string, id: string, uri: string): Promise<string> {
   // `fetch(uri)` sobre un archivo local `file://` es lo que venía usándose
   // acá, pero en este armado de Expo/RN nunca completa la conexión (siempre
@@ -16,20 +16,22 @@ export async function subirFoto(carpeta: string, id: string, uri: string): Promi
   // Sin este chequeo, un archivo local que ya no existe (ver comentario en
   // elegirFotoDeGaleria) tira un error críptico del lado nativo al leerlo.
   if (!file.exists) throw new Error('No se pudo leer la foto elegida: el archivo ya no existe.')
-  const buffer = await file.arrayBuffer()
   const esPng = uri.toLowerCase().endsWith('.png')
-  const path = `${carpeta}/${id}.${esPng ? 'png' : 'jpg'}`
-  const { error } = await supabase.storage.from('media').upload(path, buffer, {
-    contentType: esPng ? 'image/png' : 'image/jpeg',
-    upsert: true,
+  const form = new FormData()
+  // En React Native el archivo se adjunta como { uri, name, type }.
+  form.append('file', { uri, name: `${id}.${esPng ? 'png' : 'jpg'}`, type: esPng ? 'image/png' : 'image/jpeg' } as unknown as Blob)
+  form.append('folder', carpeta)
+  const token = await getToken()
+  const res = await fetch(`${process.env.EXPO_PUBLIC_API_BASE_URL ?? ''}/api/storage/upload`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
   })
-  if (error) throw error
-  // `upsert: true` sube siempre al mismo path — la publicUrl da idéntica antes y
-  // después de reemplazar la foto, así que <Image> (cachea por URL) puede seguir
-  // mostrando la vieja después de subir una nueva, en este dispositivo y en el de
-  // cualquiera que ya la haya visto. Cache-buster en la URL que se guarda (no solo
-  // al renderizar) para que el cambio se note para todos, no solo localmente.
-  return `${supabase.storage.from('media').getPublicUrl(path).data.publicUrl}?t=${Date.now()}`
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new ApiError(body.error ?? 'No se pudo subir la foto.', res.status)
+  // Cada subida genera un path nuevo (uuid), así que <Image> no reutiliza una foto
+  // cacheada de la versión anterior.
+  return body.data.url as string
 }
 
 export async function elegirFotoDeGaleria(): Promise<string | null> {

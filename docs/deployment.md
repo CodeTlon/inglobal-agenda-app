@@ -8,7 +8,7 @@ La app no tiene backend propio — pega contra `inglobal-site` (Next.js, repo se
 
 - **Producción:** `EXPO_PUBLIC_API_BASE_URL=https://inglobal-site-theta.vercel.app` (ver `.env.local`, no está trackeado en git).
 - El repo **sí** está conectado a Vercel (`productionBranch: main`) — cada push a `main` dispara un deploy a producción solo. Verificado el 05/08/2026 contra la API de Vercel (`GET /v9/projects/inglobal-site` → `link.type: github`, y varios deploys recientes con `source: git`). La nota anterior de "deploy manual, sin integración" estaba desactualizada. Detalle en `inglobal-site/docs/deployment-guide.md`.
-- Ojo con las env vars (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`): el auto-deploy sube el código, pero **no** te avisa si las env vars de Vercel quedaron apuntando a un proyecto de Supabase viejo — eso pasó el 05/08/2026 y rompió el login de la app mobile en silencio (401 en todos los endpoints autenticados) hasta que se corrigieron a mano. Si algo empieza a dar 401 en prod sin razón aparente, comparar `vercel env pull` contra el `.env.local` del repo mobile.
+- Ojo con las env vars del sitio (`DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `S3_*`): el despliegue sube el código pero no avisa si quedaron apuntando a otra base. Si empieza a dar 401 sin razón aparente, revisar `BETTER_AUTH_URL`/`BETTER_AUTH_SECRET` del sitio.
 
 ## EAS — identidad del proyecto
 
