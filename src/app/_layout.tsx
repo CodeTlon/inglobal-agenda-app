@@ -1,6 +1,7 @@
 import '../global.css'
 import { useEffect, useState } from 'react'
-import { Stack } from 'expo-router'
+import { Stack, useRouter } from 'expo-router'
+import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
@@ -12,6 +13,7 @@ import { Manrope_700Bold } from '@expo-google-fonts/manrope'
 import { Ionicons } from '@expo/vector-icons'
 import { useSession, SessionProvider } from '@/lib/session'
 import { supabase } from '@/lib/supabase'
+import { avisosHabilitados, registrarPush, rutaDeAviso } from '@/lib/push'
 import { Text } from '@/components/Text'
 import { DialogHost } from '@/components/Dialog'
 
@@ -42,8 +44,33 @@ export default function RootLayout() {
 // build de producción no muestra LogBox en pantalla.
 LogBox.ignoreLogs(['Auto refresh tick failed', 'AuthRetryableFetchError'])
 
+let ultimoAvisoAbierto: string | null = null
+
 function RootLayoutNav() {
   const { session, loading, mustChangePassword } = useSession()
+  const router = useRouter()
+
+  // Registra el dispositivo para avisos push al tener sesión (si el usuario no los apagó).
+  const logueado = !!session && !mustChangePassword
+  useEffect(() => {
+    if (!logueado) return
+    avisosHabilitados().then((on) => on && registrarPush(true))
+  }, [logueado])
+
+  // Tocar un aviso abre la pantalla correspondiente (incluye app cerrada).
+  useEffect(() => {
+    if (!logueado) return
+    const abrir = (r: Notifications.NotificationResponse | null) => {
+      // getLastNotificationResponseAsync devuelve siempre el último toque: sin esto se
+      // reabriría la misma pantalla al volver a loguearse.
+      if (!r || r.notification.request.identifier === ultimoAvisoAbierto) return
+      ultimoAvisoAbierto = r.notification.request.identifier
+      router.push(rutaDeAviso(r.notification.request.content.data) as never)
+    }
+    Notifications.getLastNotificationResponseAsync().then(abrir).catch(() => {})
+    const sub = Notifications.addNotificationResponseReceivedListener(abrir)
+    return () => sub.remove()
+  }, [logueado, router])
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {

@@ -47,6 +47,14 @@ src/
 sitio web. Aprobar el código desde el celular loguea esa TV automáticamente (sin escribir
 usuario/contraseña) — ver `app/api/tv-pair/**` en `inglobal-site` para el flujo completo.
 
+## Avisos push
+
+Perfil -> "Recibir avisos". La app registra su Expo push token en `POST /api/push/registrar` (`src/lib/push.ts`)
+y recibe dos avisos desde `inglobal-site`: recordatorio de los servicios de mañana (19:00, hora de Córdoba) y
+reservas sin confirmar a menos de 2 h de su inicio. Tocar un aviso abre la agenda o el evento. **No funciona
+en Expo Go (Android) ni en web/emulador**: requiere un build nativo (`eas build --profile preview`) en un
+dispositivo físico. En iOS de producción además hace falta la cuenta de Apple Developer.
+
 ## Pendiente / no incluido en esta primera versión
 
 - Trabajos (mini-blog por cliente, contenido rico TipTap) — sigue editándose solo desde el dashboard web.

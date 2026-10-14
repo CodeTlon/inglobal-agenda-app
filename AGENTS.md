@@ -34,6 +34,11 @@ Detalle de setup, estructura y pairing de TV en `README.md`; build y deploy en `
 - Estados de evento: `reserva`, `programado`, `en_curso`, `finalizado`, `cancelado`. Una reserva vencida se
   muestra como cancelada (`getEstadoVisual`).
 
+## Avisos push
+`src/lib/push.ts` (permiso, token, alta/baja), registro automático al loguearse en `src/app/_layout.tsx`, interruptor
+en Perfil. El backend (`inglobal-site`: `app/api/push/registrar`, `app/api/agenda/cron/notificar`) decide qué se avisa.
+Destinatarios: todos los dispositivos logueados (sin vínculo operario-celular). Probar requiere build nativo.
+
 ## Entornos
 Tres entornos, definidos en `inglobal-site/.ai/context/ENVIRONMENTS.md` (fuente de verdad):
 desarrollo (Supabase local, rama `dev`), homologación (rama `test`, perfil EAS `preview`, pendiente de definir) y

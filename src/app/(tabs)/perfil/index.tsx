@@ -1,11 +1,13 @@
-import { useCallback, useState } from 'react'
-import { View, Pressable, ScrollView, Image } from 'react-native'
+import { useCallback, useEffect, useState } from 'react'
+import { View, Pressable, ScrollView, Image, Switch, Platform } from 'react-native'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import Constants from 'expo-constants'
 import { Text } from '@/components/Text'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/lib/session'
+import { apagarAvisos, avisosHabilitados, desregistrarPush, registrarPush } from '@/lib/push'
+import { confirmDialog } from '@/components/Dialog'
 import { getEventosAgendaCached } from '@/lib/agenda-api'
 import { addDays, getEstadoVisual, toDateInput } from '@/lib/agenda-view'
 import type { EventoAgenda } from '@/lib/types'
@@ -34,6 +36,30 @@ export default function PerfilScreen() {
         .catch(() => setEventosHoyError(true))
     }, []),
   )
+  // Avisos push (recordatorio de mañana y reservas por vencer). Solo en celular.
+  const [avisos, setAvisos] = useState(false)
+  useEffect(() => {
+    avisosHabilitados().then(setAvisos)
+  }, [])
+  const cambiarAvisos = async (on: boolean) => {
+    if (!on) {
+      setAvisos(false)
+      await apagarAvisos()
+      return
+    }
+    const ok = await registrarPush(true)
+    setAvisos(ok)
+    if (!ok) {
+      confirmDialog(
+        'No se pudieron activar los avisos',
+        'Revisá que las notificaciones estén permitidas para la app en los ajustes del teléfono.',
+      )
+    }
+  }
+  const cerrarSesion = async () => {
+    await desregistrarPush()
+    await supabase.auth.signOut()
+  }
   const enCurso = eventosHoy.filter((ev) => getEstadoVisual(ev) === 'en_curso').length
   const pendientes = eventosHoy.filter((ev) => ['reserva', 'programado'].includes(getEstadoVisual(ev))).length
 
@@ -96,8 +122,26 @@ export default function PerfilScreen() {
         <Ionicons name="chevron-forward" size={16} color={colors.secondary} />
       </Pressable>
 
+      {Platform.OS !== 'web' && (
+        <View className="bg-white border border-igb-outline rounded-lg p-4 mb-3 flex-row items-center">
+          <View className="w-9 h-9 rounded-lg bg-igb-navy/10 items-center justify-center mr-3">
+            <Ionicons name="notifications-outline" size={18} color={colors.navy} />
+          </View>
+          <View className="flex-1 pr-3">
+            <Text className="text-sm font-semibold text-igb-on-surface">Recibir avisos</Text>
+            <Text className="text-igb-secondary text-xs mt-0.5">Servicios de mañana y reservas por vencer</Text>
+          </View>
+          <Switch
+            value={avisos}
+            onValueChange={cambiarAvisos}
+            trackColor={{ true: colors.navy }}
+            accessibilityLabel="Recibir avisos"
+          />
+        </View>
+      )}
+
       <Pressable
-        onPress={() => supabase.auth.signOut()}
+        onPress={cerrarSesion}
         className="bg-white border border-igb-error/30 rounded-lg py-3.5 mt-4 flex-row items-center justify-center gap-2"
       >
         <Ionicons name="log-out-outline" size={16} color={colors.error} />

@@ -65,5 +65,6 @@ export const api = {
   get: <T = unknown>(path: string): Promise<T> => apiFetch(path),
   post: <T = unknown>(path: string, body: unknown): Promise<T> => apiFetch(path, { method: 'POST', body: JSON.stringify(body) }),
   patch: <T = unknown>(path: string, body: unknown): Promise<T> => apiFetch(path, { method: 'PATCH', body: JSON.stringify(body) }),
-  delete: <T = unknown>(path: string): Promise<T> => apiFetch(path, { method: 'DELETE' }),
+  delete: <T = unknown>(path: string, body?: unknown): Promise<T> =>
+    apiFetch(path, { method: 'DELETE', ...(body !== undefined ? { body: JSON.stringify(body) } : {}) }),
 }
