@@ -1,7 +1,7 @@
 import '../global.css'
 import { useEffect, useState } from 'react'
 import { Stack, useRouter } from 'expo-router'
-import * as Notifications from 'expo-notifications'
+import type { NotificationResponse } from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useSession, SessionProvider } from '@/lib/session'
 import { signOut } from '@/lib/auth'
 import { avisosHabilitados, registrarPush, rutaDeAviso } from '@/lib/push'
+import { Notifications } from '@/lib/notifications'
 import { Text } from '@/components/Text'
 import { DialogHost } from '@/components/Dialog'
 
@@ -50,8 +51,8 @@ function RootLayoutNav() {
 
   // Tocar un aviso abre la pantalla correspondiente (incluye app cerrada).
   useEffect(() => {
-    if (!logueado) return
-    const abrir = (r: Notifications.NotificationResponse | null) => {
+    if (!logueado || !Notifications) return
+    const abrir = (r: NotificationResponse | null) => {
       // getLastNotificationResponseAsync devuelve siempre el último toque: sin esto se
       // reabriría la misma pantalla al volver a loguearse.
       if (!r || r.notification.request.identifier === ultimoAvisoAbierto) return

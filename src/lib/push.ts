@@ -1,18 +1,18 @@
 import { Platform } from 'react-native'
-import * as Notifications from 'expo-notifications'
 import * as Device from 'expo-device'
 import * as SecureStore from 'expo-secure-store'
 import Constants from 'expo-constants'
 import { api } from './api'
+import { Notifications } from './notifications'
 
 // Push remoto solo funciona en un dispositivo físico con build nativo (no Expo Go en
 // Android, no web, no emulador sin Google Play). En el resto, todo es no-op.
-const SOPORTADO = Platform.OS === 'ios' || Platform.OS === 'android'
+const SOPORTADO = Notifications !== null && (Platform.OS === 'ios' || Platform.OS === 'android')
 const KEY_AVISOS = 'avisos_push_habilitados'
 const KEY_TOKEN = 'avisos_push_token'
 
 // En primer plano también se muestra el aviso (por defecto RN lo silencia).
-if (SOPORTADO) {
+if (Notifications) {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false }),
   })
@@ -24,7 +24,7 @@ export async function avisosHabilitados(): Promise<boolean> {
 }
 
 async function obtenerToken(pedirPermiso: boolean): Promise<string | null> {
-  if (!SOPORTADO || !Device.isDevice) return null
+  if (!SOPORTADO || !Notifications || !Device.isDevice) return null
 
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('agenda', {
