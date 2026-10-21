@@ -6,7 +6,7 @@ import Constants from 'expo-constants'
 import { Text } from '@/components/Text'
 import { signOut } from '@/lib/auth'
 import { useSession } from '@/lib/session'
-import { apagarAvisos, avisosHabilitados, desregistrarPush, registrarPush } from '@/lib/push'
+import { apagarAvisos, avisosHabilitados, desregistrarPush, pushDisponible, registrarPush } from '@/lib/push'
 import { confirmDialog } from '@/components/Dialog'
 import { getEventosAgendaCached } from '@/lib/agenda-api'
 import { addDays, getEstadoVisual, toDateInput } from '@/lib/agenda-view'
@@ -44,6 +44,13 @@ export default function PerfilScreen() {
     if (!on) {
       setAvisos(false)
       await apagarAvisos()
+      return
+    }
+    if (!pushDisponible) {
+      confirmDialog(
+        'Avisos no disponibles acá',
+        'Los avisos solo funcionan en la app instalada (TestFlight o la tienda). No andan en Expo Go ni en emuladores.',
+      )
       return
     }
     const ok = await registrarPush(true)
