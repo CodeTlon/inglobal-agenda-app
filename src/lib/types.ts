@@ -12,6 +12,9 @@ export const TRANSICIONES_VALIDAS: Record<EstadoEvento, EstadoEvento[]> = {
   cancelado: [],
 }
 
+/** Máximo de grúas por servicio (igual que MAX_GRUAS_EVENTO del servidor). */
+export const MAX_GRUAS_EVENTO = 6
+
 export const TIPOS_GRUA = ['Grúa', 'Hidrogrúa', 'Camión', 'Otro'] as const
 
 export interface Grua {
@@ -65,6 +68,8 @@ export interface EventoAgenda {
   created_at: string
   updated_at: string
   grua: { nombre: string } | null
+  /** Todas las grúas del servicio; la primera es la principal (= grua_id). Servidores viejos no lo mandan. */
+  gruas?: { id: string; nombre: string }[]
   empresa: { nombre: string } | null
   operarios: { id: string; nombre: string }[]
 }

@@ -24,7 +24,10 @@ export type EventoPayload = {
   fecha_hasta?: string | null
   hora_inicio: string
   hora_fin?: string | null
+  /** Grúa principal (= grua_ids[0]); se manda igual para que servidores/clientes anteriores sigan entendiendo el payload. */
   grua_id: string
+  /** Todas las grúas del servicio (mín. 1, máx. 6). */
+  grua_ids: string[]
   empresa_id: string
   ubicacion?: string | null
   notas?: string | null

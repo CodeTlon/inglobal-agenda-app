@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { nombresGruas } from '@/lib/gruas'
 import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native'
 import { Image } from 'expo-image'
 import { cssInterop } from 'nativewind'
@@ -74,7 +75,7 @@ async function guardarRecurso(tipo: Tipo, id: string, recurso: Recurso, fotoUrl:
 }
 
 function contraparte(tipo: Tipo, ev: EventoAgenda): string {
-  const grua = ev.grua?.nombre ?? 'Grúa eliminada'
+  const grua = nombresGruas(ev, ' + ', 'Grúa eliminada')
   const empresa = ev.empresa?.nombre ?? 'Empresa eliminada'
   const operarios = ev.operarios.map((o) => o.nombre)
   if (tipo === 'gruas') return [empresa, ...operarios].join(' · ')

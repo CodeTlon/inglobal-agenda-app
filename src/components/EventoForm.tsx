@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { gruasDe } from '@/lib/gruas'
 import { View, ScrollView, Pressable, ActivityIndicator, Platform, KeyboardAvoidingView } from 'react-native'
 import { useRouter } from 'expo-router'
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated'
@@ -20,7 +21,7 @@ import {
 } from '@/lib/agenda-api'
 import { ApiError } from '@/lib/api'
 import { toDateInput, formatEstado, getEstadoVisual, cruzaMedianoche } from '@/lib/agenda-view'
-import { type EstadoEvento, type EventoAgenda, type Grua, type EmpresaAgenda, type Operario } from '@/lib/types'
+import { MAX_GRUAS_EVENTO, type EstadoEvento, type EventoAgenda, type Grua, type EmpresaAgenda, type Operario } from '@/lib/types'
 import { colors } from '@/lib/colors'
 
 // Lista de horarios en pasos de 15' (00:00..23:45) para elegir hora rápido
@@ -67,7 +68,7 @@ export function EventoForm({
   const [fechaHasta, setFechaHasta] = useState(initial?.fecha_hasta ?? '')
   const [horaInicio, setHoraInicio] = useState(initial?.hora_inicio?.slice(0, 5) ?? '08:00')
   const [horaFin, setHoraFin] = useState(initial?.hora_fin?.slice(0, 5) ?? '')
-  const [gruaId, setGruaId] = useState(initial?.grua_id ?? '')
+  const [gruaIds, setGruaIds] = useState<string[]>(initial ? gruasDe(initial).map((g) => g.id) : [])
   const [empresaId, setEmpresaId] = useState(initial?.empresa_id ?? '')
   const [empresaBusqueda, setEmpresaBusqueda] = useState('')
   const [ubicacion, setUbicacion] = useState(initial?.ubicacion ?? '')
@@ -144,13 +145,17 @@ export function EventoForm({
   // (evento/[id].tsx) — no compite con los datos específicos del evento.
   const opcionesEstado: EstadoEvento[] = ['reserva', 'programado']
 
+  function toggleGrua(id: string) {
+    setGruaIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : prev.length >= MAX_GRUAS_EVENTO ? prev : [...prev, id]))
+  }
+
   function toggleOperario(id: string) {
     setOperarioIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
   }
 
   async function handleSubmit() {
-    if (!gruaId || !empresaId) {
-      setError('Seleccioná grúa y empresa.')
+    if (gruaIds.length === 0 || !empresaId) {
+      setError('Seleccioná al menos una grúa y la empresa.')
       return
     }
     if (operarioIds.length === 0) {
@@ -167,8 +172,8 @@ export function EventoForm({
       setError('No se pudo confirmar la disponibilidad de grúa/operarios. Revisá tu conexión e intentá de nuevo.')
       return
     }
-    if (ocupados.gruaIds.includes(gruaId)) {
-      setError('La grúa seleccionada ya está ocupada en ese horario. Elegí otra.')
+    if (gruaIds.some((id) => ocupados.gruaIds.includes(id))) {
+      setError('Una o más grúas seleccionadas ya están ocupadas en ese horario.')
       return
     }
     if (operarioIds.some((id) => ocupados.operarioIds.includes(id))) {
@@ -207,7 +212,8 @@ export function EventoForm({
       fecha_hasta: fechaHasta || null,
       hora_inicio: horaInicio,
       hora_fin: horaFin || null,
-      grua_id: gruaId,
+      grua_id: gruaIds[0],
+      grua_ids: gruaIds,
       empresa_id: empresaId,
       ubicacion: ubicacion || null,
       notas: notas || null,
@@ -356,7 +362,7 @@ export function EventoForm({
         </Animated.View>
       )}
 
-      <Field label="Grúa">
+      <Field label="Grúas">
         {/* Lista de filas en vez de <Picker.Item enabled={false}> — ese
             "enabled" no bloquea el toque de forma confiable en todas las
             plataformas, dejaba elegir una grúa ocupada aunque se viera en
@@ -366,7 +372,7 @@ export function EventoForm({
             .sort((a, b) => Number(ocupados.gruaIds.includes(a.id)) - Number(ocupados.gruaIds.includes(b.id)))
             .map((g) => {
               const ocupada = ocupados.gruaIds.includes(g.id)
-              const selected = gruaId === g.id
+              const selected = gruaIds.includes(g.id)
               const isDisabled = locked || (ocupada && !selected)
               return (
                 <Pressable
@@ -374,11 +380,11 @@ export function EventoForm({
                   // Ya seleccionada se deja elegible para no trabar el form si
                   // se ocupó después de elegirla (ej. se cambió el horario).
                   disabled={isDisabled}
-                  onPress={() => setGruaId(g.id)}
+                  onPress={() => toggleGrua(g.id)}
                   className={`flex-row items-center py-2 px-1 ${ocupada && !selected ? 'opacity-50' : ''}`}
                 >
-                  <View className={`w-5 h-5 rounded-full border mr-3 items-center justify-center ${isDisabled ? 'opacity-40' : ''} ${selected ? 'border-igb-yellow' : 'border-igb-outline'}`}>
-                    {selected && <View className="w-2.5 h-2.5 rounded-full bg-igb-yellow" />}
+                  <View className={`w-5 h-5 rounded border mr-3 items-center justify-center ${isDisabled ? 'opacity-40' : ''} ${selected ? 'bg-igb-yellow border-igb-yellow' : 'border-igb-outline'}`}>
+                    {selected && <Ionicons name="checkmark" size={14} color={colors.onYellow} />}
                   </View>
                   <Text className={`flex-1 ${ocupada && !selected ? 'line-through' : ''} ${ocupada ? 'text-igb-error' : !g.activo ? 'text-igb-secondary' : 'text-igb-on-surface'}`} numberOfLines={1}>
                     {g.nombre}{ocupada ? ' (ocupada)' : ''}{!g.activo ? ' (inactiva)' : ''}
@@ -387,9 +393,12 @@ export function EventoForm({
               )
             })}
         </View>
-        {gruaId && ocupados.gruaIds.includes(gruaId) && (
-          <Text className="text-igb-error text-xs mt-1">Esta grúa ya está ocupada en ese horario.</Text>
+        {gruaIds.some((id) => ocupados.gruaIds.includes(id)) && (
+          <Text className="text-igb-error text-xs mt-1">Una o más grúas seleccionadas ya están ocupadas en ese horario.</Text>
         )}
+        <Text className="text-igb-secondary text-xs mt-1">
+          Elegí una o más grúas (máximo {MAX_GRUAS_EVENTO}). La primera que marques es la principal.
+        </Text>
       </Field>
 
       <Field label="Empresa">

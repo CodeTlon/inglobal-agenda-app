@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { gruasDe, nombresGruas } from '@/lib/gruas'
 import { View, ScrollView, ActivityIndicator, Pressable } from 'react-native'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -69,6 +70,8 @@ export default function EventoScreen() {
               // grúa/empresa con eventos en esos estados — nunca pueden ser
               // null acá todavía.
               grua_id: evento.grua_id!,
+              // Cambiar el estado conserva TODAS las grúas del servicio.
+              grua_ids: gruasDe(evento).map((g) => g.id),
               empresa_id: evento.empresa_id!,
               ubicacion: evento.ubicacion,
               notas: evento.notas,
@@ -134,14 +137,14 @@ export default function EventoScreen() {
           <View className={`self-start px-2.5 py-1 rounded ${estadoColorClassesLight(estadoVisual)}`}>
             <Text className="text-xs font-bold">{formatEstado(estadoVisual)}</Text>
           </View>
-          <Text className="font-headline text-xl text-igb-on-surface">{evento.grua?.nombre ?? 'Grúa eliminada'}</Text>
+          <Text className="font-headline text-xl text-igb-on-surface">{evento.empresa?.nombre ?? 'Empresa eliminada'}</Text>
 
           <DetailRow icon="calendar-outline" text={formatFecha(evento)} />
           <DetailRow
             icon="time-outline"
             text={`${evento.hora_inicio.slice(0, 5)}${evento.hora_fin ? ` – ${evento.hora_fin.slice(0, 5)}` : ''}`}
           />
-          <DetailRow icon="business-outline" text={evento.empresa?.nombre ?? 'Empresa eliminada'} />
+          <DetailRow icon="car-outline" text={nombresGruas(evento, ', ', 'Grúa eliminada')} />
           {evento.ubicacion ? <DetailRow icon="location-outline" text={evento.ubicacion} /> : null}
           <DetailRow
             icon="people-outline"

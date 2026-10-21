@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
+import { gruasDe } from '@/lib/gruas'
 import { View, ScrollView, Pressable, ActivityIndicator, Platform, KeyboardAvoidingView } from 'react-native'
 import { Image } from 'expo-image'
 import { cssInterop } from 'nativewind'
@@ -25,7 +26,7 @@ const EMPTY = { nombre: '', patente: '', capacidad_toneladas: '', tipo: 'Grúa' 
 
 export default function GruasScreen() {
   const router = useRouter()
-  const matcher = useCallback((ev: EventoAgenda, g: Grua) => ev.grua_id === g.id, [])
+  const matcher = useCallback((ev: EventoAgenda, g: Grua) => gruasDe(ev).some((x) => x.id === g.id), [])
   const { items: gruas, loading, loadError, load, estadoDe } = useOcupacionDelDia(
     getGruas,
     matcher,

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { nombresGruas } from '@/lib/gruas'
 import { View, ScrollView, Pressable, ActivityIndicator, useWindowDimensions } from 'react-native'
 import type { NativeSyntheticEvent, NativeScrollEvent } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
@@ -736,12 +737,17 @@ export default function AgendaScreen() {
                       </Text>
                       {compact ? (
                         <Text className="text-xs font-semibold text-igb-on-surface" numberOfLines={Math.max(1, Math.floor((height - 24) / 14))}>
-                          {ev.empresa?.nombre ?? ev.grua?.nombre ?? 'Sin empresa'}
+                          {ev.empresa?.nombre ?? nombresGruas(ev, ' · ', 'Sin empresa')}
                         </Text>
                       ) : (
-                        <Text className="text-xs font-semibold text-igb-on-surface" numberOfLines={1}>
-                          {ev.grua?.nombre ?? 'Sin grúa'} — {ev.empresa?.nombre ?? 'Sin empresa'}
-                        </Text>
+                        <>
+                          <Text className="text-xs font-bold text-igb-on-surface" numberOfLines={1}>
+                            {ev.empresa?.nombre ?? 'Sin empresa'}
+                          </Text>
+                          <Text className="text-xs text-igb-secondary" numberOfLines={1}>
+                            {nombresGruas(ev)}
+                          </Text>
+                        </>
                       )}
                       {hasRoomForDetail && (
                         <View className="flex-row items-center gap-1.5 mt-0.5">
