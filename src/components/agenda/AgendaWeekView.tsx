@@ -164,7 +164,7 @@ export function AgendaWeekView({
                             <Text className={`text-sm font-medium text-igb-on-surface ${getEstadoVisual(ev) === 'cancelado' ? 'line-through' : ''}`} numberOfLines={1}>
                               {ev.empresa?.nombre ?? 'Sin empresa'}
                             </Text>
-                            <Text className="text-xs text-igb-secondary" numberOfLines={1}>
+                            <Text className="text-xs text-igb-secondary" numberOfLines={2}>
                               {nombresGruas(ev)}
                             </Text>
                             <Text className="text-xs text-igb-secondary" numberOfLines={1}>

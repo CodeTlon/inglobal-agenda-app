@@ -744,7 +744,7 @@ export default function AgendaScreen() {
                           <Text className="text-xs font-bold text-igb-on-surface" numberOfLines={1}>
                             {ev.empresa?.nombre ?? 'Sin empresa'}
                           </Text>
-                          <Text className="text-xs text-igb-secondary" numberOfLines={1}>
+                          <Text className="text-xs text-igb-secondary" numberOfLines={2}>
                             {nombresGruas(ev)}
                           </Text>
                         </>
