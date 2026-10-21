@@ -18,6 +18,9 @@ if (Notifications) {
   })
 }
 
+/** `false` en Expo Go, web o emulador: ahí los avisos push no existen, no es un tema de permisos. */
+export const pushDisponible = SOPORTADO && Device.isDevice
+
 export async function avisosHabilitados(): Promise<boolean> {
   if (!SOPORTADO) return false
   return (await SecureStore.getItemAsync(KEY_AVISOS).catch(() => null)) !== 'no'
