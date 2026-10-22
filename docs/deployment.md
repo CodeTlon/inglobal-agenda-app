@@ -66,3 +66,16 @@ Dado que es una herramienta interna (operarios de la empresa, no público genera
 
 - `expo-secure-store` no tiene implementación en Node — crasheaba el dev server entero al bootear porque `web.output: "static"` hace que Expo Router prerenderice un bundle SSR en Node, y el storage adapter de Supabase lo llamaba sin guardarse. Fix: `Platform.OS !== 'web'` antes de tocar `SecureStore`, con fallback a `localStorage`/no-op. (`src/lib/supabase.ts`)
 - (Histórico, ya no aplica) El pairing de TV usaba `verifyOtp` de Supabase; desde `inglobal-site` v2.0.0 el pairing va por la API propia, sin magic link.
+
+## PENDIENTE — build iOS a TestFlight (2026-10-22)
+
+El código está listo (tsc 0, lint limpio, apunta a producción) pero **no hay build en TestFlight todavía**. Los builds 9, 10 y 11 de EAS (`--profile production`) fallan en Xcode:
+
+> provisioning profile doesn't include the Push Notifications capability / `aps-environment` entitlement
+
+- **Causa:** el perfil de aprovisionamiento de Apple (creado antes de usar `expo-notifications`) no tiene Push Notifications. Sacar el plugin de `app.json` NO sirve: el SDK lo agrega solo por tener el paquete instalado (probado en el build 11, revertido en `bc9619e`).
+- **Falta:** regenerar el perfil con Push (y la APNs key si no existe). Requiere auth de Apple:
+  - `npx eas credentials -p ios` (en la terminal del usuario). Si falla con "iTunes service key is empty": borrar `%USERPROFILE%\.app-store`, apagar VPN/Tailscale y reintentar; o
+  - usar una App Store Connect API key (rol Admin: `.p8` + Key ID + Issuer ID) para hacerlo sin login interactivo.
+- **Después:** `npx eas build --platform ios --profile production --non-interactive --auto-submit --no-wait` (siguiente build #12; ASC App ID `6810508533` ya configurado en `eas.json`) y verificar que aparezca en TestFlight.
+- **Otros pendientes menores:** variable EAS `EXPO_PUBLIC_API_BASE_URL` sigue con la URL vieja de Vercel en los 3 entornos (el perfil `production` de `eas.json` la pisa); `npm uninstall -g expo-cli`; probar push y control remoto de TV en dispositivos reales; entorno test de Coolify (`inglobal-test…`) devolvía 503.
