@@ -20,6 +20,10 @@ import { DialogHost } from '@/components/Dialog'
 
 SplashScreen.preventAutoHideAsync()
 
+// Panel web del mismo servidor al que apunta la app (producción o test). No se hardcodea el dominio
+// final (gruasinglobal.com) porque todavía no está cortado a producción.
+const PANEL_WEB = `${(process.env.EXPO_PUBLIC_API_BASE_URL ?? '').replace(/^https?:\/\//, '')}/dashboard`
+
 function CenteredMessage({ children }: { children: React.ReactNode }) {
   return (
     <View className="flex-1 items-center justify-center bg-igb-surface p-8">
@@ -125,7 +129,7 @@ function RootLayoutNav() {
               Tenés que cambiar tu contraseña
             </Text>
             <Text className="text-center text-igb-secondary">
-              Ingresá al panel web (gruasinglobal.com/dashboard) para cambiar tu contraseña temporal antes de usar la app.
+              Ingresá al panel web ({PANEL_WEB}) para cambiar tu contraseña temporal antes de usar la app.
             </Text>
             <Pressable onPress={() => signOut()} className="mt-6 py-2 px-4">
               <Text className="text-igb-navy font-semibold">Cerrar sesión</Text>
