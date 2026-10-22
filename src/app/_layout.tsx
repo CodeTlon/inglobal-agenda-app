@@ -114,7 +114,7 @@ function RootLayoutNav() {
     loadingOpacity.value = withTiming(0, { duration: 280 }, (finished) => {
       if (finished) runOnJS(setLoadingUnmounted)(true)
     })
-  }, [cargando])
+  }, [cargando, loadingOpacity])
   const loadingStyle = useAnimatedStyle(() => ({ opacity: loadingOpacity.value }))
 
   return (

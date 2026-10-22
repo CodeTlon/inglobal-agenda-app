@@ -8,4 +8,5 @@ import type * as NotificationsModule from 'expo-notifications'
 const enExpoGoAndroid = Platform.OS === 'android' && Constants.executionEnvironment === ExecutionEnvironment.StoreClient
 
 export const Notifications: typeof NotificationsModule | null =
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- carga condicional a propósito (ver arriba)
   Platform.OS === 'web' || enExpoGoAndroid ? null : (require('expo-notifications') as typeof NotificationsModule)

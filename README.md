@@ -19,7 +19,7 @@ npx expo start
 
 Variables (`EXPO_PUBLIC_*`, van al bundle — mismo nivel de confianza que `NEXT_PUBLIC_*` en el sitio):
 
-- `EXPO_PUBLIC_API_BASE_URL` — origin del sitio Next.js desplegado (ej. rama `dev` en Vercel Preview, o `https://gruasinglobal.com` en prod).
+- `EXPO_PUBLIC_API_BASE_URL` — origin del sitio Next.js desplegado (prod: `https://inglobal.51.91.253.54.sslip.io`; test: `https://inglobal-test.51.91.253.54.sslip.io`; ambos en Coolify).
 
 ## Estructura
 

@@ -7,7 +7,7 @@ Estado real verificado el 2026-08-05. Esto documenta lo que hay, no un plan aspi
 La app no tiene backend propio — pega contra `inglobal-site` (Next.js, repo separado: `CodeTlon/inglobal-site`), endpoints `/api/agenda/*` y `/api/tv-pair/*`.
 
 - **Producción:** `EXPO_PUBLIC_API_BASE_URL=https://inglobal.51.91.253.54.sslip.io` (Coolify; lo fija `eas.json`, perfil `production`; `preview` apunta a `https://inglobal-test.51.91.253.54.sslip.io`). Al pasar a `gruasinglobal.com` hay que cambiar esa URL y sacar un build nuevo: se compila dentro del binario.
-- El repo **sí** está conectado a Vercel (`productionBranch: main`) — cada push a `main` dispara un deploy a producción solo. Verificado el 05/08/2026 contra la API de Vercel (`GET /v9/projects/inglobal-site` → `link.type: github`, y varios deploys recientes con `source: git`). La nota anterior de "deploy manual, sin integración" estaba desactualizada. Detalle en `inglobal-site/docs/deployment-guide.md`.
+- **Despliegue del sitio:** Coolify (rama `main` = producción con deploy automático; `test` = homologación). Vercel quedó fuera de uso a propósito tras la migración (ya no es referencia). Cada push a `main` de `inglobal-site` redespliega producción; confirmarlo con `GET /api/health` (cambia `started_at`).
 - Ojo con las env vars del sitio (`DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `S3_*`): el despliegue sube el código pero no avisa si quedaron apuntando a otra base. Si empieza a dar 401 sin razón aparente, revisar `BETTER_AUTH_URL`/`BETTER_AUTH_SECRET` del sitio.
 
 ## EAS — identidad del proyecto
@@ -19,7 +19,7 @@ projectId:     d3b93c02-aadf-4f1a-acf5-a4920d5ef4fb
 bundleId/pkg:  com.gruasinglobal.agenda   (mismo para iOS y Android)
 ```
 
-`eas whoami` / `vercel whoami` ya quedan autenticados en esta máquina — no hace falta login de nuevo salvo en una máquina nueva.
+`eas whoami` ya queda autenticados en esta máquina — no hace falta login de nuevo salvo en una máquina nueva.
 
 ## Camino 1 — Testing remoto sin build nativo (EAS Update)
 
@@ -65,4 +65,4 @@ Dado que es una herramienta interna (operarios de la empresa, no público genera
 ## Bugs conocidos (histórico, por si vuelven a aparecer)
 
 - `expo-secure-store` no tiene implementación en Node — crasheaba el dev server entero al bootear porque `web.output: "static"` hace que Expo Router prerenderice un bundle SSR en Node, y el storage adapter de Supabase lo llamaba sin guardarse. Fix: `Platform.OS !== 'web'` antes de tocar `SecureStore`, con fallback a `localStorage`/no-op. (`src/lib/supabase.ts`)
-- `verifyOtp` de Supabase no acepta `token_hash` + `email` juntos en la misma llamada — tirar los dos rompe el pairing de TV en silencio (redirect a `?error=1` sin loggear nada). (`inglobal-site/app/api/tv-pair/exchange/route.ts`)
+- (Histórico, ya no aplica) El pairing de TV usaba `verifyOtp` de Supabase; desde `inglobal-site` v2.0.0 el pairing va por la API propia, sin magic link.
