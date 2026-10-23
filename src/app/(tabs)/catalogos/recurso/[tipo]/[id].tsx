@@ -408,7 +408,8 @@ export default function RecursoDetalleScreen() {
           <Text className="text-igb-secondary text-xs">
             {ev.hora_inicio.slice(0, 5)}{ev.hora_fin ? ` – ${ev.hora_fin.slice(0, 5)}` : ''}
           </Text>
-          <Text className="text-igb-secondary text-xs mt-0.5" numberOfLines={1}>
+          {/* 2 líneas: con empresa + varias grúas/operarios, el "+N" del final no queda cortado. */}
+          <Text className="text-igb-secondary text-xs mt-0.5" numberOfLines={2}>
             {contraparte(tipo, ev)}
           </Text>
         </View>

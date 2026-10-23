@@ -15,10 +15,15 @@ export function nombresGruas(ev: Pick<EventoAgenda, 'gruas' | 'grua' | 'grua_id'
   return nombres.length > 0 ? nombres.join(sep) : vacio
 }
 
-/** Versión corta para tarjetas: las primeras `max` grúas y "+N" con el resto, para que no se corte sin avisar. */
-export function resumenGruas(ev: Pick<EventoAgenda, 'gruas' | 'grua' | 'grua_id'>, max = 2, sep = ' · ', vacio = 'Sin grúa'): string {
+/** Las primeras `max` grúas y cuántas quedan afuera, por separado: el "+N" se dibuja aparte para que el recorte del texto no se lo coma. */
+export function partesResumenGruas(ev: Pick<EventoAgenda, 'gruas' | 'grua' | 'grua_id'>, max = 2, sep = ' · ', vacio = 'Sin grúa'): { texto: string; resto: number } {
   const nombres = gruasDe(ev).map((g) => g.nombre)
-  if (nombres.length === 0) return vacio
-  const resto = nombres.length - max
-  return resto > 0 ? `${nombres.slice(0, max).join(sep)} +${resto}` : nombres.join(sep)
+  if (nombres.length === 0) return { texto: vacio, resto: 0 }
+  return { texto: nombres.slice(0, max).join(sep), resto: Math.max(0, nombres.length - max) }
+}
+
+/** Versión corta en un solo string: las primeras `max` grúas y "+N" con el resto. */
+export function resumenGruas(ev: Pick<EventoAgenda, 'gruas' | 'grua' | 'grua_id'>, max = 2, sep = ' · ', vacio = 'Sin grúa'): string {
+  const { texto, resto } = partesResumenGruas(ev, max, sep, vacio)
+  return resto > 0 ? `${texto} +${resto}` : texto
 }
