@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { nombresGruas } from '@/lib/gruas'
+import { resumenGruas } from '@/lib/gruas'
+import { GruasResumen } from '@/components/GruasResumen'
 import { View, ScrollView, Pressable, ActivityIndicator, useWindowDimensions } from 'react-native'
 import type { NativeSyntheticEvent, NativeScrollEvent } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
@@ -737,16 +738,15 @@ export default function AgendaScreen() {
                       </Text>
                       {compact ? (
                         <Text className="text-xs font-semibold text-igb-on-surface" numberOfLines={Math.max(1, Math.floor((height - 24) / 14))}>
-                          {ev.empresa?.nombre ?? nombresGruas(ev, ' · ', 'Sin empresa')}
+                          {ev.empresa?.nombre ?? resumenGruas(ev, 1, ' · ', 'Sin empresa')}
                         </Text>
                       ) : (
                         <>
                           <Text className="text-xs font-bold text-igb-on-surface" numberOfLines={1}>
                             {ev.empresa?.nombre ?? 'Sin empresa'}
                           </Text>
-                          <Text className="text-xs text-igb-secondary" numberOfLines={2}>
-                            {nombresGruas(ev)}
-                          </Text>
+                          {/* Con 2 carriles la tarjeta es angosta: 1 nombre + "+N". */}
+                          <GruasResumen evento={ev} max={lanes > 1 ? 1 : 2} />
                         </>
                       )}
                       {hasRoomForDetail && (

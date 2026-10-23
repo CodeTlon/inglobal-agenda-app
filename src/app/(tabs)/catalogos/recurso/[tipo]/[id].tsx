@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { nombresGruas } from '@/lib/gruas'
+import { resumenGruas } from '@/lib/gruas'
 import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native'
 import { Image } from 'expo-image'
 import { cssInterop } from 'nativewind'
@@ -75,12 +75,12 @@ async function guardarRecurso(tipo: Tipo, id: string, recurso: Recurso, fotoUrl:
 }
 
 function contraparte(tipo: Tipo, ev: EventoAgenda): string {
-  const grua = nombresGruas(ev, ' + ', 'Grúa eliminada')
+  const grua = resumenGruas(ev, 2, ' + ', 'Grúa eliminada')
   const empresa = ev.empresa?.nombre ?? 'Empresa eliminada'
   const operarios = ev.operarios.map((o) => o.nombre)
   if (tipo === 'gruas') return [empresa, ...operarios].join(' · ')
   if (tipo === 'empresas') return [grua, ...operarios].join(' · ')
-  return [grua, empresa].join(' · ')
+  return [empresa, grua].join(' · ')
 }
 
 export default function RecursoDetalleScreen() {
@@ -408,7 +408,8 @@ export default function RecursoDetalleScreen() {
           <Text className="text-igb-secondary text-xs">
             {ev.hora_inicio.slice(0, 5)}{ev.hora_fin ? ` – ${ev.hora_fin.slice(0, 5)}` : ''}
           </Text>
-          <Text className="text-igb-secondary text-xs mt-0.5" numberOfLines={1}>
+          {/* 2 líneas: con empresa + varias grúas/operarios, el "+N" del final no queda cortado. */}
+          <Text className="text-igb-secondary text-xs mt-0.5" numberOfLines={2}>
             {contraparte(tipo, ev)}
           </Text>
         </View>

@@ -56,7 +56,8 @@ async function apiFetch(path: string, opts: RequestInit = {}) {
     // quedaba navegando la app viendo errores genéricos en cada pantalla,
     // sin ninguna señal de que tenía que volver a loguearse.
     if (res.status === 401) signOut({ remote: false }).catch(() => {})
-    throw new ApiError(body.error ?? res.statusText ?? 'Error desconocido', res.status)
+    // `||`: en React Native `statusText` suele llegar como "" (no null) y con `??` el error salía vacío.
+    throw new ApiError(body.error || res.statusText || 'Error desconocido', res.status)
   }
   return body.data
 }
