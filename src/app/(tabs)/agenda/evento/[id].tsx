@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { gruasDe, nombresGruas } from '@/lib/gruas'
+import { gruasDe } from '@/lib/gruas'
 import { View, ScrollView, ActivityIndicator, Pressable } from 'react-native'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -138,13 +138,13 @@ export default function EventoScreen() {
             <Text className="text-xs font-bold">{formatEstado(estadoVisual)}</Text>
           </View>
           <Text className="font-headline text-xl text-igb-on-surface">{evento.empresa?.nombre ?? 'Empresa eliminada'}</Text>
+          <GruasChips evento={evento} />
 
           <DetailRow icon="calendar-outline" text={formatFecha(evento)} />
           <DetailRow
             icon="time-outline"
             text={`${evento.hora_inicio.slice(0, 5)}${evento.hora_fin ? ` – ${evento.hora_fin.slice(0, 5)}` : ''}`}
           />
-          <DetailRow icon="car-outline" text={nombresGruas(evento, ', ', 'Grúa eliminada')} />
           {evento.ubicacion ? <DetailRow icon="location-outline" text={evento.ubicacion} /> : null}
           <DetailRow
             icon="people-outline"
@@ -196,6 +196,27 @@ function DetailRow({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text:
     <View className="flex-row items-center gap-2">
       <Ionicons name={icon} size={18} color={colors.secondary} />
       <Text className="text-igb-secondary flex-1">{text}</Text>
+    </View>
+  )
+}
+
+/** Una pastilla por grúa que hace wrap: soporta cualquier cantidad y nombres largos en cualquier ancho. */
+function GruasChips({ evento }: { evento: EventoAgenda }) {
+  const gruas = gruasDe(evento)
+  return (
+    <View className="flex-row items-start gap-2">
+      <Ionicons name="car-outline" size={18} color={colors.secondary} style={{ marginTop: 3 }} />
+      {gruas.length === 0 ? (
+        <Text className="text-igb-secondary flex-1">Grúa eliminada</Text>
+      ) : (
+        <View className="flex-1 flex-row flex-wrap gap-1.5">
+          {gruas.map((g) => (
+            <View key={g.id} className="px-2 py-1 rounded-md bg-igb-yellow/20 border border-igb-yellow/40 max-w-full">
+              <Text className="text-xs font-semibold text-igb-on-surface" numberOfLines={2}>{g.nombre}</Text>
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   )
 }

@@ -58,7 +58,6 @@ Plantillas de variables: `.env.staging.example` y `.env.production.example`.
 - Cambios de esquema (migraciones Drizzle) se hacen en `inglobal-site/drizzle`; acá solo se adaptan tipos y UI.
 - El `.env.local` apunta al sitio (`EXPO_PUBLIC_API_BASE_URL`), que puede ser producción: no crear ni borrar datos
   de prueba sin limpiarlos.
-  de prueba sin limpiarlos.
 
 ## Más contexto
 Decisiones, estado actual, issues conocidos y preguntas abiertas de ambos repos: `../inglobal-site/.ai/context/`

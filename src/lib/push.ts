@@ -81,3 +81,28 @@ export function rutaDeAviso(data: Record<string, unknown> | undefined): string {
   if (data?.tipo === 'reserva' && typeof data.eventoId === 'string') return `/agenda/evento/${data.eventoId}`
   return '/agenda'
 }
+
+/**
+ * Solo desarrollo (`__DEV__`): dispara un aviso LOCAL con los mismos textos que arma el backend
+ * (`armarResumenManana` / `armarAvisoReserva` en inglobal-site) para ver cómo se ve y probar el toque.
+ * No pasa por Expo Push ni APNs, así que no valida el envío real. Devuelve `false` si no hay permiso o soporte.
+ */
+export async function probarAviso(tipo: 'recordatorio' | 'reserva'): Promise<boolean> {
+  if (!__DEV__ || !Notifications || Platform.OS === 'web') return false
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('agenda', { name: 'Agenda', importance: Notifications.AndroidImportance.HIGH })
+  }
+  let { status } = await Notifications.getPermissionsAsync()
+  if (status !== 'granted') status = (await Notifications.requestPermissionsAsync()).status
+  if (status !== 'granted') return false
+
+  const contenido =
+    tipo === 'recordatorio'
+      ? { title: 'Mañana: 2 servicios', body: '08:00 Grúa 12 - Empresa Y\n10:30 Grúa 3 - Empresa Z', data: { tipo: 'recordatorio' } }
+      : { title: 'Reserva sin confirmar', body: '08:00 Grúa 12 - Empresa Y se cancela sola al llegar su hora. Confirmala o reprogramala.', data: { tipo: 'reserva' } }
+  await Notifications.scheduleNotificationAsync({
+    content: { ...contenido, sound: 'default' },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 3, channelId: 'agenda' },
+  })
+  return true
+}
