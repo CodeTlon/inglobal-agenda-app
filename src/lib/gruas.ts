@@ -14,3 +14,11 @@ export function nombresGruas(ev: Pick<EventoAgenda, 'gruas' | 'grua' | 'grua_id'
   const nombres = gruasDe(ev).map((g) => g.nombre)
   return nombres.length > 0 ? nombres.join(sep) : vacio
 }
+
+/** Versión corta para tarjetas: las primeras `max` grúas y "+N" con el resto, para que no se corte sin avisar. */
+export function resumenGruas(ev: Pick<EventoAgenda, 'gruas' | 'grua' | 'grua_id'>, max = 2, sep = ' · ', vacio = 'Sin grúa'): string {
+  const nombres = gruasDe(ev).map((g) => g.nombre)
+  if (nombres.length === 0) return vacio
+  const resto = nombres.length - max
+  return resto > 0 ? `${nombres.slice(0, max).join(sep)} +${resto}` : nombres.join(sep)
+}

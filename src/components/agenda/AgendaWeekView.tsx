@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { nombresGruas } from '@/lib/gruas'
+import { resumenGruas } from '@/lib/gruas'
 import { View, Pressable, ActivityIndicator, ScrollView } from 'react-native'
 import { useRouter, useFocusEffect } from 'expo-router'
 import { Text } from '@/components/Text'
@@ -164,8 +164,8 @@ export function AgendaWeekView({
                             <Text className={`text-sm font-medium text-igb-on-surface ${getEstadoVisual(ev) === 'cancelado' ? 'line-through' : ''}`} numberOfLines={1}>
                               {ev.empresa?.nombre ?? 'Sin empresa'}
                             </Text>
-                            <Text className="text-xs text-igb-secondary" numberOfLines={2}>
-                              {nombresGruas(ev)}
+                            <Text className="text-xs text-igb-secondary" numberOfLines={1}>
+                              {resumenGruas(ev)}
                             </Text>
                             <Text className="text-xs text-igb-secondary" numberOfLines={1}>
                               {formatEstado(getEstadoVisual(ev))}
