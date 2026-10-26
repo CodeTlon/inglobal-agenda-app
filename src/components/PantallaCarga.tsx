@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
-import { View, Image, Text, StyleSheet } from 'react-native'
+import { View, Image, Text, StyleSheet, Platform } from 'react-native'
+import { requireOptionalNativeModule } from 'expo'
 import Animated, {
   Easing,
   runOnJS,
@@ -10,13 +11,14 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated'
-import { useVideoPlayer, VideoView } from 'expo-video'
 import { colors } from '@/lib/colors'
 import { precargarFotos } from '@/lib/precarga'
 
 const EMBLEMA = require('../../assets/images/android-icon-foreground.png') as number
-// Mismo video del hero del sitio, recortado a 6 s y comprimido (ver docs/deployment.md).
-const VIDEO = require('../../assets/video/splash.mp4') as number
+// expo-video es un módulo nativo: un dev client o build anterior que no lo trae lanzaría "Cannot find native
+// module 'ExpoVideo'" y tumbaría la app. Sin el módulo, el splash sigue sin video (mismo patrón que lib/notifications.ts).
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- carga condicional a propósito
+const SplashVideo: (() => React.JSX.Element) | null = Platform.OS === 'web' || requireOptionalNativeModule('ExpoVideo') ? require('./SplashVideo').default : null
 const SUAVE = Easing.bezier(0.22, 1, 0.36, 1)
 
 /** Emblema con un halo que respira: el mismo en la pantalla de inicio y en el velo entre secciones. */
@@ -50,17 +52,10 @@ export function PantallaCarga() {
     barra.value = withRepeat(withTiming(1, { duration: 1400, easing: Easing.inOut(Easing.cubic) }), -1)
   }, [barra])
   const estiloBarra = useAnimatedStyle(() => ({ left: `${barra.value * 100 - 30}%`, width: '30%' }))
-  const player = useVideoPlayer(VIDEO, (p) => {
-    p.loop = true
-    p.muted = true
-    p.play()
-  })
 
   return (
     <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.navy, alignItems: 'center', justifyContent: 'center' }]}>
-      <View style={StyleSheet.absoluteFill}>
-        <VideoView player={player} contentFit="cover" nativeControls={false} allowsPictureInPicture={false} style={{ width: '100%', height: '100%' }} />
-      </View>
+      {SplashVideo && <SplashVideo />}
       <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(20,40,100,0.84)' }]} />
       <Emblema tamano={150} />
       <Text style={{ marginTop: 6, color: colors.yellow, fontFamily: 'Manrope_700Bold', fontSize: 30, letterSpacing: 2, textAlign: 'center' }}>GRÚAS INGLOBAL</Text>
