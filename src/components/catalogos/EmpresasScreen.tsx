@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { View, ScrollView, Pressable, ActivityIndicator, Platform, KeyboardAvoidingView } from 'react-native'
+import { View, ScrollView, Pressable, ActivityIndicator, KeyboardAvoidingView } from 'react-native'
 import { Image } from 'expo-image'
 import { cssInterop } from 'nativewind'
 import { useFocusEffect, useRouter } from 'expo-router'
@@ -140,8 +140,8 @@ export default function EmpresasScreen() {
 
   if (showForm) {
     return (
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
-      <ScrollView className="flex-1 bg-igb-surface px-4 pt-4" contentContainerStyle={{ paddingBottom: 40 }}>
+      <KeyboardAvoidingView behavior="padding" className="flex-1">
+      <ScrollView className="flex-1 bg-igb-surface px-4 pt-4" contentContainerStyle={{ paddingBottom: 104 }}>
         <Pressable onPress={handleElegirFoto} className="items-center mb-4">
           {fotoUri ? (
             <Image source={{ uri: fotoUri }} contentFit="cover" cachePolicy="disk" className="w-20 h-20 rounded-full mb-1" />
@@ -233,7 +233,7 @@ export default function EmpresasScreen() {
           <View className="h-24" />
         </ScrollView>
       )}
-      <Pressable onPress={openNew} className="absolute bottom-6 right-6 w-14 h-14 rounded-full bg-igb-yellow items-center justify-center shadow-lg">
+      <Pressable onPress={openNew} className="absolute bottom-4 right-4 w-14 h-14 rounded-full bg-igb-yellow items-center justify-center shadow-lg">
         <Text className="text-2xl text-igb-on-yellow">+</Text>
       </Pressable>
     </View>

@@ -137,16 +137,16 @@ export function AgendaMonthView({
                   <Pressable
                     key={dStr}
                     onPress={() => onSelectDay(day)}
-                    className={`flex-1 m-0.5 rounded-lg border p-1.5 ${
+                    className={`flex-1 m-0.5 rounded-lg border p-1 ${
                       isFocused ? 'border-igb-yellow bg-igb-yellow/10' : isAnchor ? 'border-igb-navy/40' : 'border-igb-outline'
                     } ${inMonth ? 'bg-white' : 'bg-igb-surface'}`}
                   >
-                    <View className="flex-row items-center justify-between">
-                      <Text className={`text-xs font-medium ${inMonth ? 'text-igb-on-surface' : 'text-igb-secondary/50'}`}>
+                    <View className="flex-row items-center justify-between gap-0.5">
+                      <Text numberOfLines={1} className={`text-xs font-medium ${inMonth ? 'text-igb-on-surface' : 'text-igb-secondary/50'}`}>
                         {day.getDate()}
                       </Text>
                       {vivos > 0 && (
-                        <Text className={`text-[11px] font-bold ${inMonth ? 'text-igb-navy' : 'text-igb-secondary/50'}`}>{vivos}</Text>
+                        <Text numberOfLines={1} className={`text-[10px] font-bold ${inMonth ? 'text-igb-navy' : 'text-igb-secondary/50'}`}>{vivos}</Text>
                       )}
                     </View>
                     {delDia.length > 0 && (

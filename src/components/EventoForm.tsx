@@ -270,7 +270,7 @@ export function EventoForm({
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
+    <KeyboardAvoidingView behavior="padding" className="flex-1">
     <ScrollView className="flex-1 bg-igb-surface px-4 pt-4" contentContainerStyle={{ paddingBottom: 40 }}>
       {locked && (
         // className no anda directo sobre Animated.View (NativeWind solo
