@@ -82,3 +82,5 @@ El código está listo (tsc 0, lint limpio, apunta a producción) pero **no hay 
 
 ## Probar el diseño de los avisos sin build de Apple (2026-10-23)
 En Perfil aparece la tarjeta "Probar aviso (solo desarrollo)" solo si `__DEV__` es true (`npx expo start`, builds `development`); en los builds `preview` y `production` no existe. Dispara un aviso local con los textos reales del backend (`probarAviso` en `src/lib/push.ts`). No valida el envío por Expo Push/APNs: eso solo se prueba con un build nativo y el cron real. No anda en Expo Go de Android ni en web.
+
+Avisos (2026-10-26): el ícono chico de Android (`assets/images/notification-icon.png`, silueta blanca 96x96 del emblema) y el color `#1C357F` se configuran en el plugin `expo-notifications` de `app.json`; son configuración nativa, así que se ven recién en un build nuevo. En iOS el aviso muestra el ícono de la app. El formato del texto lo arma el backend (`lib/notificaciones.ts` en inglobal-site); `probarAviso` usa textos de ejemplo con el mismo formato.
