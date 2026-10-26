@@ -58,6 +58,10 @@ async function request(path: string, init: RequestInit & { token?: string | null
     return await fetch(`${API_BASE}/api/auth${path}`, {
       ...init,
       signal: controller.signal,
+      // Solo Bearer: sin cookies. El servidor también devuelve una cookie al iniciar sesión; si el teléfono la
+      // guardara y la reenviara (sin Origin, como hace una app nativa), el sign-out daba 403 y la sesión
+      // quedaba viva en el servidor (la app ignora ese error y borra solo el token local).
+      credentials: 'omit',
       headers: {
         'Content-Type': 'application/json',
         ...(init.token ? { Authorization: `Bearer ${init.token}` } : {}),

@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { View, Pressable, StyleSheet } from 'react-native'
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, runOnJS } from 'react-native-reanimated'
+import Animated, { Easing, useSharedValue, useAnimatedStyle, withDelay, withTiming, runOnJS } from 'react-native-reanimated'
 import * as SplashScreen from 'expo-splash-screen'
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter'
 import { Manrope_700Bold } from '@expo-google-fonts/manrope'
@@ -125,9 +125,10 @@ function RootLayoutNav() {
   const loadingOpacity = useSharedValue(1)
   useEffect(() => {
     if (cargando) return
-    loadingOpacity.value = withTiming(0, { duration: 280 }, (finished) => {
+    // Pequeña pausa para que la barra llegue al 100 %, y salida de 450 ms (antes 280 ms, se sentía como un corte).
+    loadingOpacity.value = withDelay(220, withTiming(0, { duration: 450, easing: Easing.inOut(Easing.quad) }, (finished) => {
       if (finished) runOnJS(setLoadingUnmounted)(true)
-    })
+    }))
   }, [cargando, loadingOpacity])
   const loadingStyle = useAnimatedStyle(() => ({ opacity: loadingOpacity.value }))
 
@@ -172,7 +173,7 @@ function RootLayoutNav() {
           pointerEvents={cargando ? 'auto' : 'none'}
           style={[StyleSheet.absoluteFill, loadingStyle]}
         >
-          <PantallaCarga />
+          <PantallaCarga listo={!cargando} fuentesListas={fontsLoaded} />
         </Animated.View>
       )}
       </View>
