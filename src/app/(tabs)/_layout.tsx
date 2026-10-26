@@ -1,10 +1,15 @@
+import { useCallback, useState } from 'react'
 import { Tabs } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { TabBarIcon } from '@/components/TabBarIcon'
+import { VeloCarga } from '@/components/PantallaCarga'
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets()
+  // Velo de carga al cambiar de sección: se muestra mientras las fotos de los catálogos se bajan al caché.
+  const [velo, setVelo] = useState(false)
+  const cerrarVelo = useCallback(() => setVelo(false), [])
 
   return (
     <>
@@ -13,6 +18,11 @@ export default function TabsLayout() {
         global de _layout.tsx (pensado para login/loading, de fondo claro). */}
     <StatusBar style="light" />
     <Tabs
+      screenListeners={({ navigation }) => ({
+        tabPress: () => {
+          if (!navigation.isFocused()) setVelo(true)
+        },
+      })}
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
@@ -68,6 +78,7 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+    {velo && <VeloCarga abajo={56 + insets.bottom} onFin={cerrarVelo} />}
     </>
   )
 }
