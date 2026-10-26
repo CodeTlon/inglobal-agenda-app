@@ -14,5 +14,6 @@ const WEIGHT_FONT: [RegExp, string][] = [
 export function Text({ className, style, ...props }: TextProps & { className?: string }) {
   const match = className ? WEIGHT_FONT.find(([re]) => re.test(className)) : undefined
   const fontFamily = match ? match[1] : 'Inter_400Regular'
-  return <RNText className={className} style={[{ fontFamily }, style]} {...props} />
+  // Tope al agrandado de fuente del sistema: más allá de ~1,4x los headers, tabs y filas se cortan.
+  return <RNText className={className} style={[{ fontFamily }, style]} maxFontSizeMultiplier={1.4} {...props} />
 }
