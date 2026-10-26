@@ -141,7 +141,7 @@ export default function EmpresasScreen() {
   if (showForm) {
     return (
       <KeyboardAvoidingView behavior="padding" className="flex-1">
-      <ScrollView className="flex-1 bg-igb-surface px-4 pt-4" contentContainerStyle={{ paddingBottom: 104 }}>
+      <ScrollView keyboardShouldPersistTaps="handled" className="flex-1 bg-igb-surface px-4 pt-4" contentContainerStyle={{ paddingBottom: 104 }}>
         <Pressable onPress={handleElegirFoto} className="items-center mb-4">
           {fotoUri ? (
             <Image source={{ uri: fotoUri }} contentFit="cover" cachePolicy="disk" className="w-20 h-20 rounded-full mb-1" />

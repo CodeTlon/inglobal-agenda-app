@@ -26,6 +26,7 @@ async function apiFetch(path: string, opts: RequestInit = {}) {
     res = await fetch(`${API_BASE}/api${path}`, {
       ...opts,
       signal: controller.signal,
+      credentials: 'omit', // solo Bearer, ver src/lib/auth.ts
       headers: {
         'Content-Type': 'application/json',
         ...(opts.headers ?? {}),

@@ -174,7 +174,7 @@ export default function OperariosScreen() {
   if (showForm) {
     return (
       <KeyboardAvoidingView behavior="padding" className="flex-1">
-      <ScrollView className="flex-1 bg-igb-surface px-4 pt-4" contentContainerStyle={{ paddingBottom: 104 }}>
+      <ScrollView keyboardShouldPersistTaps="handled" className="flex-1 bg-igb-surface px-4 pt-4" contentContainerStyle={{ paddingBottom: 104 }}>
         <Pressable onPress={handleElegirFoto} className="items-center mb-4">
           {fotoUri ? (
             <Image source={{ uri: fotoUri }} contentFit="cover" cachePolicy="disk" className="w-20 h-20 rounded-full mb-1" />
@@ -228,7 +228,7 @@ export default function OperariosScreen() {
         ))}
       </View>
       {vista === 'ex' ? (
-        <ScrollView className="flex-1 px-4 pt-4">
+        <ScrollView keyboardShouldPersistTaps="handled" className="flex-1 px-4 pt-4">
           {exError && <Text className="text-igb-error text-center">{exError}</Text>}
           {!exError && exOperarios.length === 0 && (
             <Text className="text-igb-secondary text-sm text-center mt-12">Todavía no hay ex operarios.</Text>
@@ -265,7 +265,7 @@ export default function OperariosScreen() {
           <Text className="text-igb-error text-center">{loadError}</Text>
         </View>
       ) : (
-        <ScrollView className="flex-1 px-4 pt-4">
+        <ScrollView keyboardShouldPersistTaps="handled" className="flex-1 px-4 pt-4">
           {operariosOrdenados.length === 0 && (
             <View className="items-center pt-16 px-6">
               <Ionicons name="people-outline" size={40} color={colors.secondary} />
