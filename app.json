@@ -37,7 +37,11 @@
         {
           "backgroundColor": "#1C357F",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 280
+          "imageWidth": 280,
+          "android": {
+            "image": "./assets/images/android-icon-foreground.png",
+            "imageWidth": 288
+          }
         }
       ],
       "expo-secure-store",
