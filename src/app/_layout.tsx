@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { View, Pressable, StyleSheet } from 'react-native'
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, runOnJS } from 'react-native-reanimated'
+import Animated, { Easing, useSharedValue, useAnimatedStyle, withDelay, withTiming, runOnJS } from 'react-native-reanimated'
 import * as SplashScreen from 'expo-splash-screen'
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter'
 import { Manrope_700Bold } from '@expo-google-fonts/manrope'
@@ -125,9 +125,10 @@ function RootLayoutNav() {
   const loadingOpacity = useSharedValue(1)
   useEffect(() => {
     if (cargando) return
-    loadingOpacity.value = withTiming(0, { duration: 280 }, (finished) => {
+    // Pequeña pausa para que la barra llegue al 100 %, y salida de 450 ms (antes 280 ms, se sentía como un corte).
+    loadingOpacity.value = withDelay(220, withTiming(0, { duration: 450, easing: Easing.inOut(Easing.quad) }, (finished) => {
       if (finished) runOnJS(setLoadingUnmounted)(true)
-    })
+    }))
   }, [cargando, loadingOpacity])
   const loadingStyle = useAnimatedStyle(() => ({ opacity: loadingOpacity.value }))
 
@@ -136,37 +137,43 @@ function RootLayoutNav() {
       <SafeAreaProvider>
         <StatusBar style={cargando ? 'light' : 'dark'} />
       <View style={{ flex: 1 }}>
-      {!cargando && (
-        session && mustChangePassword ? (
-          <CenteredMessage>
-            <Text className="text-center font-semibold text-igb-on-surface text-lg mb-2">
-              Tenés que cambiar tu contraseña
-            </Text>
-            <Text className="text-center text-igb-secondary">
-              Ingresá al panel web ({PANEL_WEB}) para cambiar tu contraseña temporal antes de usar la app.
-            </Text>
-            <Pressable onPress={() => signOut()} className="mt-6 py-2 px-4">
-              <Text className="text-igb-navy font-semibold">Cerrar sesión</Text>
-            </Pressable>
-          </CenteredMessage>
-        ) : (
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#f8f9fa' } }}>
-            <Stack.Screen name="index" />
-            <Stack.Protected guard={!!session}>
-              <Stack.Screen name="(tabs)" />
-            </Stack.Protected>
-            <Stack.Protected guard={!session}>
-              <Stack.Screen name="(auth)" />
-            </Stack.Protected>
-          </Stack>
-        )
-      )}
+      {/* Columna centrada de hasta 720 px: en teléfonos ocupa todo el ancho (no cambia nada); en tablets la app
+          no se estira a 1000+ px sino que queda como una columna de teléfono grande sobre un fondo neutro. */}
+      <View style={{ flex: 1, alignItems: 'center', backgroundColor: '#e1e3e4' }}>
+        <View style={{ flex: 1, width: '100%', maxWidth: 720, backgroundColor: '#f8f9fa', overflow: 'hidden' }}>
+        {!cargando && (
+          session && mustChangePassword ? (
+            <CenteredMessage>
+              <Text className="text-center font-semibold text-igb-on-surface text-lg mb-2">
+                Tenés que cambiar tu contraseña
+              </Text>
+              <Text className="text-center text-igb-secondary">
+                Ingresá al panel web ({PANEL_WEB}) para cambiar tu contraseña temporal antes de usar la app.
+              </Text>
+              <Pressable onPress={() => signOut()} className="mt-6 py-2 px-4">
+                <Text className="text-igb-navy font-semibold">Cerrar sesión</Text>
+              </Pressable>
+            </CenteredMessage>
+          ) : (
+            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#f8f9fa' } }}>
+              <Stack.Screen name="index" />
+              <Stack.Protected guard={!!session}>
+                <Stack.Screen name="(tabs)" />
+              </Stack.Protected>
+              <Stack.Protected guard={!session}>
+                <Stack.Screen name="(auth)" />
+              </Stack.Protected>
+            </Stack>
+          )
+        )}
+        </View>
+      </View>
       {!loadingUnmounted && (
         <Animated.View
           pointerEvents={cargando ? 'auto' : 'none'}
           style={[StyleSheet.absoluteFill, loadingStyle]}
         >
-          <PantallaCarga />
+          <PantallaCarga listo={!cargando} fuentesListas={fontsLoaded} />
         </Animated.View>
       )}
       </View>

@@ -24,6 +24,7 @@ export async function subirFoto(carpeta: string, id: string, uri: string): Promi
   const token = await getToken()
   const res = await fetch(`${process.env.EXPO_PUBLIC_API_BASE_URL ?? ''}/api/storage/upload`, {
     method: 'POST',
+    credentials: 'omit', // solo Bearer, ver src/lib/auth.ts
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: form,
   })

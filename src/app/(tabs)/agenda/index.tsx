@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { resumenGruas } from '@/lib/gruas'
 import { GruasResumen } from '@/components/GruasResumen'
-import { View, ScrollView, Pressable, ActivityIndicator, useWindowDimensions } from 'react-native'
+import { View, ScrollView, Pressable, ActivityIndicator, Platform, useWindowDimensions } from 'react-native'
 import type { NativeSyntheticEvent, NativeScrollEvent } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, runOnJS } from 'react-native-reanimated'
@@ -163,7 +163,15 @@ export default function AgendaScreen() {
     })
   }
 
+  // El gesto solo se activa con un arrastre claramente horizontal (±20 px) y falla si el dedo se mueve más de
+  // 15 px en vertical: sin estos umbrales Pan se quedaba con CUALQUIER toque y le robaba el scroll vertical al
+  // ScrollView de la vista Semana (no se podían ver todos los servicios del día).
+  // En la versión web (solo vista previa) el gesto fija `touch-action: none` y bloquea el scroll del navegador: ahí
+  // se desactiva y se navega con las flechas ‹ ›.
   const panGesture = Gesture.Pan()
+    .enabled(Platform.OS !== 'web')
+    .activeOffsetX([-20, 20])
+    .failOffsetY([-15, 15])
     .onUpdate((e) => {
       translateX.value = e.translationX
     })

@@ -244,7 +244,7 @@ export default function RecursoDetalleScreen() {
   const foto = fotoDe(tipo, recurso)
 
   return (
-    <ScrollView className="flex-1 bg-igb-surface px-4 pt-4" contentContainerStyle={{ paddingBottom: 40 }}>
+    <ScrollView keyboardShouldPersistTaps="handled" className="flex-1 bg-igb-surface px-4 pt-4" contentContainerStyle={{ paddingBottom: 40 }}>
       <View className="bg-white border border-igb-outline rounded-lg p-4 mb-4">
         <Pressable onPress={handleElegirFoto} disabled={uploading} className="items-center mb-3">
           {foto ? (
