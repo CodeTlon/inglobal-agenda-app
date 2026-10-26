@@ -50,26 +50,26 @@ export function CatalogRow({
           </View>
         )}
         <View className="flex-1">
-          <View className="flex-row items-center gap-1.5">
-            <Text className={`font-semibold ${activo ? 'text-igb-on-surface' : 'text-igb-secondary'}`} numberOfLines={1}>
-              {title}
-            </Text>
-            {estado && (
+          <Text className={`font-semibold ${activo ? 'text-igb-on-surface' : 'text-igb-secondary'}`} numberOfLines={2}>
+            {title}
+          </Text>
+          {estado && (
+            <View className="flex-row items-center flex-wrap gap-x-1.5 mt-0.5">
               <View className={`px-1.5 py-0.5 rounded ${estado.kind === 'ocupado' ? 'bg-igb-error/10' : 'bg-igb-success/10'}`}>
-                <Text className={`text-[9px] font-semibold ${estado.kind === 'ocupado' ? 'text-igb-error' : 'text-igb-success'}`}>
+                <Text className={`text-[10px] font-semibold ${estado.kind === 'ocupado' ? 'text-igb-error' : 'text-igb-success'}`}>
                   {estado.kind === 'ocupado' ? 'Ocupado' : 'Disponible'}
                 </Text>
               </View>
-            )}
-          </View>
+              {estado.kind === 'ocupado' && estado.detail ? (
+                <Text className="text-igb-error text-[11px] font-medium" numberOfLines={1}>
+                  {estado.detail}
+                </Text>
+              ) : null}
+            </View>
+          )}
           {subtitle ? (
             <Text className="text-igb-secondary text-xs mt-0.5" numberOfLines={1}>
               {subtitle}
-            </Text>
-          ) : null}
-          {estado?.kind === 'ocupado' && estado.detail ? (
-            <Text className="text-igb-error text-[11px] font-medium mt-0.5" numberOfLines={1}>
-              {estado.detail}
             </Text>
           ) : null}
           {!activo && <Text className="text-[10px] text-igb-secondary mt-0.5">Inactivo</Text>}

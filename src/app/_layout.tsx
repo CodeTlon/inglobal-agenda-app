@@ -17,6 +17,8 @@ import { avisosHabilitados, registrarPush, rutaDeAviso } from '@/lib/push'
 import { Notifications } from '@/lib/notifications'
 import { Text } from '@/components/Text'
 import { DialogHost } from '@/components/Dialog'
+import { PantallaCarga } from '@/components/PantallaCarga'
+import { precargarFotos } from '@/lib/precarga'
 
 SplashScreen.preventAutoHideAsync()
 
@@ -93,15 +95,27 @@ function RootLayoutNav() {
   }, [])
 
   // Piso de tiempo propio: fuentes + sesión suelen resolver en menos de un
-  // segundo, muy poco para que se alcance a leer. Fuerza un mínimo de 3s en
-  // pantalla aunque todo lo demás ya haya terminado.
+  // segundo, muy poco para que se alcance a ver la marca. Mínimo de 1,8 s en pantalla.
   const [pisoCumplido, setPisoCumplido] = useState(false)
   useEffect(() => {
-    const t = setTimeout(() => setPisoCumplido(true), 3000)
+    const t = setTimeout(() => setPisoCumplido(true), 1800)
     return () => clearTimeout(t)
   }, [])
 
-  const cargando = !fontsLoaded || loading || !pisoCumplido
+  // Con sesión, la pantalla de carga espera también a que las fotos de los catálogos estén en el
+  // caché (con tope de 4 s, ver lib/precarga.ts); sin sesión no hay nada que bajar.
+  const [fotosPrecargadas, setFotosPrecargadas] = useState(false)
+  const haySesion = !!session
+  useEffect(() => {
+    if (loading || !haySesion) return
+    let vivo = true
+    precargarFotos().finally(() => vivo && setFotosPrecargadas(true))
+    return () => {
+      vivo = false
+    }
+  }, [loading, haySesion])
+
+  const cargando = !fontsLoaded || loading || !pisoCumplido || (haySesion && !fotosPrecargadas)
 
   // Cross-fade en vez de corte duro: la pantalla de carga se desvanece
   // mientras el contenido de abajo (ya montado, tapado) aparece debajo —
@@ -120,7 +134,7 @@ function RootLayoutNav() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <StatusBar style="dark" />
+        <StatusBar style={cargando ? 'light' : 'dark'} />
       <View style={{ flex: 1 }}>
       {!cargando && (
         session && mustChangePassword ? (
@@ -150,13 +164,9 @@ function RootLayoutNav() {
       {!loadingUnmounted && (
         <Animated.View
           pointerEvents={cargando ? 'auto' : 'none'}
-          style={[StyleSheet.absoluteFill, loadingStyle, { backgroundColor: '#f8f9fa', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }]}
+          style={[StyleSheet.absoluteFill, loadingStyle]}
         >
-          <Text className="text-igb-on-surface text-xs tracking-[3px] uppercase mb-2">Desarrollado por</Text>
-          <Text className="font-headline text-4xl">
-            <Text className="font-headline text-4xl" style={{ color: '#053540' }}>Code</Text>
-            <Text className="font-headline text-4xl" style={{ color: '#e6691c' }}>Tlon</Text>
-          </Text>
+          <PantallaCarga />
         </Animated.View>
       )}
       </View>

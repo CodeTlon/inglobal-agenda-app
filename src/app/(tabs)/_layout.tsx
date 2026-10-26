@@ -1,10 +1,17 @@
+import { useCallback, useState } from 'react'
 import { Tabs } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { TabBarIcon } from '@/components/TabBarIcon'
+import { VeloCarga } from '@/components/PantallaCarga'
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets()
+  // Teléfonos con botones de navegación (iPhone SE/8, muchos Android) reportan inset 0: sin un mínimo el chip activo queda pegado al borde.
+  const abajoBarra = Math.max(insets.bottom, 8)
+  // Velo de carga al cambiar de sección: se muestra mientras las fotos de los catálogos se bajan al caché.
+  const [velo, setVelo] = useState(false)
+  const cerrarVelo = useCallback(() => setVelo(false), [])
 
   return (
     <>
@@ -13,6 +20,11 @@ export default function TabsLayout() {
         global de _layout.tsx (pensado para login/loading, de fondo claro). */}
     <StatusBar style="light" />
     <Tabs
+      screenListeners={({ navigation }) => ({
+        tabPress: () => {
+          if (!navigation.isFocused()) setVelo(true)
+        },
+      })}
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
@@ -29,9 +41,9 @@ export default function TabsLayout() {
           shadowRadius: 16,
           shadowOffset: { width: 0, height: -4 },
           elevation: 8,
-          height: 56 + insets.bottom,
+          height: 56 + abajoBarra,
           paddingTop: 8,
-          paddingBottom: insets.bottom,
+          paddingBottom: abajoBarra,
         },
         // Sin esto, react-navigation le da al slot de tabBarIcon un ancho
         // angosto pensado para un ícono solo (~7px medidos) — con label
@@ -68,6 +80,7 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+    {velo && <VeloCarga abajo={56 + abajoBarra} onFin={cerrarVelo} />}
     </>
   )
 }
