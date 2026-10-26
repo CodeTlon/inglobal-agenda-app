@@ -136,31 +136,37 @@ function RootLayoutNav() {
       <SafeAreaProvider>
         <StatusBar style={cargando ? 'light' : 'dark'} />
       <View style={{ flex: 1 }}>
-      {!cargando && (
-        session && mustChangePassword ? (
-          <CenteredMessage>
-            <Text className="text-center font-semibold text-igb-on-surface text-lg mb-2">
-              Tenés que cambiar tu contraseña
-            </Text>
-            <Text className="text-center text-igb-secondary">
-              Ingresá al panel web ({PANEL_WEB}) para cambiar tu contraseña temporal antes de usar la app.
-            </Text>
-            <Pressable onPress={() => signOut()} className="mt-6 py-2 px-4">
-              <Text className="text-igb-navy font-semibold">Cerrar sesión</Text>
-            </Pressable>
-          </CenteredMessage>
-        ) : (
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#f8f9fa' } }}>
-            <Stack.Screen name="index" />
-            <Stack.Protected guard={!!session}>
-              <Stack.Screen name="(tabs)" />
-            </Stack.Protected>
-            <Stack.Protected guard={!session}>
-              <Stack.Screen name="(auth)" />
-            </Stack.Protected>
-          </Stack>
-        )
-      )}
+      {/* Columna centrada de hasta 720 px: en teléfonos ocupa todo el ancho (no cambia nada); en tablets la app
+          no se estira a 1000+ px sino que queda como una columna de teléfono grande sobre un fondo neutro. */}
+      <View style={{ flex: 1, alignItems: 'center', backgroundColor: '#e1e3e4' }}>
+        <View style={{ flex: 1, width: '100%', maxWidth: 720, backgroundColor: '#f8f9fa', overflow: 'hidden' }}>
+        {!cargando && (
+          session && mustChangePassword ? (
+            <CenteredMessage>
+              <Text className="text-center font-semibold text-igb-on-surface text-lg mb-2">
+                Tenés que cambiar tu contraseña
+              </Text>
+              <Text className="text-center text-igb-secondary">
+                Ingresá al panel web ({PANEL_WEB}) para cambiar tu contraseña temporal antes de usar la app.
+              </Text>
+              <Pressable onPress={() => signOut()} className="mt-6 py-2 px-4">
+                <Text className="text-igb-navy font-semibold">Cerrar sesión</Text>
+              </Pressable>
+            </CenteredMessage>
+          ) : (
+            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#f8f9fa' } }}>
+              <Stack.Screen name="index" />
+              <Stack.Protected guard={!!session}>
+                <Stack.Screen name="(tabs)" />
+              </Stack.Protected>
+              <Stack.Protected guard={!session}>
+                <Stack.Screen name="(auth)" />
+              </Stack.Protected>
+            </Stack>
+          )
+        )}
+        </View>
+      </View>
       {!loadingUnmounted && (
         <Animated.View
           pointerEvents={cargando ? 'auto' : 'none'}
