@@ -91,3 +91,6 @@ Avisos (2026-10-26): el ícono chico de Android (`assets/images/notification-ico
 - Requiere `expo-video` (módulo nativo): hace falta un build nuevo, no se ve en un dev client viejo.
 - Para cambiar el video: recortar con `ffmpeg -ss 0 -t 6 -i hero-mobile.mp4 -an -vf "scale=540:-2,fps=24" -c:v libx264 -preset slow -crf 31 -pix_fmt yuv420p -movflags +faststart assets/video/splash.mp4`.
 - Verificado en web exportada (captura en `screenshots/splash-carga.png`), `tsc`, lint y `expo-doctor` 21/21. **Sin verificar:** en un dispositivo (video nativo, velo entre pestañas, precarga real con fotos).
+
+## Auditoría 2026-10-26
+Informe completo en `inglobal-site/.ai/context/AUDITORIA_2026-10-26.md`; capturas de la app en 5 tamaños (320, 360, 390, 430 y 768 px, web exportada) en `screenshots/auditoria/`. Pendientes de la app: barra de pestañas sin margen inferior en teléfonos sin barra de gestos, teclado en Android edge-to-edge, día y contador pisados a 320 px, botón "+" tapando contenido, nombres de catálogo cortados y tope de escalado de fuente.
