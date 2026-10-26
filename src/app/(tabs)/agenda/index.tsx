@@ -781,7 +781,7 @@ export default function AgendaScreen() {
 
       <Pressable
         onPress={() => router.push('/agenda/evento/nuevo')}
-        className="absolute bottom-6 right-6 w-14 h-14 rounded-full bg-igb-yellow items-center justify-center shadow-lg"
+        className="absolute bottom-3 right-3 w-12 h-12 rounded-full bg-igb-yellow items-center justify-center shadow-lg"
       >
         <Text className="text-2xl text-igb-on-yellow">+</Text>
       </Pressable>

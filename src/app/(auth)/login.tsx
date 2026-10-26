@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { View, Image, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native'
+import { View, Image, Pressable, ActivityIndicator, KeyboardAvoidingView } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { signInWithPassword, type AuthError } from '@/lib/auth'
 import { Text } from '@/components/Text'
@@ -100,7 +100,7 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior="padding"
       className="flex-1 bg-igb-surface"
     >
       <View className="flex-1 justify-center px-8">

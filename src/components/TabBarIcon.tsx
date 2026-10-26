@@ -29,14 +29,14 @@ export function TabBarIcon({
     return (
       <Animated.View key="active" entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)} style={styles.focusedPill}>
         <Ionicons name={name} size={20} color={colors.onYellow} />
-        <Text style={styles.focusedLabel} numberOfLines={1}>{label}</Text>
+        <Text style={styles.focusedLabel} numberOfLines={1} maxFontSizeMultiplier={1.15}>{label}</Text>
       </Animated.View>
     )
   }
   return (
     <Animated.View key="inactive" entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)} style={styles.item}>
       <Ionicons name={name} size={20} color={colors.secondary} />
-      <Text style={styles.label} numberOfLines={1}>{label}</Text>
+      <Text style={styles.label} numberOfLines={1} maxFontSizeMultiplier={1.15}>{label}</Text>
     </Animated.View>
   )
 }
