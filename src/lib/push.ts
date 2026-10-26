@@ -98,8 +98,16 @@ export async function probarAviso(tipo: 'recordatorio' | 'reserva'): Promise<boo
 
   const contenido =
     tipo === 'recordatorio'
-      ? { title: 'Mañana: 2 servicios', body: '08:00 Grúa 12 - Empresa Y\n10:30 Grúa 3 - Empresa Z', data: { tipo: 'recordatorio' } }
-      : { title: 'Reserva sin confirmar', body: '08:00 Grúa 12 - Empresa Y se cancela sola al llegar su hora. Confirmala o reprogramala.', data: { tipo: 'reserva' } }
+      ? {
+          title: 'Mañana: 7 servicios, desde las 08:00',
+          body: '08:00 Obra Norte · Grúa 12 +2\n09:30 Constructora Mediterrán… · Grúa 5\n11:00 Refinería Centro · Grúa 3\ny 4 más (último: 17:30)',
+          data: { tipo: 'recordatorio' },
+        }
+      : {
+          title: 'Reserva sin confirmar',
+          body: '08:00 Obra Norte · Grúa 12\nSe cancela sola a las 08:00. Confirmala o reprogramala.',
+          data: { tipo: 'reserva' },
+        }
   await Notifications.scheduleNotificationAsync({
     content: { ...contenido, sound: 'default' },
     trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 3, channelId: 'agenda' },
