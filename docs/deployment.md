@@ -79,6 +79,3 @@ El código está listo (tsc 0, lint limpio, apunta a producción) pero **no hay 
   - usar una App Store Connect API key (rol Admin: `.p8` + Key ID + Issuer ID) para hacerlo sin login interactivo.
 - **Después:** `npx eas build --platform ios --profile production --non-interactive --auto-submit --no-wait` (siguiente build #12; ASC App ID `6810508533` ya configurado en `eas.json`) y verificar que aparezca en TestFlight.
 - **Otros pendientes menores:** variable EAS `EXPO_PUBLIC_API_BASE_URL` sigue con la URL vieja de Vercel en los 3 entornos (el perfil `production` de `eas.json` la pisa); `npm uninstall -g expo-cli`; probar push y control remoto de TV en dispositivos reales; entorno test de Coolify (`inglobal-test…`) devolvía 503.
-
-## Probar el diseño de los avisos sin build de Apple (2026-10-23)
-En Perfil aparece la tarjeta "Probar aviso (solo desarrollo)" solo si `__DEV__` es true (`npx expo start`, builds `development`); en los builds `preview` y `production` no existe. Dispara un aviso local con los textos reales del backend (`probarAviso` en `src/lib/push.ts`). No valida el envío por Expo Push/APNs: eso solo se prueba con un build nativo y el cron real. No anda en Expo Go de Android ni en web.

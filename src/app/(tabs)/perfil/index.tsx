@@ -6,7 +6,7 @@ import Constants from 'expo-constants'
 import { Text } from '@/components/Text'
 import { signOut } from '@/lib/auth'
 import { useSession } from '@/lib/session'
-import { apagarAvisos, avisosHabilitados, desregistrarPush, probarAviso, pushDisponible, registrarPush } from '@/lib/push'
+import { apagarAvisos, avisosHabilitados, desregistrarPush, pushDisponible, registrarPush } from '@/lib/push'
 import { confirmDialog } from '@/components/Dialog'
 import { getEventosAgendaCached } from '@/lib/agenda-api'
 import { addDays, getEstadoVisual, toDateInput } from '@/lib/agenda-view'
@@ -61,13 +61,6 @@ export default function PerfilScreen() {
         'Revisá que las notificaciones estén permitidas para la app en los ajustes del teléfono.',
       )
     }
-  }
-  const probar = async (tipo: 'recordatorio' | 'reserva') => {
-    const ok = await probarAviso(tipo)
-    confirmDialog(
-      ok ? 'Aviso en camino' : 'No se pudo probar',
-      ok ? 'Llega en 3 segundos. Para verlo como banner, mandá la app a segundo plano.' : 'Sin permiso de notificaciones o sin soporte (Expo Go en Android y web no lo tienen).',
-    )
   }
   const cerrarSesion = async () => {
     await desregistrarPush()
@@ -143,20 +136,6 @@ export default function PerfilScreen() {
             trackColor={{ true: colors.navy }}
             accessibilityLabel="Recibir avisos"
           />
-        </View>
-      )}
-
-      {__DEV__ && Platform.OS !== 'web' && (
-        <View className="bg-white border border-dashed border-igb-outline rounded-lg p-4 mb-3">
-          <Text className="text-sm font-semibold text-igb-on-surface">Probar aviso (solo desarrollo)</Text>
-          <View className="flex-row gap-2 mt-3">
-            <Pressable onPress={() => probar('recordatorio')} className="flex-1 border border-igb-outline rounded-lg py-2.5">
-              <Text className="text-center text-sm text-igb-on-surface">Recordatorio</Text>
-            </Pressable>
-            <Pressable onPress={() => probar('reserva')} className="flex-1 border border-igb-outline rounded-lg py-2.5">
-              <Text className="text-center text-sm text-igb-on-surface">Reserva</Text>
-            </Pressable>
-          </View>
         </View>
       )}
 
