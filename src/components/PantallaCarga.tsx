@@ -13,32 +13,8 @@ import Animated, {
 import { colors } from '@/lib/colors'
 import { precargarFotos } from '@/lib/precarga'
 
-const EMBLEMA = require('../../assets/images/android-icon-foreground.png') as number
 const LOGO = require('../../assets/images/splash-icon.png') as number
 const SUAVE = Easing.bezier(0.22, 1, 0.36, 1)
-
-/** Emblema con un anillo que se expande y se desvanece: el mismo en el velo entre secciones. */
-function Emblema({ tamano }: { tamano: number }) {
-  const anillo = useSharedValue(0)
-  const entrada = useSharedValue(0)
-  useEffect(() => {
-    entrada.value = withTiming(1, { duration: 450, easing: SUAVE })
-    anillo.value = withRepeat(withTiming(1, { duration: 1600, easing: Easing.out(Easing.cubic) }), -1)
-  }, [entrada, anillo])
-  const estiloAnillo = useAnimatedStyle(() => ({ opacity: (1 - anillo.value) * 0.5, transform: [{ scale: 0.95 + anillo.value * 0.55 }] }))
-  const estiloEmblema = useAnimatedStyle(() => ({ opacity: entrada.value, transform: [{ scale: 0.9 + entrada.value * 0.1 }] }))
-  const caja = tamano * 1.6
-  return (
-    <View style={{ width: caja, height: caja, alignItems: 'center', justifyContent: 'center' }}>
-      <Animated.View
-        style={[{ position: 'absolute', width: tamano, height: tamano, borderRadius: tamano / 2, borderWidth: 2, borderColor: colors.yellow }, estiloAnillo]}
-      />
-      <Animated.View style={estiloEmblema}>
-        <Image source={EMBLEMA} style={{ width: tamano, height: tamano }} resizeMode="contain" />
-      </Animated.View>
-    </View>
-  )
-}
 
 /** Círculo grande de adorno: borde finito, casi invisible, que respira muy despacio detrás de la marca. */
 function Aro({ diametro, opacidad, desplazamientoY }: { diametro: number; opacidad: number; desplazamientoY: number }) {
@@ -125,31 +101,34 @@ export function PantallaCarga({ listo, fuentesListas }: { listo: boolean; fuente
   )
 }
 
-const MIN_VELO_MS = 420
+const MIN_VELO_MS = 1100
 
 /**
- * Velo entre secciones (Agenda, Catálogos, Perfil): tapa el cambio de pantalla, deja que las fotos se bajen al
- * caché y se va con un fundido. Muestra el nombre de la sección a la que se va. `abajo` deja visible la barra de tabs.
+ * Velo entre secciones (Agenda, Catálogos, Perfil): tapa el cambio de pantalla con el logo de Grúas InGlobal y el nombre
+ * de la sección a la que se va, deja que las fotos se bajen al caché y se va con un fundido. `abajo` deja visible la barra de tabs.
  */
 export function VeloCarga({ abajo, etiqueta, onFin }: { abajo: number; etiqueta: string; onFin: () => void }) {
   const opacidad = useSharedValue(1)
-  const texto = useSharedValue(0)
+  const logo = useSharedValue(0)
+  const linea = useSharedValue(0)
   useEffect(() => {
-    texto.value = withDelay(120, withTiming(1, { duration: 400, easing: SUAVE }))
-  }, [texto])
+    logo.value = withTiming(1, { duration: 550, easing: SUAVE })
+    linea.value = withDelay(250, withTiming(1, { duration: 700, easing: SUAVE }))
+  }, [logo, linea])
   useEffect(() => {
     let vivo = true
     const minimo = new Promise<void>((resolve) => setTimeout(resolve, MIN_VELO_MS))
     Promise.all([precargarFotos(), minimo]).then(() => {
       if (!vivo) return
-      opacidad.value = withTiming(0, { duration: 320, easing: Easing.inOut(Easing.quad) }, (terminado) => terminado && runOnJS(onFin)())
+      opacidad.value = withTiming(0, { duration: 450, easing: Easing.inOut(Easing.quad) }, (terminado) => terminado && runOnJS(onFin)())
     })
     return () => {
       vivo = false
     }
   }, [onFin, opacidad])
   const estilo = useAnimatedStyle(() => ({ opacity: opacidad.value }))
-  const estiloTexto = useAnimatedStyle(() => ({ opacity: texto.value, transform: [{ translateY: (1 - texto.value) * 8 }] }))
+  const estiloLogo = useAnimatedStyle(() => ({ opacity: logo.value, transform: [{ scale: 0.94 + logo.value * 0.06 }] }))
+  const estiloLinea = useAnimatedStyle(() => ({ opacity: linea.value, transform: [{ scaleX: linea.value }] }))
 
   return (
     <Animated.View
@@ -159,9 +138,12 @@ export function VeloCarga({ abajo, etiqueta, onFin }: { abajo: number; etiqueta:
         estilo,
       ]}
     >
-      <Emblema tamano={104} />
+      <Animated.View style={estiloLogo}>
+        <Image source={LOGO} style={{ width: 240, height: 80 }} resizeMode="contain" />
+      </Animated.View>
+      <Animated.View style={[{ marginTop: 18, width: 48, height: 3, borderRadius: 2, backgroundColor: colors.yellow }, estiloLinea]} />
       <Animated.Text
-        style={[{ marginTop: -6, color: 'rgba(255,255,255,0.85)', fontFamily: 'Manrope_700Bold', fontSize: 14, letterSpacing: 5, textTransform: 'uppercase', paddingLeft: 5 }, estiloTexto]}
+        style={[{ marginTop: 14, color: 'rgba(255,255,255,0.85)', fontFamily: 'Manrope_700Bold', fontSize: 14, letterSpacing: 5, textTransform: 'uppercase', paddingLeft: 5 }, estiloLinea]}
       >
         {etiqueta}
       </Animated.Text>
