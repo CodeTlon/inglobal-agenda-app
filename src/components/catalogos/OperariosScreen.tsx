@@ -3,7 +3,7 @@ import { View, ScrollView, Pressable, ActivityIndicator, KeyboardAvoidingView } 
 import { Image } from 'expo-image'
 import { cssInterop } from 'nativewind'
 import { useRouter } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
+import Ionicons from '@expo/vector-icons/Ionicons'
 import { Text } from '@/components/Text'
 import { TextInput } from '@/components/TextInput'
 import { ErrorBanner } from '@/components/ErrorBanner'

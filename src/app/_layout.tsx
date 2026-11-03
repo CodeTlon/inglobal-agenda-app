@@ -8,9 +8,15 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { View, Pressable, StyleSheet } from 'react-native'
 import Animated, { Easing, useSharedValue, useAnimatedStyle, withDelay, withTiming, runOnJS } from 'react-native-reanimated'
 import * as SplashScreen from 'expo-splash-screen'
-import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter'
-import { Manrope_700Bold } from '@expo-google-fonts/manrope'
-import { Ionicons } from '@expo/vector-icons'
+import { useFonts } from 'expo-font'
+// Un import por peso: desde el índice del paquete Metro empaqueta las 18 variantes de Inter y las 7 de Manrope
+// (~8 MB de fuentes), aunque se usen 5.
+import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular'
+import { Inter_500Medium } from '@expo-google-fonts/inter/500Medium'
+import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold'
+import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold'
+import { Manrope_700Bold } from '@expo-google-fonts/manrope/700Bold'
+import Ionicons from '@expo/vector-icons/Ionicons'
 import { useSession, SessionProvider } from '@/lib/session'
 import { signOut } from '@/lib/auth'
 import { avisosHabilitados, registrarPush, rutaDeAviso } from '@/lib/push'
@@ -102,20 +108,14 @@ function RootLayoutNav() {
     return () => clearTimeout(t)
   }, [])
 
-  // Con sesión, la pantalla de carga espera también a que las fotos de los catálogos estén en el
-  // caché (con tope de 4 s, ver lib/precarga.ts); sin sesión no hay nada que bajar.
-  const [fotosPrecargadas, setFotosPrecargadas] = useState(false)
+  // Con sesión, las fotos de los catálogos se empiezan a bajar al caché por detrás, sin hacer esperar a la
+  // pantalla de carga (antes la frenaba hasta 4 s).
   const haySesion = !!session
   useEffect(() => {
-    if (loading || !haySesion) return
-    let vivo = true
-    precargarFotos().finally(() => vivo && setFotosPrecargadas(true))
-    return () => {
-      vivo = false
-    }
+    if (!loading && haySesion) precargarFotos()
   }, [loading, haySesion])
 
-  const cargando = !fontsLoaded || loading || !pisoCumplido || (haySesion && !fotosPrecargadas)
+  const cargando = !fontsLoaded || loading || !pisoCumplido
 
   // Cross-fade en vez de corte duro: la pantalla de carga se desvanece
   // mientras el contenido de abajo (ya montado, tapado) aparece debajo —

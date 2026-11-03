@@ -1,6 +1,6 @@
 import { Text, StyleSheet } from 'react-native'
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated'
-import { Ionicons } from '@expo/vector-icons'
+import Ionicons from '@expo/vector-icons/Ionicons'
 import type { ComponentProps } from 'react'
 import { colors } from '@/lib/colors'
 
@@ -53,7 +53,8 @@ const styles = StyleSheet.create({
   focusedLabel: {
     color: '#221b00',
     fontSize: 10,
-    fontWeight: '600',
+    // Misma familia que el resto de la app (Text la elige por className; acá es StyleSheet plano).
+    fontFamily: 'Inter_600SemiBold',
   },
   item: {
     alignItems: 'center',
@@ -64,5 +65,6 @@ const styles = StyleSheet.create({
   label: {
     color: '#575d78',
     fontSize: 10,
+    fontFamily: 'Inter_400Regular',
   },
 })

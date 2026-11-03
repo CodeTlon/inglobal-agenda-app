@@ -64,7 +64,7 @@ Dado que es una herramienta interna (operarios de la empresa, no público genera
 
 ## Bugs conocidos (histórico, por si vuelven a aparecer)
 
-- `expo-secure-store` no tiene implementación en Node — crasheaba el dev server entero al bootear porque `web.output: "static"` hace que Expo Router prerenderice un bundle SSR en Node, y el storage adapter de Supabase lo llamaba sin guardarse. Fix: `Platform.OS !== 'web'` antes de tocar `SecureStore`, con fallback a `localStorage`/no-op. (`src/lib/supabase.ts`)
+- `expo-secure-store` no tiene implementación en Node — crasheaba el dev server entero al bootear porque `web.output: "static"` hace que Expo Router prerenderice un bundle SSR en Node, y el storage adapter de Supabase lo llamaba sin guardarse. Fix: `Platform.OS !== 'web'` antes de tocar `SecureStore`, con fallback a `localStorage`/no-op. (hoy en `src/lib/auth.ts`, `readItem`/`writeItem`; Supabase ya no se usa)
 - (Histórico, ya no aplica) El pairing de TV usaba `verifyOtp` de Supabase; desde `inglobal-site` v2.0.0 el pairing va por la API propia, sin magic link.
 
 ## iOS en TestFlight (actualizado 2026-11-03)
@@ -83,10 +83,13 @@ En Perfil aparece la tarjeta "Probar aviso (solo desarrollo)" solo si `__DEV__` 
 
 Avisos (2026-10-26): el ícono chico de Android (`assets/images/notification-icon.png`, silueta blanca 96x96 del emblema) y el color `#1C357F` se configuran en el plugin `expo-notifications` de `app.json`; son configuración nativa, así que se ven recién en un build nuevo. En iOS el aviso muestra el ícono de la app. El formato del texto lo arma el backend (`lib/notificaciones.ts` en inglobal-site); `probarAviso` usa textos de ejemplo con el mismo formato.
 
-## Pantalla de carga y velo entre secciones (2026-10-26)
-- **Inicio** (`PantallaCarga`, `src/components/PantallaCarga.tsx`): sin video. Fondo navy (el mismo del splash nativo) con dos aros muy tenues que respiran, el logo oficial "GRÚAS INGLOBAL S.R.L." grande, una línea de acento y "AGENDA" debajo (Manrope, espaciado ancho), más una barra de progreso real. Entra escalonada: logo, línea, subtítulo. Mínimo 1,8 s en pantalla; con sesión espera además a que las fotos de grúas, empresas y operarios estén en el caché de disco (`src/lib/precarga.ts`, tope 4 s, nunca bloquea si la red falla). Sale con un fundido de 450 ms.
-- **Entre secciones** (`VeloCarga`, en `src/app/(tabs)/_layout.tsx`): al tocar otra pestaña aparece un velo navy con el emblema (anillo que se expande) y el nombre de la sección a la que se va; mínimo 420 ms, fundido de salida de 320 ms, deja visible la barra de tabs. La precarga se reutiliza 30 s.
+## Pantalla de carga y cambio de sección (actualizado 2026-11-03)
+- **Inicio** (`PantallaCarga`, `src/components/PantallaCarga.tsx`): sin video. Fondo navy (el mismo del splash nativo) con dos aros muy tenues que respiran, el logo oficial "GRÚAS INGLOBAL S.R.L." grande, una línea de acento y "AGENDA" debajo (Manrope, espaciado ancho), más una barra de progreso. Mínimo 1,8 s en pantalla. Ya no espera a la red: con un usuario guardado la sesión se usa al instante y se valida por detrás (`loadSessionRapida` en `src/lib/auth.ts`), y las fotos de los catálogos se bajan al caché sin frenar la carga (`src/lib/precarga.ts`). Sale con un fundido de 450 ms.
+- **Entre secciones:** fundido de 300 ms propio de las pestañas (`animation: 'fade'` en `src/app/(tabs)/_layout.tsx`), sin bloquear toques. Reemplaza al velo navy con el logo (`VeloCarga`), que tapaba al menos 1,5 s cada cambio.
 - Se eliminó el video del hero y el módulo nativo `expo-video`: ya no hace falta un build nuevo para ver estas pantallas.
+
+## Auditoría 2026-11-03
+Informe en `inglobal-site/.ai/context/AUDITORIA_2026-11-03.md` (app: caché de la agenda, arranque, peso, vista Día, formulario, código de verificación de la TV).
 
 ## Auditoría 2026-10-26
 Informe completo en `inglobal-site/.ai/context/AUDITORIA_2026-10-26.md`; capturas de la app en 5 tamaños (320, 360, 390, 430 y 768 px, web exportada) en `screenshots/auditoria/`. Pendientes de la app: barra de pestañas sin margen inferior en teléfonos sin barra de gestos, teclado en Android edge-to-edge, día y contador pisados a 320 px, botón "+" tapando contenido, nombres de catálogo cortados y tope de escalado de fuente.
