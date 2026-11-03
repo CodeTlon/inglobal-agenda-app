@@ -2,7 +2,7 @@
   "expo": {
     "name": "InGlobal Agenda",
     "slug": "inglobal-app",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "inglobalagendaapp",
@@ -67,7 +67,9 @@
           "icon": "./assets/images/notification-icon.png",
           "color": "#1C357F"
         }
-      ]
+      ],
+      "expo-font",
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true,

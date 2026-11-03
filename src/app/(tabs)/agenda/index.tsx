@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { resumenGruas } from '@/lib/gruas'
 import { GruasResumen } from '@/components/GruasResumen'
 import { View, ScrollView, Pressable, ActivityIndicator, Platform, useWindowDimensions } from 'react-native'
-import type { NativeSyntheticEvent, NativeScrollEvent } from 'react-native'
-import { Gesture, GestureDetector } from 'react-native-gesture-handler'
+import type { NativeSyntheticEvent, NativeScrollEvent, ScrollViewInstance } from 'react-native'
+import { GestureDetector, usePanGesture } from 'react-native-gesture-handler'
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, runOnJS } from 'react-native-reanimated'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { Text } from '@/components/Text'
@@ -86,7 +86,7 @@ export default function AgendaScreen() {
     const id = setInterval(() => forceTick((t) => t + 1), 60_000)
     return () => clearInterval(id)
   }, [])
-  const timelineRef = useRef<ScrollView>(null)
+  const timelineRef = useRef<ScrollViewInstance>(null)
   const scrollYRef = useRef(0)
   const extendingRef = useRef<'past' | 'future' | null>(null)
   // Px (con signo) que `extend` corrió el contenido por arriba y que todavía
@@ -172,25 +172,29 @@ export default function AgendaScreen() {
   // ScrollView de la vista Semana (no se podían ver todos los servicios del día).
   // En la versión web (solo vista previa) el gesto fija `touch-action: none` y bloquea el scroll del navegador: ahí
   // se desactiva y se navega con las flechas ‹ ›.
-  const panGesture = Gesture.Pan()
-    .enabled(Platform.OS !== 'web')
-    .activeOffsetX([-20, 20])
-    .failOffsetY([-15, 15])
-    .onUpdate((e) => {
+  // API de hooks de gesture-handler 3 (`Gesture.Pan()` quedó obsoleto). Los callbacks corren en el hilo de UI.
+  const panGesture = usePanGesture({
+    enabled: Platform.OS !== 'web',
+    activeOffsetX: [-20, 20],
+    failOffsetY: [-15, 15],
+    onUpdate: (e) => {
       translateX.value = e.translationX
-    })
-    .onEnd((e) => {
-      const committed = e.translationX < -screenWidth * 0.25 || e.velocityX < -800
-        ? 'next'
-        : e.translationX > screenWidth * 0.25 || e.velocityX > 800
-          ? 'prev'
-          : null
+    },
+    onDeactivate: (e) => {
+      const committed = e.canceled
+        ? null
+        : e.translationX < -screenWidth * 0.25 || e.velocityX < -800
+          ? 'next'
+          : e.translationX > screenWidth * 0.25 || e.velocityX > 800
+            ? 'prev'
+            : null
       if (committed) {
         runNav(committed)
       } else {
         translateX.value = withSpring(0)
       }
-    })
+    },
+  })
 
   // `cached` reutiliza eventos que Mes/Semana ya hayan traído para ese rango
   // (evita el refetch al pasar a semana/día).
