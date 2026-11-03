@@ -3,6 +3,7 @@ import * as Device from 'expo-device'
 import * as SecureStore from 'expo-secure-store'
 import Constants from 'expo-constants'
 import { api } from './api'
+import { STORE_OPTS } from './auth'
 import { Notifications } from './notifications'
 
 // Push remoto solo funciona en un dispositivo físico con build nativo (no Expo Go en
@@ -18,12 +19,20 @@ if (Notifications) {
   })
 }
 
+// Borrar y recrear: en iOS actualizar un ítem no cambia su accesibilidad (ver STORE_OPTS en auth.ts).
+async function guardar(key: string, value: string) {
+  await SecureStore.deleteItemAsync(key, STORE_OPTS).catch(() => {})
+  await SecureStore.setItemAsync(key, value, STORE_OPTS)
+}
+
 /** `false` en Expo Go, web o emulador: ahí los avisos push no existen, no es un tema de permisos. */
 export const pushDisponible = SOPORTADO && Device.isDevice
 
 export async function avisosHabilitados(): Promise<boolean> {
   if (!SOPORTADO) return false
-  return (await SecureStore.getItemAsync(KEY_AVISOS).catch(() => null)) !== 'no'
+  // Si no se puede leer (iOS con el teléfono bloqueado) no se registra: tomarlo como "sí" reactivaba avisos apagados.
+  const valor = await SecureStore.getItemAsync(KEY_AVISOS, STORE_OPTS).then((v) => v ?? 'si', () => null)
+  return valor !== null && valor !== 'no'
 }
 
 async function obtenerToken(pedirPermiso: boolean): Promise<string | null> {
@@ -51,8 +60,8 @@ export async function registrarPush(pedirPermiso = false): Promise<boolean> {
     const token = await obtenerToken(pedirPermiso)
     if (!token) return false
     await api.post('/push/registrar', { token, plataforma: Platform.OS })
-    await SecureStore.setItemAsync(KEY_TOKEN, token)
-    await SecureStore.setItemAsync(KEY_AVISOS, 'si')
+    await guardar(KEY_TOKEN, token)
+    await guardar(KEY_AVISOS, 'si')
     return true
   } catch {
     return false
@@ -63,16 +72,16 @@ export async function registrarPush(pedirPermiso = false): Promise<boolean> {
 export async function desregistrarPush(): Promise<void> {
   if (!SOPORTADO) return
   try {
-    const token = await SecureStore.getItemAsync(KEY_TOKEN)
+    const token = await SecureStore.getItemAsync(KEY_TOKEN, STORE_OPTS)
     if (token) await api.delete('/push/registrar', { token })
-    await SecureStore.deleteItemAsync(KEY_TOKEN)
+    await SecureStore.deleteItemAsync(KEY_TOKEN, STORE_OPTS)
   } catch {
     // Si falla, el backend limpia el token solo cuando Expo lo reporta DeviceNotRegistered.
   }
 }
 
 export async function apagarAvisos(): Promise<void> {
-  await SecureStore.setItemAsync(KEY_AVISOS, 'no').catch(() => {})
+  await guardar(KEY_AVISOS, 'no').catch(() => {})
   await desregistrarPush()
 }
 
