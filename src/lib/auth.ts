@@ -13,7 +13,15 @@ import { Platform } from 'react-native'
 
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? ''
 const TOKEN_KEY = 'auth_token'
+// Último usuario validado: permite abrir la app con la sesión guardada cuando el servidor no responde.
+const USER_KEY = 'auth_user'
 const TIMEOUT_MS = 20_000
+
+// iOS puede lanzar la app en segundo plano (prewarming, avisos) con el teléfono bloqueado. Con el default
+// de SecureStore (WHEN_UNLOCKED) el Keychain rechaza la lectura y la app arrancaba "sin sesión": al abrirla
+// mostraba el login aunque el token siguiera guardado y vivo en el servidor. AFTER_FIRST_UNLOCK lo deja leer
+// en cualquier momento después del primer desbloqueo desde que se prendió el teléfono.
+export const STORE_OPTS: SecureStore.SecureStoreOptions = { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK }
 
 export type AuthUser = { id: string; email: string; mustChangePassword: boolean }
 export type AuthSession = { token: string; user: AuthUser }
@@ -21,23 +29,51 @@ export type AuthError = { message: string; status: number; code?: string }
 
 // expo-secure-store no tiene implementación en web/SSR (Node): localStorage en el
 // navegador, no-op en el servidor de prerender.
-async function readToken(): Promise<string | null> {
-  if (Platform.OS === 'web') return typeof localStorage === 'undefined' ? null : localStorage.getItem(TOKEN_KEY)
-  return SecureStore.getItemAsync(TOKEN_KEY).catch(() => null)
+// Rechaza si el almacenamiento no se puede leer (Keychain bloqueado): eso NO significa "no hay sesión".
+async function readItem(key: string): Promise<string | null> {
+  if (Platform.OS === 'web') return typeof localStorage === 'undefined' ? null : localStorage.getItem(key)
+  return SecureStore.getItemAsync(key, STORE_OPTS)
+}
+
+async function writeItem(key: string, value: string | null): Promise<void> {
+  if (Platform.OS === 'web') {
+    if (typeof localStorage === 'undefined') return
+    if (value) localStorage.setItem(key, value)
+    else localStorage.removeItem(key)
+    return
+  }
+  // Borrar antes de escribir: en iOS, actualizar un ítem existente cambia el valor pero no su accesibilidad,
+  // así que los tokens guardados con WHEN_UNLOCKED solo pasan a AFTER_FIRST_UNLOCK si se recrean.
+  await SecureStore.deleteItemAsync(key, STORE_OPTS).catch(() => {})
+  if (value) await SecureStore.setItemAsync(key, value, STORE_OPTS)
 }
 
 async function writeToken(token: string | null): Promise<void> {
-  if (Platform.OS === 'web') {
-    if (typeof localStorage === 'undefined') return
-    if (token) localStorage.setItem(TOKEN_KEY, token)
-    else localStorage.removeItem(TOKEN_KEY)
-    return
-  }
-  if (token) await SecureStore.setItemAsync(TOKEN_KEY, token)
-  else await SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => {})
+  await writeItem(TOKEN_KEY, token)
+  if (!token) await writeItem(USER_KEY, null).catch(() => {})
 }
 
-export const getToken = readToken
+async function saveSession(session: AuthSession): Promise<void> {
+  await writeItem(TOKEN_KEY, session.token)
+  await writeItem(USER_KEY, JSON.stringify(session.user)).catch(() => {})
+}
+
+async function cachedUser(): Promise<AuthUser | null> {
+  const raw = await readItem(USER_KEY).catch(() => null)
+  if (!raw) return null
+  try {
+    const u = JSON.parse(raw)
+    return typeof u?.id === 'string' && typeof u?.email === 'string' ? { id: u.id, email: u.email, mustChangePassword: u.mustChangePassword === true } : null
+  } catch {
+    return null
+  }
+}
+
+function toUser(u: { id: string; email: string; mustChangePassword?: unknown }): AuthUser {
+  return { id: u.id, email: u.email, mustChangePassword: u.mustChangePassword === true }
+}
+
+export const getToken = () => readItem(TOKEN_KEY).catch(() => null)
 
 type Listener = (session: AuthSession | null) => void
 const listeners = new Set<Listener>()
@@ -72,25 +108,43 @@ async function request(path: string, init: RequestInit & { token?: string | null
   }
 }
 
-/** Valida el token guardado contra el servidor. `null` si no hay sesión o ya no es válida. */
+/**
+ * Valida el token guardado contra el servidor. `null` solo si no hay token o el servidor dijo que ya no
+ * es válido (Better Auth responde 200 con `null` en ese caso). Si el servidor no responde (sin red,
+ * timeout, 5xx) se usa el último usuario validado; sin él, rechaza. También rechaza si el almacenamiento
+ * no se pudo leer: quien llama debe reintentar, nunca tratarlo como "sin sesión".
+ */
 export async function loadSession(): Promise<AuthSession | null> {
-  const token = await readToken()
+  const token = await readItem(TOKEN_KEY)
   if (!token) return null
-  const res = await request('/get-session', { method: 'GET', token })
+
+  const sinServidor = async (motivo: string): Promise<AuthSession> => {
+    const user = await cachedUser()
+    if (user) return { token, user }
+    throw new Error(motivo)
+  }
+
+  let res: Response
+  try {
+    res = await request('/get-session', { method: 'GET', token })
+  } catch {
+    return sinServidor('get-session sin respuesta')
+  }
   if (res.status === 401 || res.status === 403) {
     await writeToken(null)
     return null
   }
-  if (!res.ok) throw new Error(`get-session ${res.status}`)
-  const body = await res.json().catch(() => null)
+  if (!res.ok) return sinServidor(`get-session ${res.status}`)
+  const body = await res.json().catch(() => undefined)
+  if (body === undefined) return sinServidor('get-session respuesta inválida')
   if (!body?.user) {
     await writeToken(null)
     return null
   }
-  return {
-    token,
-    user: { id: body.user.id, email: body.user.email, mustChangePassword: body.user.mustChangePassword === true },
-  }
+  const session = { token, user: toUser(body.user) }
+  // Se reescribe en cada arranque validado: migra los tokens viejos a AFTER_FIRST_UNLOCK y refresca el usuario.
+  await saveSession(session).catch(() => {})
+  return session
 }
 
 export async function signInWithPassword(email: string, password: string): Promise<{ error?: AuthError }> {
@@ -107,14 +161,22 @@ export async function signInWithPassword(email: string, password: string): Promi
   }
   const token = res.headers.get('set-auth-token')
   if (!token) return { error: { message: 'El servidor no devolvió una sesión.', status: 500 } }
+  const body = await res.json().catch(() => null)
   await writeToken(token)
-  emit(await loadSession().catch(() => null))
+  // La respuesta del login ya trae el usuario: si validar con get-session falla por la red, se usa ese.
+  const session = await loadSession().catch(() => null)
+  if (session) emit(session)
+  else if (body?.user?.id) {
+    const fallback = { token, user: toUser(body.user) }
+    await saveSession(fallback).catch(() => {})
+    emit(fallback)
+  } else emit(null)
   return {}
 }
 
 /** `remote: false` descarta solo la sesión local (token ya revocado por el servidor). */
 export async function signOut(opts: { remote?: boolean } = {}): Promise<void> {
-  const token = await readToken()
+  const token = await getToken()
   if (opts.remote !== false && token) {
     await request('/sign-out', { method: 'POST', token, body: '{}' }).catch(() => {})
   }
