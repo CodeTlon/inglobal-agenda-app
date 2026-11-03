@@ -56,7 +56,9 @@ async function apiFetch(path: string, opts: RequestInit = {}) {
     // la sesión local seguía "viva" — sin esto el usuario
     // quedaba navegando la app viendo errores genéricos en cada pantalla,
     // sin ninguna señal de que tenía que volver a loguearse.
-    if (res.status === 401) signOut({ remote: false }).catch(() => {})
+    // Solo si se mandó un token: un 401 sin token (no se pudo leer del almacenamiento, ej. iOS con el
+    // teléfono bloqueado) no dice nada del token guardado, y borrarlo deslogueaba con una sesión válida.
+    if (res.status === 401 && token) signOut({ remote: false }).catch(() => {})
     // `||`: en React Native `statusText` suele llegar como "" (no null) y con `??` el error salía vacío.
     throw new ApiError(body.error || res.statusText || 'Error desconocido', res.status)
   }
