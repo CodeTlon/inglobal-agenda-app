@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { AppState } from 'react-native'
 import { loadSession, onAuthChange, signOut, type AuthSession } from './auth'
 
 type SessionState = { session: AuthSession | null; loading: boolean; mustChangePassword: boolean }
@@ -12,15 +13,46 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadSession()
-      .then(setSession)
-      .catch(() => {
-        // Sin red al abrir la app: no se puede validar. Se arranca sin sesión
-        // (el token queda guardado y se reintenta en el próximo arranque).
-        setSession(null)
-      })
-      .finally(() => setLoading(false))
-    return onAuthChange(setSession)
+    let vivo = true
+    let resuelta = false
+    let enCurso = false
+
+    const cargar = () => {
+      if (resuelta || enCurso) return
+      enCurso = true
+      loadSession()
+        .then((s) => {
+          if (!vivo || resuelta) return
+          resuelta = true
+          setSession(s)
+          setLoading(false)
+        })
+        .catch(() => {
+          // No se pudo leer el token (iOS con el teléfono bloqueado, app lanzada en segundo plano) o no se
+          // pudo validar y no hay usuario guardado. El token sigue guardado: NO es "sin sesión". Si la app está
+          // a la vista se muestra el login (por si de verdad no hay red), y se reintenta al volver a primer
+          // plano; si está en segundo plano se queda cargando hasta que el usuario la abra.
+          if (vivo && AppState.currentState === 'active') setLoading(false)
+        })
+        .finally(() => {
+          enCurso = false
+        })
+    }
+
+    cargar()
+    const sub = AppState.addEventListener('change', (estado) => {
+      if (estado === 'active') cargar()
+    })
+    const off = onAuthChange((s) => {
+      resuelta = true
+      setSession(s)
+      setLoading(false)
+    })
+    return () => {
+      vivo = false
+      sub.remove()
+      off()
+    }
   }, [])
 
   const value: SessionState = {
