@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { View, Pressable } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
+import Ionicons from '@expo/vector-icons/Ionicons'
 import { Text } from '@/components/Text'
 import type { ComponentProps } from 'react'
 import GruasScreen from '@/components/catalogos/GruasScreen'

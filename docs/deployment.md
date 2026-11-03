@@ -64,7 +64,7 @@ Dado que es una herramienta interna (operarios de la empresa, no público genera
 
 ## Bugs conocidos (histórico, por si vuelven a aparecer)
 
-- `expo-secure-store` no tiene implementación en Node — crasheaba el dev server entero al bootear porque `web.output: "static"` hace que Expo Router prerenderice un bundle SSR en Node, y el storage adapter de Supabase lo llamaba sin guardarse. Fix: `Platform.OS !== 'web'` antes de tocar `SecureStore`, con fallback a `localStorage`/no-op. (`src/lib/supabase.ts`)
+- `expo-secure-store` no tiene implementación en Node — crasheaba el dev server entero al bootear porque `web.output: "static"` hace que Expo Router prerenderice un bundle SSR en Node, y el storage adapter de Supabase lo llamaba sin guardarse. Fix: `Platform.OS !== 'web'` antes de tocar `SecureStore`, con fallback a `localStorage`/no-op. (hoy en `src/lib/auth.ts`, `readItem`/`writeItem`; Supabase ya no se usa)
 - (Histórico, ya no aplica) El pairing de TV usaba `verifyOtp` de Supabase; desde `inglobal-site` v2.0.0 el pairing va por la API propia, sin magic link.
 
 ## iOS en TestFlight (actualizado 2026-11-03)
@@ -74,16 +74,19 @@ Funciona: los builds de producción llegan a TestFlight solos.
 - **Comando:** `npx eas build --platform ios --profile production --non-interactive --auto-submit --no-wait`. El envío usa la App Store Connect API key guardada en EAS (ASC App ID `6810508533`), sin login interactivo de Apple.
 - **Builds:** #13, #14 y #16 (2026-10-23/27) y #17 (2026-11-03, fix de sesión en iOS) terminaron y se subieron. Los #9 a #12 fallaban porque el perfil de aprovisionamiento no tenía Push Notifications. Ya se regeneró con Push, así que ese error no debería volver.
 - **Estado del envío a Apple:** la CLI de EAS no tiene un comando para verlo. Se ve en el link "Submission details" que imprime el build, o en el dashboard de EAS.
-- **Cambios solo de JS:** no hace falta build. `npx eas-cli update --channel production --environment production --platform all --message "..."` les llega a los builds instalados con la misma `runtimeVersion` (política `appVersion`, hoy `1.0.0`). El teléfono lo baja al abrir la app y lo aplica en la apertura siguiente. En modo no interactivo `--environment` es obligatorio.
+- **Cambios solo de JS:** no hace falta build. `npx eas-cli update --channel production --environment production --platform all --message "..."` les llega a los builds instalados con la misma `runtimeVersion` (política `appVersion`: `1.0.0` hasta el build 17 con SDK 57, `1.1.0` desde el paso a SDK 58; un update solo les llega a los builds de su misma versión). El teléfono lo baja al abrir la app y lo aplica en la apertura siguiente. En modo no interactivo `--environment` es obligatorio.
 - **Variable de EAS `EXPO_PUBLIC_API_BASE_URL` en `production`:** verificada el 2026-11-03, apunta a `https://inglobal.51.91.253.54.sslip.io`. `development` y `preview` no se revisaron.
 - **Otros pendientes menores:** `npm uninstall -g expo-cli`; probar push y control remoto de TV en dispositivos reales; el entorno test de Coolify (`inglobal-test…`) devolvía 503.
 
 Avisos (2026-10-26): el ícono chico de Android (`assets/images/notification-icon.png`, silueta blanca 96x96 del emblema) y el color `#1C357F` se configuran en el plugin `expo-notifications` de `app.json`; son configuración nativa, así que se ven recién en un build nuevo. En iOS el aviso muestra el ícono de la app. El formato del texto lo arma el backend (`lib/notificaciones.ts` en inglobal-site);
 
-## Pantalla de carga y velo entre secciones (2026-10-26)
-- **Inicio** (`PantallaCarga`, `src/components/PantallaCarga.tsx`): sin video. Fondo navy (el mismo del splash nativo) con dos aros muy tenues que respiran, el logo oficial "GRÚAS INGLOBAL S.R.L." grande, una línea de acento y "AGENDA" debajo (Manrope, espaciado ancho), más una barra de progreso real. Entra escalonada: logo, línea, subtítulo. Mínimo 1,8 s en pantalla; con sesión espera además a que las fotos de grúas, empresas y operarios estén en el caché de disco (`src/lib/precarga.ts`, tope 4 s, nunca bloquea si la red falla). Sale con un fundido de 450 ms.
-- **Entre secciones** (`VeloCarga`, en `src/app/(tabs)/_layout.tsx`): al tocar otra pestaña aparece un velo navy con el emblema (anillo que se expande) y el nombre de la sección a la que se va; mínimo 420 ms, fundido de salida de 320 ms, deja visible la barra de tabs. La precarga se reutiliza 30 s.
+## Pantalla de carga y cambio de sección (actualizado 2026-11-03)
+- **Inicio** (`PantallaCarga`, `src/components/PantallaCarga.tsx`): sin video. Fondo navy (el mismo del splash nativo) con dos aros muy tenues que respiran, el logo oficial "GRÚAS INGLOBAL S.R.L." grande, una línea de acento y "AGENDA" debajo (Manrope, espaciado ancho), más una barra de progreso. Mínimo 1,8 s en pantalla. Ya no espera a la red: con un usuario guardado la sesión se usa al instante y se valida por detrás (`loadSessionRapida` en `src/lib/auth.ts`), y las fotos de los catálogos se bajan al caché sin frenar la carga (`src/lib/precarga.ts`). Sale con un fundido de 450 ms.
+- **Entre secciones:** fundido de 300 ms propio de las pestañas (`animation: 'fade'` en `src/app/(tabs)/_layout.tsx`), sin bloquear toques. Reemplaza al velo navy con el logo (`VeloCarga`), que tapaba al menos 1,5 s cada cambio.
 - Se eliminó el video del hero y el módulo nativo `expo-video`: ya no hace falta un build nuevo para ver estas pantallas.
+
+## Auditoría 2026-11-03
+Informe en `inglobal-site/.ai/context/AUDITORIA_2026-11-03.md` (app: caché de la agenda, arranque, peso, vista Día, formulario, código de verificación de la TV).
 
 ## Auditoría 2026-10-26
 Informe completo en `inglobal-site/.ai/context/AUDITORIA_2026-10-26.md`; capturas de la app en 5 tamaños (320, 360, 390, 430 y 768 px, web exportada) en `screenshots/auditoria/`. Pendientes de la app: barra de pestañas sin margen inferior en teléfonos sin barra de gestos, teclado en Android edge-to-edge, día y contador pisados a 320 px, botón "+" tapando contenido, nombres de catálogo cortados y tope de escalado de fuente.

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { AppState } from 'react-native'
-import { loadSession, onAuthChange, signOut, type AuthSession } from './auth'
+import { loadSessionRapida, onAuthChange, signOut, type AuthSession } from './auth'
 
 type SessionState = { session: AuthSession | null; loading: boolean; mustChangePassword: boolean }
 
@@ -20,7 +20,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const cargar = () => {
       if (resuelta || enCurso) return
       enCurso = true
-      loadSession()
+      loadSessionRapida()
         .then((s) => {
           if (!vivo || resuelta) return
           resuelta = true

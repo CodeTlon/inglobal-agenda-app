@@ -1,8 +1,10 @@
 import { useCallback, useRef, useState } from 'react'
-import { View, Pressable, ActivityIndicator } from 'react-native'
+import { View, Pressable, ActivityIndicator, ScrollView, RefreshControl } from 'react-native'
 import { useFocusEffect } from 'expo-router'
+import Ionicons from '@expo/vector-icons/Ionicons'
 import { Text } from '@/components/Text'
-import { getEventosAgendaCached } from '@/lib/agenda-api'
+import { getEventosAgendaCached, invalidarEventosCache, useVersionEventos } from '@/lib/agenda-api'
+import { ErrorReintentar } from '@/components/ErrorReintentar'
 import { ApiError } from '@/lib/api'
 import { getMonthMatrix, toDateInput, estadoStripColor, getEstadoVisual, eventoOcurreEn } from '@/lib/agenda-view'
 import type { EventoAgenda } from '@/lib/types'
@@ -50,7 +52,9 @@ export function AgendaMonthView({
   // toda la grilla detrás de un spinner de pantalla completa aunque los
   // datos ya estuvieran cacheados.
   const hasLoadedOnceRef = useRef(false)
-  /* eslint-disable react-hooks/preserve-manual-memoization -- desde/hasta salen de `weeks` (getMonthMatrix), el compiler no puede probar que no mutan; el guard `cancelled` ya evita condiciones de carrera a mano */
+  // Sube al invalidar la caché (volver a la app, deslizar para refrescar): vuelve a correr la carga de abajo.
+  const version = useVersionEventos()
+  const [refrescando, setRefrescando] = useState(false)
   useFocusEffect(
     useCallback(() => {
       let cancelled = false
@@ -66,15 +70,16 @@ export function AgendaMonthView({
         .finally(() => {
           if (!cancelled) {
             setLoading(false)
+            setRefrescando(false)
             hasLoadedOnceRef.current = true
           }
         })
       return () => {
         cancelled = true
       }
-    }, [desde, hasta]),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `version` no se lee adentro: está para recargar cuando se invalida la caché
+    }, [desde, hasta, version]),
   )
-  /* eslint-enable react-hooks/preserve-manual-memoization */
 
   return (
     <View className="flex-1 bg-igb-surface">
@@ -85,7 +90,7 @@ export function AgendaMonthView({
             className="p-3"
             hitSlop={8}
           >
-            <Text className="text-xl">‹</Text>
+            <Ionicons name="chevron-back" size={20} color={colors.onSurface} />
           </Pressable>
           <Text className="font-semibold text-igb-on-surface text-base">
             {MESES[month.getMonth()]} {month.getFullYear()}
@@ -96,7 +101,7 @@ export function AgendaMonthView({
               className="p-3"
               hitSlop={8}
             >
-              <Text className="text-xl">›</Text>
+              <Ionicons name="chevron-forward" size={20} color={colors.onSurface} />
             </Pressable>
             <EstadoLegend />
           </View>
@@ -115,11 +120,14 @@ export function AgendaMonthView({
           <ActivityIndicator color={colors.yellow} />
         </View>
       ) : error ? (
-        <View className="flex-1 items-center justify-center p-6">
-          <Text className="text-igb-error text-center">{error}</Text>
-        </View>
+        <ErrorReintentar mensaje={error} onReintentar={invalidarEventosCache} />
       ) : (
-        <View className="flex-1 p-2">
+        // ScrollView solo para "deslizar para refrescar": con flexGrow la grilla sigue llenando el alto disponible.
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={{ flexGrow: 1, padding: 8, paddingBottom: 72 }}
+          refreshControl={<RefreshControl refreshing={refrescando} onRefresh={() => { setRefrescando(true); invalidarEventosCache() }} tintColor={colors.navy} colors={[colors.navy]} />}
+        >
           {weeks.map((week, wi) => (
             <View key={wi} className="flex-row flex-1">
               {week.map((day) => {
@@ -164,7 +172,7 @@ export function AgendaMonthView({
               })}
             </View>
           ))}
-        </View>
+        </ScrollView>
       )}
     </View>
   )

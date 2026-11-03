@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { View, Pressable, ActivityIndicator, Linking } from 'react-native'
 import { useRouter } from 'expo-router'
 import { CameraView, useCameraPermissions } from 'expo-camera'
-import { Ionicons } from '@expo/vector-icons'
+import Ionicons from '@expo/vector-icons/Ionicons'
 import { Text } from '@/components/Text'
 import { api, ApiError } from '@/lib/api'
 import { colors } from '@/lib/colors'
@@ -25,6 +25,27 @@ export default function PairTvScreen() {
   const [approving, setApproving] = useState(false)
   const [result, setResult] = useState<'ok' | 'error' | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
+  // Código de verificación que la TV muestra debajo del QR (lo da el servidor). Sin él no se ofrece "Aprobar":
+  // aprobar le da a la TV una sesión completa, así que hay que confirmar que el QR es el de la TV que está adelante.
+  const [codigo, setCodigo] = useState<string | null>(null)
+  const [codigoError, setCodigoError] = useState<string | null>(null)
+
+  async function cargarCodigo(token: string) {
+    setCodigo(null)
+    setCodigoError(null)
+    try {
+      const info = await api.get<{ codigo: string }>(`/tv-pair/info?token=${encodeURIComponent(token)}`)
+      setCodigo(info.codigo)
+    } catch (e) {
+      setCodigoError(e instanceof ApiError && e.status !== 0 ? e.message : 'No se pudo consultar el código. Revisá tu conexión.')
+    }
+  }
+
+  function onEscaneado(token: string) {
+    if (scannedToken) return
+    setScannedToken(token)
+    cargarCodigo(token)
+  }
 
   async function handleApprove() {
     if (!scannedToken) return
@@ -43,6 +64,8 @@ export default function PairTvScreen() {
   function reset() {
     setScannedToken(null)
     setResult(null)
+    setCodigo(null)
+    setCodigoError(null)
   }
 
   if (!permission) {
@@ -94,13 +117,30 @@ export default function PairTvScreen() {
       <View className="flex-1 items-center justify-center bg-igb-surface p-8">
         <Ionicons name="tv-outline" size={48} color={colors.navy} style={{ marginBottom: 16 }} />
         <Text className="text-igb-on-surface font-semibold text-lg mb-2 text-center">¿Aprobar el inicio de sesión en esta TV?</Text>
-        {result === 'error' && <Text className="text-igb-error text-center mb-4">{errorMsg}</Text>}
-        {/* ponytail: disabled: no aplica en RN Web — opacity a mano. */}
-        <Pressable onPress={handleApprove} disabled={approving} className={`bg-igb-yellow rounded-lg py-3.5 mb-3 w-full items-center ${approving ? 'opacity-60' : ''}`}>
-          {approving ? <ActivityIndicator color={colors.onYellow} /> : <Text className="text-igb-on-yellow font-bold">Aprobar</Text>}
-        </Pressable>
+        {codigo ? (
+          <>
+            <Text className="text-igb-secondary text-center">Aprobá solo si la TV que tenés adelante muestra este código:</Text>
+            <Text className="font-headline text-igb-navy text-center my-4" style={{ fontSize: 34, letterSpacing: 6 }} maxFontSizeMultiplier={1.2}>
+              {codigo}
+            </Text>
+            {result === 'error' && <Text className="text-igb-error text-center mb-4">{errorMsg}</Text>}
+            {/* ponytail: disabled: no aplica en RN Web — opacity a mano. */}
+            <Pressable onPress={handleApprove} disabled={approving} className={`bg-igb-yellow rounded-lg py-3.5 mb-3 w-full items-center ${approving ? 'opacity-60' : ''}`}>
+              {approving ? <ActivityIndicator color={colors.onYellow} /> : <Text className="text-igb-on-yellow font-bold">Coincide, aprobar</Text>}
+            </Pressable>
+          </>
+        ) : codigoError ? (
+          <>
+            <Text className="text-igb-error text-center mb-4">{codigoError}</Text>
+            <Pressable onPress={() => cargarCodigo(scannedToken)} className="bg-igb-yellow rounded-lg py-3.5 mb-3 w-full items-center">
+              <Text className="text-igb-on-yellow font-bold">Reintentar</Text>
+            </Pressable>
+          </>
+        ) : (
+          <ActivityIndicator color={colors.yellow} style={{ marginVertical: 24 }} />
+        )}
         <Pressable onPress={reset} hitSlop={8} className="items-center py-2">
-          <Text className="text-igb-secondary">Cancelar</Text>
+          <Text className="text-igb-secondary">{codigo ? 'No coincide, cancelar' : 'Escanear otro código'}</Text>
         </Pressable>
       </View>
     )
@@ -113,7 +153,7 @@ export default function PairTvScreen() {
         barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
         onBarcodeScanned={({ data }) => {
           const token = extractToken(data)
-          if (token) setScannedToken(token)
+          if (token) onEscaneado(token)
         }}
       />
       <View className="absolute bottom-10 left-0 right-0 items-center">
