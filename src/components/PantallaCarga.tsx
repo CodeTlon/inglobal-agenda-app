@@ -2,7 +2,6 @@ import { useEffect } from 'react'
 import { View, Image, StyleSheet } from 'react-native'
 import Animated, {
   Easing,
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -11,7 +10,6 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated'
 import { colors } from '@/lib/colors'
-import { precargarFotos } from '@/lib/precarga'
 
 const LOGO = require('../../assets/images/splash-icon.png') as number
 const SUAVE = Easing.bezier(0.22, 1, 0.36, 1)
@@ -98,55 +96,5 @@ export function PantallaCarga({ listo, fuentesListas }: { listo: boolean; fuente
         <Animated.View style={[{ height: 3, borderRadius: 2, backgroundColor: colors.yellow }, estiloBarra]} />
       </View>
     </View>
-  )
-}
-
-const MIN_VELO_MS = 1100
-
-/**
- * Velo entre secciones (Agenda, Catálogos, Perfil): tapa el cambio de pantalla con el logo de Grúas InGlobal y el nombre
- * de la sección a la que se va, deja que las fotos se bajen al caché y se va con un fundido. `abajo` deja visible la barra de tabs.
- */
-export function VeloCarga({ abajo, etiqueta, onFin }: { abajo: number; etiqueta: string; onFin: () => void }) {
-  const opacidad = useSharedValue(1)
-  const logo = useSharedValue(0)
-  const linea = useSharedValue(0)
-  useEffect(() => {
-    logo.value = withTiming(1, { duration: 550, easing: SUAVE })
-    linea.value = withDelay(250, withTiming(1, { duration: 700, easing: SUAVE }))
-  }, [logo, linea])
-  useEffect(() => {
-    let vivo = true
-    const minimo = new Promise<void>((resolve) => setTimeout(resolve, MIN_VELO_MS))
-    Promise.all([precargarFotos(), minimo]).then(() => {
-      if (!vivo) return
-      opacidad.value = withTiming(0, { duration: 450, easing: Easing.inOut(Easing.quad) }, (terminado) => terminado && runOnJS(onFin)())
-    })
-    return () => {
-      vivo = false
-    }
-  }, [onFin, opacidad])
-  const estilo = useAnimatedStyle(() => ({ opacity: opacidad.value }))
-  const estiloLogo = useAnimatedStyle(() => ({ opacity: logo.value, transform: [{ scale: 0.94 + logo.value * 0.06 }] }))
-  const estiloLinea = useAnimatedStyle(() => ({ opacity: linea.value, transform: [{ scaleX: linea.value }] }))
-
-  return (
-    <Animated.View
-      pointerEvents="auto"
-      style={[
-        { position: 'absolute', top: 0, left: 0, right: 0, bottom: abajo, zIndex: 50, backgroundColor: colors.navy, alignItems: 'center', justifyContent: 'center' },
-        estilo,
-      ]}
-    >
-      <Animated.View style={estiloLogo}>
-        <Image source={LOGO} style={{ width: 240, height: 80 }} resizeMode="contain" />
-      </Animated.View>
-      <Animated.View style={[{ marginTop: 18, width: 48, height: 3, borderRadius: 2, backgroundColor: colors.yellow }, estiloLinea]} />
-      <Animated.Text
-        style={[{ marginTop: 14, color: 'rgba(255,255,255,0.85)', fontFamily: 'Manrope_700Bold', fontSize: 14, letterSpacing: 5, textTransform: 'uppercase', paddingLeft: 5 }, estiloLinea]}
-      >
-        {etiqueta}
-      </Animated.Text>
-    </Animated.View>
   )
 }

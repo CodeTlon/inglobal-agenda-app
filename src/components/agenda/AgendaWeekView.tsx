@@ -1,9 +1,11 @@
 import { useCallback, useRef, useState } from 'react'
 import { GruasResumen } from '@/components/GruasResumen'
-import { View, Pressable, ActivityIndicator, ScrollView } from 'react-native'
+import { View, Pressable, ActivityIndicator, ScrollView, RefreshControl } from 'react-native'
 import { useRouter, useFocusEffect } from 'expo-router'
+import Ionicons from '@expo/vector-icons/Ionicons'
 import { Text } from '@/components/Text'
-import { getEventosAgendaCached } from '@/lib/agenda-api'
+import { getEventosAgendaCached, invalidarEventosCache, useVersionEventos } from '@/lib/agenda-api'
+import { ErrorReintentar } from '@/components/ErrorReintentar'
 import { ApiError } from '@/lib/api'
 import { getWeekDays, addDays, toDateInput, estadoStripColor, getEstadoVisual, eventoOcurreEn, formatEstado } from '@/lib/agenda-view'
 import type { EventoAgenda } from '@/lib/types'
@@ -49,6 +51,9 @@ export function AgendaWeekView({
   // cada refoco hacía desaparecer la lista detrás de un spinner de pantalla
   // completa aunque los datos ya estuvieran cacheados.
   const hasLoadedOnceRef = useRef(false)
+  // Sube al invalidar la caché (volver a la app, deslizar para refrescar): vuelve a correr la carga de abajo.
+  const version = useVersionEventos()
+  const [refrescando, setRefrescando] = useState(false)
   useFocusEffect(
     useCallback(() => {
       let cancelled = false
@@ -64,20 +69,25 @@ export function AgendaWeekView({
         .finally(() => {
           if (!cancelled) {
             setLoading(false)
+            setRefrescando(false)
             hasLoadedOnceRef.current = true
           }
         })
       return () => {
         cancelled = true
       }
-    }, [weekStartStr, weekEndStr]),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `version` no se lee adentro: está para recargar cuando se invalida la caché
+    }, [weekStartStr, weekEndStr, version]),
   )
 
   return (
     <View className="flex-1 bg-igb-surface">
       <View className="bg-white border-b border-igb-outline px-2 pt-3 pb-2 flex-row justify-between items-center">
         <Pressable onPress={onBack} className="p-2">
-          <Text className="text-sm text-igb-secondary">◂ Mes</Text>
+          <View className="flex-row items-center">
+            <Ionicons name="chevron-back" size={14} color={colors.secondary} />
+            <Text className="text-sm text-igb-secondary">Mes</Text>
+          </View>
         </Pressable>
         {/* Navega desde el día enfocado (no desde el lunes de weekStart) para
             preservar el día de semana al ir y volver — si no, "focused"
@@ -88,7 +98,7 @@ export function AgendaWeekView({
           className="p-3"
           hitSlop={8}
         >
-          <Text className="text-xl">‹</Text>
+          <Ionicons name="chevron-back" size={20} color={colors.onSurface} />
         </Pressable>
         <Text className="font-semibold text-igb-on-surface">
           {weekStart.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })} - {addDays(weekStart, 6).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
@@ -98,7 +108,7 @@ export function AgendaWeekView({
           className="p-3"
           hitSlop={8}
         >
-          <Text className="text-xl">›</Text>
+          <Ionicons name="chevron-forward" size={20} color={colors.onSurface} />
         </Pressable>
         <EstadoLegend />
       </View>
@@ -108,14 +118,16 @@ export function AgendaWeekView({
           <ActivityIndicator color={colors.yellow} />
         </View>
       ) : error ? (
-        <View className="flex-1 items-center justify-center p-6">
-          <Text className="text-igb-error text-center">{error}</Text>
-        </View>
+        <ErrorReintentar mensaje={error} onReintentar={invalidarEventosCache} />
       ) : (
         // flexGrow: la semana llena todo el alto disponible (cada día reparte
         // el espacio sobrante); si un día tiene muchos servicios crece y la
         // pantalla scrollea. paddingBottom deja lugar al botón "+".
-        <ScrollView className="flex-1" contentContainerStyle={{ flexGrow: 1, paddingBottom: 88 }}>
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: 88 }}
+          refreshControl={<RefreshControl refreshing={refrescando} onRefresh={() => { setRefrescando(true); invalidarEventosCache() }} tintColor={colors.navy} colors={[colors.navy]} />}
+        >
           {weekDays.map((day, i) => {
             const dStr = toDateInput(day)
             const isToday = dStr === todayStr

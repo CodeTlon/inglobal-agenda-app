@@ -43,8 +43,10 @@ src/
 ## Pairing QR (vincular una TV)
 
 `Perfil → Vincular TV` abre la cámara y escanea el QR que muestra `/agenda-tv/pair` en el
-sitio web. Aprobar el código desde el celular loguea esa TV automáticamente (sin escribir
-usuario/contraseña) — ver `app/api/tv-pair/**` en `inglobal-site` para el flujo completo.
+sitio web. Antes de aprobar, la app pide al servidor (`GET /api/tv-pair/info`) un código de verificación de
+6 dígitos y lo muestra: hay que comprobar que coincide con el que la TV muestra debajo del QR, porque aprobar
+le da a la TV una sesión completa de la cuenta. Aprobar loguea esa TV sin escribir usuario/contraseña — ver
+`app/api/tv-pair/**` y `lib/tv-pair-codigo.ts` en `inglobal-site` para el flujo completo.
 
 ## Avisos push
 

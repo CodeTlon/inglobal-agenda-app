@@ -58,18 +58,6 @@ export function getMonthMatrix(d: Date): Date[][] {
   return weeks
 }
 
-const ESTADO_COLORS: Record<string, string> = {
-  reserva: 'bg-igb-navy/20 border-igb-navy/40 text-blue-200',
-  programado: 'bg-igb-yellow/20 border-igb-yellow/40 text-igb-yellow',
-  en_curso: 'bg-blue-500/20 border-blue-400/40 text-blue-300',
-  finalizado: 'bg-white/5 border-white/10 text-slate-400',
-  cancelado: 'bg-red-500/10 border-red-400/30 text-red-300 line-through',
-}
-
-export function estadoColorClasses(estado: string): string {
-  return ESTADO_COLORS[estado] ?? ESTADO_COLORS.programado
-}
-
 /** Paleta clara (fondo blanco) — usada por la vista semanal, no por la TV. */
 const ESTADO_COLORS_LIGHT: Record<string, string> = {
   reserva: 'bg-igb-navy/10 border-igb-navy/30 text-igb-navy',
