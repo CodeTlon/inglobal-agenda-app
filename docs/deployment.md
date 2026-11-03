@@ -67,18 +67,16 @@ Dado que es una herramienta interna (operarios de la empresa, no público genera
 - `expo-secure-store` no tiene implementación en Node — crasheaba el dev server entero al bootear porque `web.output: "static"` hace que Expo Router prerenderice un bundle SSR en Node, y el storage adapter de Supabase lo llamaba sin guardarse. Fix: `Platform.OS !== 'web'` antes de tocar `SecureStore`, con fallback a `localStorage`/no-op. (`src/lib/supabase.ts`)
 - (Histórico, ya no aplica) El pairing de TV usaba `verifyOtp` de Supabase; desde `inglobal-site` v2.0.0 el pairing va por la API propia, sin magic link.
 
-## PENDIENTE — build iOS a TestFlight (2026-10-22)
+## iOS en TestFlight (actualizado 2026-11-03)
 
-El código está listo (tsc 0, lint limpio, apunta a producción) pero **no hay build en TestFlight todavía**. Los builds 9, 10 y 11 de EAS (`--profile production`) fallan en Xcode:
+Funciona: los builds de producción llegan a TestFlight solos.
 
-> provisioning profile doesn't include the Push Notifications capability / `aps-environment` entitlement
-
-- **Causa:** el perfil de aprovisionamiento de Apple (creado antes de usar `expo-notifications`) no tiene Push Notifications. Sacar el plugin de `app.json` NO sirve: el SDK lo agrega solo por tener el paquete instalado (probado en el build 11, revertido en `bc9619e`).
-- **Falta:** regenerar el perfil con Push (y la APNs key si no existe). Requiere auth de Apple:
-  - `npx eas credentials -p ios` (en la terminal del usuario). Si falla con "iTunes service key is empty": borrar `%USERPROFILE%\.app-store`, apagar VPN/Tailscale y reintentar; o
-  - usar una App Store Connect API key (rol Admin: `.p8` + Key ID + Issuer ID) para hacerlo sin login interactivo.
-- **Después:** `npx eas build --platform ios --profile production --non-interactive --auto-submit --no-wait` (siguiente build #12; ASC App ID `6810508533` ya configurado en `eas.json`) y verificar que aparezca en TestFlight.
-- **Otros pendientes menores:** variable EAS `EXPO_PUBLIC_API_BASE_URL` sigue con la URL vieja de Vercel en los 3 entornos (el perfil `production` de `eas.json` la pisa); `npm uninstall -g expo-cli`; probar push y control remoto de TV en dispositivos reales; entorno test de Coolify (`inglobal-test…`) devolvía 503.
+- **Comando:** `npx eas build --platform ios --profile production --non-interactive --auto-submit --no-wait`. El envío usa la App Store Connect API key guardada en EAS (ASC App ID `6810508533`), sin login interactivo de Apple.
+- **Builds:** #13, #14 y #16 (2026-10-23/27) y #17 (2026-11-03, fix de sesión en iOS) terminaron y se subieron. Los #9 a #12 fallaban porque el perfil de aprovisionamiento no tenía Push Notifications. Ya se regeneró con Push, así que ese error no debería volver.
+- **Estado del envío a Apple:** la CLI de EAS no tiene un comando para verlo. Se ve en el link "Submission details" que imprime el build, o en el dashboard de EAS.
+- **Cambios solo de JS:** no hace falta build. `npx eas-cli update --channel production --environment production --platform all --message "..."` les llega a los builds instalados con la misma `runtimeVersion` (política `appVersion`, hoy `1.0.0`). El teléfono lo baja al abrir la app y lo aplica en la apertura siguiente. En modo no interactivo `--environment` es obligatorio.
+- **Variable de EAS `EXPO_PUBLIC_API_BASE_URL` en `production`:** verificada el 2026-11-03, apunta a `https://inglobal.51.91.253.54.sslip.io`. `development` y `preview` no se revisaron.
+- **Otros pendientes menores:** `npm uninstall -g expo-cli`; probar push y control remoto de TV en dispositivos reales; el entorno test de Coolify (`inglobal-test…`) devolvía 503.
 
 ## Probar el diseño de los avisos sin build de Apple (2026-10-23)
 En Perfil aparece la tarjeta "Probar aviso (solo desarrollo)" solo si `__DEV__` es true (`npx expo start`, builds `development`); en los builds `preview` y `production` no existe. Dispara un aviso local con los textos reales del backend (`probarAviso` en `src/lib/push.ts`). No valida el envío por Expo Push/APNs: eso solo se prueba con un build nativo y el cron real. No anda en Expo Go de Android ni en web.
