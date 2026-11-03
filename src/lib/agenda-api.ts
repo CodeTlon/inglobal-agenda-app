@@ -1,3 +1,5 @@
+import { AppState } from 'react-native'
+import { useSyncExternalStore } from 'react'
 import { api } from './api'
 import type { EventoAgenda, Grua, EmpresaAgenda, Operario, RolOperario } from './types'
 
@@ -58,7 +60,11 @@ export async function deleteEvento(id: string) {
 // vista, aunque el rango ya lo hubiera traído la vista anterior (ej. entrar a
 // una semana puntual desde el mes). Este cache evita ese refetch: si el rango
 // pedido ya está cubierto por el último fetch, se filtra en memoria.
-let eventosCache: { desde: string; hasta: string; data: EventoAgenda[] } | null = null
+let eventosCache: { desde: string; hasta: string; data: EventoAgenda[]; at: number } | null = null
+// Vencimiento: la agenda es compartida (panel web, otros celulares) y sin esto lo que cargaba otro no aparecía
+// hasta cerrar la app. Pasado este tiempo, el próximo pedido (cambiar de vista, de mes, volver a la pestaña) va
+// al servidor.
+const CACHE_TTL_MS = 30_000
 // Se incrementa en cada invalidación — un fetch lento en vuelo cuya
 // `generation` quedó vieja no debe pisar el cache al resolver (ver abajo).
 let cacheGeneration = 0
@@ -72,10 +78,32 @@ function daysBetween(desde: string, hasta: string): number {
   return Math.round((new Date(`${hasta}T00:00:00`).getTime() - new Date(`${desde}T00:00:00`).getTime()) / 86_400_000)
 }
 
-function invalidarEventosCache() {
+// Versión de la agenda: sube en cada invalidación. Las vistas la incluyen en sus efectos de carga, así que
+// invalidar (volver a la app, deslizar para refrescar, guardar algo) las hace volver a pedir sus eventos.
+let versionEventos = 0
+const oyentes = new Set<() => void>()
+
+export function invalidarEventosCache() {
   eventosCache = null
   cacheGeneration++
+  versionEventos++
+  oyentes.forEach((l) => l())
 }
+
+export function useVersionEventos(): number {
+  return useSyncExternalStore(
+    (l) => {
+      oyentes.add(l)
+      return () => oyentes.delete(l)
+    },
+    () => versionEventos,
+  )
+}
+
+// Al volver a primer plano los datos pueden tener horas: se descartan y las vistas montadas recargan.
+AppState.addEventListener('change', (estado) => {
+  if (estado === 'active' && eventosCache && Date.now() - eventosCache.at > CACHE_TTL_MS) invalidarEventosCache()
+})
 
 function eventoSeSuperponeCon(ev: EventoAgenda, desde: string, hasta: string): boolean {
   return ev.fecha <= hasta && desde <= (ev.fecha_hasta ?? ev.fecha)
@@ -88,7 +116,7 @@ function addDay(fecha: string, delta = 1): string {
 }
 
 export async function getEventosAgendaCached(desde: string, hasta: string): Promise<EventoAgenda[]> {
-  const cache = eventosCache
+  const cache = eventosCache && Date.now() - eventosCache.at <= CACHE_TTL_MS ? eventosCache : null
   if (cache && cache.desde <= desde && hasta <= cache.hasta) {
     return cache.data.filter((ev) => eventoSeSuperponeCon(ev, desde, hasta))
   }
@@ -126,11 +154,12 @@ export async function getEventosAgendaCached(desde: string, hasta: string): Prom
   // siendo la generación vigente.
   if (generation === cacheGeneration) {
     if (daysBetween(nuevoDesde, nuevoHasta) <= MAX_CACHE_DAYS) {
-      eventosCache = { desde: nuevoDesde, hasta: nuevoHasta, data }
+      // Al pegar un tramo nuevo se conserva la hora del pedido más viejo: el vencimiento corre por la parte más vieja.
+      eventosCache = { desde: nuevoDesde, hasta: nuevoHasta, data, at: cache && contiguo ? cache.at : Date.now() }
     } else {
       // Se pasaría del techo — en vez de acumular sin límite, arrancamos de
       // nuevo desde lo recién pedido.
-      eventosCache = { desde, hasta, data: data.filter((ev) => eventoSeSuperponeCon(ev, desde, hasta)) }
+      eventosCache = { desde, hasta, data: data.filter((ev) => eventoSeSuperponeCon(ev, desde, hasta)), at: Date.now() }
     }
   }
   return data.filter((ev) => eventoSeSuperponeCon(ev, desde, hasta))
@@ -160,13 +189,13 @@ export function createGrua(payload: GruaPayload) {
   return api.post<{ id: string }>('/agenda/gruas', payload)
 }
 export function updateGrua(id: string, payload: GruaPayload) {
-  return api.patch<{ id: string }>(`/agenda/gruas/${id}`, payload)
+  return api.patch<{ id: string }>(`/agenda/gruas/${id}`, payload).finally(invalidarEventosCache)
 }
 export function toggleGrua(id: string, activo: boolean) {
-  return api.patch<{ id: string }>(`/agenda/gruas/${id}`, { activo })
+  return api.patch<{ id: string }>(`/agenda/gruas/${id}`, { activo }).finally(invalidarEventosCache)
 }
 export function deleteGrua(id: string) {
-  return api.delete<{ id: string }>(`/agenda/gruas/${id}`)
+  return api.delete<{ id: string }>(`/agenda/gruas/${id}`).finally(invalidarEventosCache)
 }
 
 export function getEmpresasAgenda(includeInactive = false) {
@@ -177,13 +206,13 @@ export function createEmpresaAgenda(payload: EmpresaPayload) {
   return api.post<{ id: string }>('/agenda/empresas', payload)
 }
 export function updateEmpresaAgenda(id: string, payload: EmpresaPayload) {
-  return api.patch<{ id: string }>(`/agenda/empresas/${id}`, payload)
+  return api.patch<{ id: string }>(`/agenda/empresas/${id}`, payload).finally(invalidarEventosCache)
 }
 export function toggleEmpresaAgenda(id: string, activo: boolean) {
-  return api.patch<{ id: string }>(`/agenda/empresas/${id}`, { activo })
+  return api.patch<{ id: string }>(`/agenda/empresas/${id}`, { activo }).finally(invalidarEventosCache)
 }
 export function deleteEmpresaAgenda(id: string) {
-  return api.delete<{ id: string }>(`/agenda/empresas/${id}`)
+  return api.delete<{ id: string }>(`/agenda/empresas/${id}`).finally(invalidarEventosCache)
 }
 
 export function getOperarios(includeInactive = false) {
@@ -197,19 +226,19 @@ export function createOperario(payload: OperarioPayload) {
   return api.post<{ id: string }>('/agenda/operarios', payload)
 }
 export function updateOperario(id: string, payload: OperarioPayload) {
-  return api.patch<{ id: string }>(`/agenda/operarios/${id}`, payload)
+  return api.patch<{ id: string }>(`/agenda/operarios/${id}`, payload).finally(invalidarEventosCache)
 }
 export function toggleOperario(id: string, activo: boolean) {
-  return api.patch<{ id: string }>(`/agenda/operarios/${id}`, { activo })
+  return api.patch<{ id: string }>(`/agenda/operarios/${id}`, { activo }).finally(invalidarEventosCache)
 }
 // Revierte la baja lógica: el ex operario vuelve a Operarios, inactivo.
 export function reincorporarOperario(id: string) {
-  return api.patch<{ id: string }>(`/agenda/operarios/${id}`, { reincorporar: true })
+  return api.patch<{ id: string }>(`/agenda/operarios/${id}`, { reincorporar: true }).finally(invalidarEventosCache)
 }
 // Borrado real de un ex operario sin eventos; con historial el backend lo rechaza.
 export function eliminarOperarioDefinitivo(id: string) {
   return api.delete<{ id: string }>(`/agenda/operarios/${id}?definitivo=true`)
 }
 export function deleteOperario(id: string) {
-  return api.delete<{ id: string }>(`/agenda/operarios/${id}`)
+  return api.delete<{ id: string }>(`/agenda/operarios/${id}`).finally(invalidarEventosCache)
 }

@@ -2,12 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { resumenGruas } from '@/lib/gruas'
 import { GruasResumen } from '@/components/GruasResumen'
 import { View, ScrollView, Pressable, ActivityIndicator, Platform, useWindowDimensions } from 'react-native'
-import type { NativeSyntheticEvent, NativeScrollEvent } from 'react-native'
-import { Gesture, GestureDetector } from 'react-native-gesture-handler'
+import type { NativeSyntheticEvent, NativeScrollEvent, ScrollViewInstance } from 'react-native'
+import { GestureDetector, usePanGesture } from 'react-native-gesture-handler'
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, runOnJS } from 'react-native-reanimated'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { Text } from '@/components/Text'
-import { getEventosAgendaCached } from '@/lib/agenda-api'
+import { getEventosAgendaCached, invalidarEventosCache, useVersionEventos } from '@/lib/agenda-api'
+import { ErrorReintentar } from '@/components/ErrorReintentar'
+import Ionicons from '@expo/vector-icons/Ionicons'
 import { ApiError } from '@/lib/api'
 import {
   getWeekStart,
@@ -49,6 +51,8 @@ const EDGE_TRIGGER = DAY_HEIGHT * 3
 // ScrollView terminaba con meses de días sin virtualizar montados a la vez,
 // degradando el scroll con el tiempo.
 const MAX_MOUNTED_DAYS = 90
+// Días de grilla dibujados a cada lado del día enfocado (ver dayGrid).
+const DIAS_GRILLA_ALREDEDOR = 4
 
 function toMinutes(hhmmss: string): number {
   const [h, m] = hhmmss.split(':').map(Number)
@@ -82,7 +86,7 @@ export default function AgendaScreen() {
     const id = setInterval(() => forceTick((t) => t + 1), 60_000)
     return () => clearInterval(id)
   }, [])
-  const timelineRef = useRef<ScrollView>(null)
+  const timelineRef = useRef<ScrollViewInstance>(null)
   const scrollYRef = useRef(0)
   const extendingRef = useRef<'past' | 'future' | null>(null)
   // Px (con signo) que `extend` corrió el contenido por arriba y que todavía
@@ -168,25 +172,29 @@ export default function AgendaScreen() {
   // ScrollView de la vista Semana (no se podían ver todos los servicios del día).
   // En la versión web (solo vista previa) el gesto fija `touch-action: none` y bloquea el scroll del navegador: ahí
   // se desactiva y se navega con las flechas ‹ ›.
-  const panGesture = Gesture.Pan()
-    .enabled(Platform.OS !== 'web')
-    .activeOffsetX([-20, 20])
-    .failOffsetY([-15, 15])
-    .onUpdate((e) => {
+  // API de hooks de gesture-handler 3 (`Gesture.Pan()` quedó obsoleto). Los callbacks corren en el hilo de UI.
+  const panGesture = usePanGesture({
+    enabled: Platform.OS !== 'web',
+    activeOffsetX: [-20, 20],
+    failOffsetY: [-15, 15],
+    onUpdate: (e) => {
       translateX.value = e.translationX
-    })
-    .onEnd((e) => {
-      const committed = e.translationX < -screenWidth * 0.25 || e.velocityX < -800
-        ? 'next'
-        : e.translationX > screenWidth * 0.25 || e.velocityX > 800
-          ? 'prev'
-          : null
+    },
+    onDeactivate: (e) => {
+      const committed = e.canceled
+        ? null
+        : e.translationX < -screenWidth * 0.25 || e.velocityX < -800
+          ? 'next'
+          : e.translationX > screenWidth * 0.25 || e.velocityX > 800
+            ? 'prev'
+            : null
       if (committed) {
         runNav(committed)
       } else {
         translateX.value = withSpring(0)
       }
-    })
+    },
+  })
 
   // `cached` reutiliza eventos que Mes/Semana ya hayan traído para ese rango
   // (evita el refetch al pasar a semana/día).
@@ -243,12 +251,15 @@ export default function AgendaScreen() {
   // scroll inicial ancla en las 07:00/ahora en vez del primer evento real
   // (todavía no llegó el fetch): cosmético, se corrige solo al re-entrar.
   const hasLoadedOnceRef = useRef(false)
+  // Sube al invalidar la caché (volver a la app con datos viejos, Reintentar): recarga la ventana de días.
+  const version = useVersionEventos()
   useFocusEffect(
     useCallback(() => {
       if (viewMode !== 'day') return
       if (!hasLoadedOnceRef.current) setLoading(true)
       load()
-    }, [load, viewMode]),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `version` no se lee adentro: está para recargar cuando se invalida la caché
+    }, [load, viewMode, version]),
   )
 
   // Reintenta entregar el scroll pendiente cada vez que `loading` cambia —
@@ -575,9 +586,15 @@ export default function AgendaScreen() {
   // ponytail: la grilla de horas (24 * days.length filas) no depende de eventos/foco/tick,
   // solo de `days` — sin memo se reconstruía en cada render (cada 60s del reloj, cada
   // scroll) y era el cuello de botella al entrar a vista día.
+  // Solo se dibuja la grilla de horas de los días cercanos al que se está mirando: antes se montaban los 45-90
+  // días de la ventana (24 franjas cada uno, miles de vistas) y la vista Día se trababa en celulares modestos.
+  // Cada día mide lo mismo y va posicionado en absoluto, así que el scroll y los eventos no cambian.
+  const focusedIdx = days.findIndex((d) => toDateInput(d) === focusedStr)
+  const centroGrilla = focusedIdx === -1 ? 0 : focusedIdx
   const dayGrid = useMemo(
     () =>
       days.map((d, i) => {
+        if (Math.abs(i - centroGrilla) > DIAS_GRILLA_ALREDEDOR) return null
         const dStr = toDateInput(d)
         return (
           <View key={dStr} className="absolute left-0 right-0 flex-row" style={{ top: i * DAY_HEIGHT, height: DAY_HEIGHT }}>
@@ -606,7 +623,7 @@ export default function AgendaScreen() {
           </View>
         )
       }),
-    [days, todayStr]
+    [days, todayStr, centroGrilla]
   )
 
   return (
@@ -642,16 +659,19 @@ export default function AgendaScreen() {
       <View className="bg-white border-b border-igb-outline pb-2">
         <View className="flex-row justify-between items-center px-4 pt-3 pb-1">
           <Pressable onPress={() => setViewMode('week')} className="p-2">
-            <Text className="text-sm text-igb-secondary">◂ Semana</Text>
+            <View className="flex-row items-center">
+              <Ionicons name="chevron-back" size={14} color={colors.secondary} />
+              <Text className="text-sm text-igb-secondary">Semana</Text>
+            </View>
           </Pressable>
           <Pressable onPress={() => canNavWeek() && goTo(addDays(focused, -7))} className="p-3" hitSlop={8}>
-            <Text className="text-xl">‹</Text>
+            <Ionicons name="chevron-back" size={20} color={colors.onSurface} />
           </Pressable>
           <Text className="font-semibold text-igb-on-surface">
             {weekStart.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })} - {addDays(weekStart, 6).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
           </Text>
           <Pressable onPress={() => canNavWeek() && goTo(addDays(focused, 7))} className="p-3" hitSlop={8}>
-            <Text className="text-xl">›</Text>
+            <Ionicons name="chevron-forward" size={20} color={colors.onSurface} />
           </Pressable>
           <EstadoLegend />
         </View>
@@ -695,9 +715,7 @@ export default function AgendaScreen() {
           <ActivityIndicator color={colors.yellow} />
         </View>
       ) : error ? (
-        <View className="flex-1 items-center px-4 pt-8">
-          <Text className="text-igb-error text-center">{error}</Text>
-        </View>
+        <ErrorReintentar mensaje={error} onReintentar={invalidarEventosCache} />
       ) : (
         <ScrollView
           ref={timelineRef}

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { View, Pressable, Modal } from 'react-native'
 import Animated, { FadeIn } from 'react-native-reanimated'
-import { Ionicons } from '@expo/vector-icons'
+import Ionicons from '@expo/vector-icons/Ionicons'
 import { Text } from '@/components/Text'
 import { ESTADOS_EVENTO } from '@/lib/types'
 import { estadoStripColor, formatEstado } from '@/lib/agenda-view'

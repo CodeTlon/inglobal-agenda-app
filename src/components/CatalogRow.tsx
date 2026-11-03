@@ -1,7 +1,7 @@
 import { View, Pressable, Switch } from 'react-native'
 import { Image } from 'expo-image'
 import { cssInterop } from 'nativewind'
-import { Ionicons } from '@expo/vector-icons'
+import Ionicons from '@expo/vector-icons/Ionicons'
 import { Text } from '@/components/Text'
 import type { ComponentProps } from 'react'
 import { colors } from '@/lib/colors'

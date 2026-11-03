@@ -1,5 +1,5 @@
 import { View, Pressable } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
+import Ionicons from '@expo/vector-icons/Ionicons'
 import { TextInput } from '@/components/TextInput'
 import { colors } from '@/lib/colors'
 

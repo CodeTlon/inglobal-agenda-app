@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { View, Pressable, ScrollView, Image, Switch, Platform } from 'react-native'
+import { View, Pressable, ScrollView, Image, Switch, Platform, ActivityIndicator } from 'react-native'
 import { useFocusEffect, useRouter } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
+import Ionicons from '@expo/vector-icons/Ionicons'
 import Constants from 'expo-constants'
 import { Text } from '@/components/Text'
 import { signOut } from '@/lib/auth'
 import { useSession } from '@/lib/session'
-import { apagarAvisos, avisosHabilitados, desregistrarPush, probarAviso, pushDisponible, registrarPush } from '@/lib/push'
+import { apagarAvisos, avisosHabilitados, desregistrarPush, pushDisponible, registrarPush } from '@/lib/push'
 import { confirmDialog } from '@/components/Dialog'
 import { getEventosAgendaCached } from '@/lib/agenda-api'
 import { addDays, getEstadoVisual, toDateInput } from '@/lib/agenda-view'
@@ -62,16 +62,18 @@ export default function PerfilScreen() {
       )
     }
   }
-  const probar = async (tipo: 'recordatorio' | 'reserva') => {
-    const ok = await probarAviso(tipo)
-    confirmDialog(
-      ok ? 'Aviso en camino' : 'No se pudo probar',
-      ok ? 'Llega en 3 segundos. Para verlo como banner, mandá la app a segundo plano.' : 'Sin permiso de notificaciones o sin soporte (Expo Go en Android y web no lo tienen).',
-    )
-  }
+  // La baja de avisos va al servidor: sin señal podía tardar hasta 20 s sin que se viera nada. Se le da un
+  // tope corto (si no llega, el backend limpia el token cuando Expo lo reporta inválido) y se muestra que trabaja.
+  const [cerrando, setCerrando] = useState(false)
   const cerrarSesion = async () => {
-    await desregistrarPush()
-    await signOut()
+    if (cerrando) return
+    setCerrando(true)
+    try {
+      await Promise.race([desregistrarPush(), new Promise((r) => setTimeout(r, 4000))])
+      await signOut()
+    } finally {
+      setCerrando(false)
+    }
   }
   const enCurso = eventosHoy.filter((ev) => getEstadoVisual(ev) === 'en_curso').length
   const pendientes = eventosHoy.filter((ev) => ['reserva', 'programado'].includes(getEstadoVisual(ev))).length
@@ -80,7 +82,7 @@ export default function PerfilScreen() {
     <ScrollView className="flex-1 bg-igb-surface" contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
       <View className="bg-white border border-igb-outline rounded-lg p-4 mb-3 flex-row items-center gap-3">
         <Image
-          source={require('../../../../assets/images/logo-isotype-master.png')}
+          source={require('../../../../assets/images/logo-isotipo-perfil.png')}
           resizeMode="contain"
           // ponytail: RN Web no traduce w-14/h-14 a un tamaño real para
           // <Image> — sin esto, el ícono crecía a su tamaño nativo y le
@@ -146,26 +148,13 @@ export default function PerfilScreen() {
         </View>
       )}
 
-      {__DEV__ && Platform.OS !== 'web' && (
-        <View className="bg-white border border-dashed border-igb-outline rounded-lg p-4 mb-3">
-          <Text className="text-sm font-semibold text-igb-on-surface">Probar aviso (solo desarrollo)</Text>
-          <View className="flex-row gap-2 mt-3">
-            <Pressable onPress={() => probar('recordatorio')} className="flex-1 border border-igb-outline rounded-lg py-2.5">
-              <Text className="text-center text-sm text-igb-on-surface">Recordatorio</Text>
-            </Pressable>
-            <Pressable onPress={() => probar('reserva')} className="flex-1 border border-igb-outline rounded-lg py-2.5">
-              <Text className="text-center text-sm text-igb-on-surface">Reserva</Text>
-            </Pressable>
-          </View>
-        </View>
-      )}
-
       <Pressable
         onPress={cerrarSesion}
-        className="bg-white border border-igb-error/30 rounded-lg py-3.5 mt-4 flex-row items-center justify-center gap-2"
+        disabled={cerrando}
+        className={`bg-white border border-igb-error/30 rounded-lg py-3.5 mt-4 flex-row items-center justify-center gap-2 ${cerrando ? 'opacity-60' : ''}`}
       >
-        <Ionicons name="log-out-outline" size={16} color={colors.error} />
-        <Text className="text-igb-error font-medium text-center">Cerrar sesión</Text>
+        {cerrando ? <ActivityIndicator color={colors.error} /> : <Ionicons name="log-out-outline" size={16} color={colors.error} />}
+        <Text className="text-igb-error font-medium text-center">{cerrando ? 'Cerrando sesión…' : 'Cerrar sesión'}</Text>
       </Pressable>
 
       <Text className="text-igb-secondary/60 text-[11px] text-center mt-6">

@@ -1,10 +1,10 @@
 # Expo HAS CHANGED
 
-Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before writing any code.
+Read the exact versioned docs at https://docs.expo.dev/versions/v58.0.0/ before writing any code.
 
 # InGlobal Agenda (app móvil)
 
-App Expo (Expo ~57, React Native 0.86, React 19, NativeWind 4, Expo Router) para Grúas InGlobal S.R.L.
+App Expo (Expo ~58, React Native 0.88, React 19.3, NativeWind 4, Expo Router) para Grúas InGlobal S.R.L.
 Gestiona la **agenda de servicios**: eventos, grúas, empresas y operarios. Es un cliente HTTP de la API
 del repo hermano `inglobal-site` (`app/api/agenda/**`, `app/api/tv-pair/**`); no tiene backend propio.
 Detalle de setup, estructura y pairing de TV en `README.md`; build y deploy en `docs/deployment.md`.

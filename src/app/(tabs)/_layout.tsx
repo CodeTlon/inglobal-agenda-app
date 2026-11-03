@@ -1,20 +1,12 @@
-import { useCallback, useState } from 'react'
 import { Tabs } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { TabBarIcon } from '@/components/TabBarIcon'
-import { VeloCarga } from '@/components/PantallaCarga'
-
-// Nombre de la sección en el velo de carga (las claves son los nombres de las rutas de las pestañas).
-const ETIQUETAS: Record<string, string> = { agenda: 'Agenda', catalogos: 'Catálogos', perfil: 'Perfil' }
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets()
   // Teléfonos con botones de navegación (iPhone SE/8, muchos Android) reportan inset 0: sin un mínimo el chip activo queda pegado al borde.
   const abajoBarra = Math.max(insets.bottom, 8)
-  // Velo de carga al cambiar de sección: se muestra mientras las fotos de los catálogos se bajan al caché.
-  const [velo, setVelo] = useState<string | null>(null)
-  const cerrarVelo = useCallback(() => setVelo(null), [])
 
   return (
     <>
@@ -23,13 +15,12 @@ export default function TabsLayout() {
         global de _layout.tsx (pensado para login/loading, de fondo claro). */}
     <StatusBar style="light" />
     <Tabs
-      screenListeners={({ navigation, route }) => ({
-        tabPress: () => {
-          if (!navigation.isFocused()) setVelo(ETIQUETAS[route.name] ?? '')
-        },
-      })}
       screenOptions={{
         headerShown: false,
+        // Fundido corto al cambiar de sección. Antes había un velo con el logo que tapaba la pantalla al menos
+        // 1,5 s y bloqueaba los toques en cada cambio de pestaña; este no bloquea nada.
+        animation: 'fade',
+        transitionSpec: { animation: 'timing', config: { duration: 300 } },
         tabBarShowLabel: false,
         // TabBarIcon dibuja ícono + label apilados (no el label nativo del
         // tab bar, deshabilitado arriba) — un tabBarStyle custom sin height
@@ -83,7 +74,6 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
-    {velo !== null && <VeloCarga abajo={56 + abajoBarra} etiqueta={velo} onFin={cerrarVelo} />}
     </>
   )
 }

@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router'
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated'
 import DateTimePicker from '@react-native-community/datetimepicker'
 import { Picker } from '@react-native-picker/picker'
-import { Ionicons } from '@expo/vector-icons'
+import Ionicons from '@expo/vector-icons/Ionicons'
 import { Text } from '@/components/Text'
 import { TextInput } from '@/components/TextInput'
 import { SearchInput, normalizar } from '@/components/SearchInput'
@@ -81,7 +81,14 @@ export function EventoForm({
   // nocturno (22:00→02:00) es del día siguiente y "menor" en el reloj.
   const todayStr = toDateInput(new Date())
   const nowMinutes = minutosDelDia(`${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`)
-  const horaInicioOptions = !isEdit && fecha === todayStr ? TIME_OPTIONS.filter((t) => minutosDelDia(t) >= nowMinutes) : TIME_OPTIONS
+  // Un evento cargado desde el panel puede tener cualquier minuto (ej. 08:10): si esa hora no está entre las
+  // opciones, el selector mostraba otra y al guardar la cambiaba sin querer. Se suma a la lista, en orden.
+  const conHora = (opciones: string[], hora: string) => (!hora || opciones.includes(hora) ? opciones : [...opciones, hora].sort())
+  const horaInicioOptions = conHora(
+    !isEdit && fecha === todayStr ? TIME_OPTIONS.filter((t) => minutosDelDia(t) >= nowMinutes) : TIME_OPTIONS,
+    isEdit ? (initial?.hora_inicio?.slice(0, 5) ?? '') : '',
+  )
+  const horaFinOptions = conHora(TIME_OPTIONS, initial?.hora_fin?.slice(0, 5) ?? '')
 
   useEffect(() => {
     if (!isEdit && fecha === todayStr && horaInicioOptions.length > 0 && !horaInicioOptions.includes(horaInicio)) {
@@ -295,9 +302,25 @@ export function EventoForm({
       </Field>
 
       <Field label="Fecha de fin (opcional, para reservas de varios días)">
-        <Pressable disabled={locked} onPress={() => setShowPicker('fechaHasta')} className="border border-igb-outline rounded-lg px-4 py-3 bg-white">
-          <Text className="text-igb-on-surface">{fechaHasta || 'Sin definir'}</Text>
-        </Pressable>
+        <View className="flex-row items-center gap-2">
+          <Pressable disabled={locked} onPress={() => setShowPicker('fechaHasta')} className="flex-1 border border-igb-outline rounded-lg px-4 py-3 bg-white">
+            <Text className="text-igb-on-surface">{fechaHasta || 'Sin definir'}</Text>
+          </Pressable>
+          {/* Antes, una vez elegida no había forma de volver a "Sin definir". */}
+          {fechaHasta && !locked ? (
+            <Pressable
+              onPress={() => {
+                setFechaHasta('')
+                if (showPicker === 'fechaHasta') setShowPicker(null)
+              }}
+              hitSlop={8}
+              accessibilityLabel="Quitar fecha de fin"
+              className="border border-igb-outline rounded-lg p-3 bg-white"
+            >
+              <Ionicons name="close" size={18} color={colors.secondary} />
+            </Pressable>
+          ) : null}
+        </View>
       </Field>
 
       <View className="flex-row gap-3">
@@ -317,7 +340,7 @@ export function EventoForm({
             <View className="border border-igb-outline rounded-lg bg-white">
               <Picker enabled={!locked} selectedValue={horaFin} onValueChange={setHoraFin}>
                 <Picker.Item label="Sin definir" value="" />
-                {TIME_OPTIONS.map((t) => (
+                {horaFinOptions.map((t) => (
                   <Picker.Item key={t} label={t} value={t} />
                 ))}
               </Picker>

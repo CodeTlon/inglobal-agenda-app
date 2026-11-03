@@ -147,6 +147,26 @@ export async function loadSession(): Promise<AuthSession | null> {
   return session
 }
 
+/**
+ * Arranque rápido: si hay token y un usuario validado guardado, devuelve esa sesión al instante y la valida
+ * contra el servidor por detrás (antes la pantalla de carga esperaba esa respuesta, hasta 20 s con mala señal).
+ * Si el servidor dice que el token ya no vale, avisa `null` por `onAuthChange`; si valida, avisa la sesión
+ * actualizada (por ejemplo, si cambió `mustChangePassword`). Sin usuario guardado se comporta como `loadSession`.
+ */
+export async function loadSessionRapida(): Promise<AuthSession | null> {
+  const token = await readItem(TOKEN_KEY)
+  if (!token) return null
+  const user = await cachedUser()
+  if (!user) return loadSession()
+  loadSession()
+    .then((s) => {
+      if (!s) emit(null)
+      else if (s.user.mustChangePassword !== user.mustChangePassword || s.user.email !== user.email) emit(s)
+    })
+    .catch(() => {})
+  return { token, user }
+}
+
 export async function signInWithPassword(email: string, password: string): Promise<{ error?: AuthError }> {
   let res: Response
   try {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { View, Image, Pressable, ActivityIndicator, KeyboardAvoidingView } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
+import Ionicons from '@expo/vector-icons/Ionicons'
 import { signInWithPassword, type AuthError } from '@/lib/auth'
 import { Text } from '@/components/Text'
 import { TextInput } from '@/components/TextInput'
