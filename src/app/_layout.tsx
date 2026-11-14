@@ -28,8 +28,8 @@ import { precargarFotos } from '@/lib/precarga'
 
 SplashScreen.preventAutoHideAsync()
 
-// Panel web del mismo servidor al que apunta la app (producción o test). No se hardcodea el dominio
-// final (gruasinglobal.com) porque todavía no está cortado a producción.
+// Panel web del mismo servidor al que apunta la app (producción o test). Sale de la variable para
+// que cada perfil de build abra su propio panel.
 const PANEL_WEB = `${(process.env.EXPO_PUBLIC_API_BASE_URL ?? '').replace(/^https?:\/\//, '')}/dashboard`
 
 function CenteredMessage({ children }: { children: React.ReactNode }) {

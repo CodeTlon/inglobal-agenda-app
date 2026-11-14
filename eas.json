@@ -23,7 +23,7 @@
       "autoIncrement": true,
       "channel": "production",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://inglobal.51.91.253.54.sslip.io"
+        "EXPO_PUBLIC_API_BASE_URL": "https://www.gruasinglobal.com"
       }
     }
   },
