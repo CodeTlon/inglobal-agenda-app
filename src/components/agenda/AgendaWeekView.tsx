@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { GruasResumen } from '@/components/GruasResumen'
 import { View, Pressable, ActivityIndicator, ScrollView, RefreshControl } from 'react-native'
+import type { ScrollViewInstance } from 'react-native'
 import { useRouter, useFocusEffect } from 'expo-router'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { Text } from '@/components/Text'
@@ -54,6 +55,10 @@ export function AgendaWeekView({
   // Sube al invalidar la caché (volver a la app, deslizar para refrescar): vuelve a correr la carga de abajo.
   const version = useVersionEventos()
   const [refrescando, setRefrescando] = useState(false)
+  // Al entrar con un día enfocado a mitad de semana (desde el mes o desde "+N más" en Día), la lista se
+  // ubica en ese día en vez de quedar arriba en el lunes. Una sola vez por día enfocado.
+  const scrollRef = useRef<ScrollViewInstance>(null)
+  const ubicadoEnRef = useRef<string | null>(null)
   useFocusEffect(
     useCallback(() => {
       let cancelled = false
@@ -124,6 +129,7 @@ export function AgendaWeekView({
         // el espacio sobrante); si un día tiene muchos servicios crece y la
         // pantalla scrollea. paddingBottom deja lugar al botón "+".
         <ScrollView
+          ref={scrollRef}
           className="flex-1"
           contentContainerStyle={{ flexGrow: 1, paddingBottom: 88 }}
           refreshControl={<RefreshControl refreshing={refrescando} onRefresh={() => { setRefrescando(true); invalidarEventosCache() }} tintColor={colors.navy} colors={[colors.navy]} />}
@@ -139,6 +145,15 @@ export function AgendaWeekView({
             return (
               <View
                 key={dStr}
+                onLayout={
+                  isFocused && dStr !== weekStartStr
+                    ? (e) => {
+                        if (ubicadoEnRef.current === focusedStr) return
+                        ubicadoEnRef.current = focusedStr
+                        scrollRef.current?.scrollTo({ y: Math.max(0, e.nativeEvent.layout.y - 8), animated: false })
+                      }
+                    : undefined
+                }
                 style={{ flexGrow: 1, minHeight: 84 }}
                 className={`flex-row border-b border-igb-outline ${isFocused ? 'bg-igb-yellow/10' : 'bg-white'}`}
               >
