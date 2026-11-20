@@ -55,7 +55,8 @@ grúas,agenda,servicios,operarios,flota,hidrogrúa,despacho,turnos,izaje,montaje
 
 ### Capturas
 
-`docs/tienda/capturas/ios-6.9/` — 6 imágenes de 1320×2868 (iPhone 6,9"). Apple escala solas las de 6,9" a
+`docs/tienda/capturas/ios-6.3/` (1206×2622, tamaño **obligatorio** desde 2026: iPhone 6,1"/6,3") e
+`docs/tienda/capturas/ios-6.9/` (1320×2868, opcional, "pantalla grande"). Apple escala solas las capturas a
 los demás tamaños de iPhone. No hacen falta capturas de iPad: la app no declara soporte para tablet.
 Se generaron con datos ficticios del entorno local (no muestran clientes reales).
 
@@ -113,3 +114,10 @@ We are requesting Unlisted App Distribution for this app, since it is meant only
 4. Pedir la distribución oculta en https://developer.apple.com/contact/request/unlisted-app/ (App ID
    `6810508533`). Apple responde por mail.
 5. Con las dos aprobaciones, publicar. El link directo de la App Store se comparte con el personal.
+
+## Estado (2026-11-20)
+
+Enviada a revisión la versión **1.1.0 (build 20)** con publicación manual, solo en Argentina, gratis. Idioma
+principal Español (México); también tiene ficha en Inglés (EE. UU.). Cuenta de demo: la `+applereview` (la
+contraseña se cambió ese día y está cargada en App Store Connect, no en el repo). Pedido de distribución oculta:
+formulario completado; falta tildar la conformidad y enviarlo.
