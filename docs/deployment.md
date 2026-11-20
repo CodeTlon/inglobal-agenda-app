@@ -6,7 +6,7 @@ Estado real verificado el 2026-08-05. Esto documenta lo que hay, no un plan aspi
 
 La app no tiene backend propio — pega contra `inglobal-site` (Next.js, repo separado: `CodeTlon/inglobal-site`), endpoints `/api/agenda/*` y `/api/tv-pair/*`.
 
-- **Producción:** `EXPO_PUBLIC_API_BASE_URL=https://inglobal.51.91.253.54.sslip.io` (Coolify; lo fija `eas.json`, perfil `production`; `preview` apunta a `https://inglobal-test.51.91.253.54.sslip.io`). Al pasar a `gruasinglobal.com` hay que cambiar esa URL y sacar un build nuevo: se compila dentro del binario.
+- **Producción:** `EXPO_PUBLIC_API_BASE_URL=https://www.gruasinglobal.com` (Coolify; lo fija `eas.json`, perfil `production`, y la variable de EAS del entorno `production`; `preview` apunta a `https://inglobal-test.51.91.253.54.sslip.io`). Desde el 2026-11-13 el dominio oficial es `www`; `gruasinglobal.com` sin www y el sslip de producción ya no responden. La URL se compila dentro del bundle: cambiarla exige build nuevo o `eas update`.
 - **Despliegue del sitio:** Coolify (rama `main` = producción con deploy automático; `test` = homologación). Vercel quedó fuera de uso a propósito tras la migración (ya no es referencia). Cada push a `main` de `inglobal-site` redespliega producción; confirmarlo con `GET /api/health` (cambia `started_at`).
 - Ojo con las env vars del sitio (`DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `S3_*`): el despliegue sube el código pero no avisa si quedaron apuntando a otra base. Si empieza a dar 401 sin razón aparente, revisar `BETTER_AUTH_URL`/`BETTER_AUTH_SECRET` del sitio.
 
@@ -52,7 +52,13 @@ Esto es lo que hay activo hoy. Publica el JS a los servers de Expo, se abre desd
 - ✅ Permiso `RECORD_AUDIO` sacado (Android y iOS) — no se usa audio en la app, `expo-camera` lo pedía por defecto (`recordAudioAndroid`, aparte de `microphonePermission` que es solo iOS).
 - ✅ `npx expo-doctor` → 18/18 checks OK.
 
-### Falta (cuentas y contenido — no es código)
+### Ficha y capturas (2026-11-20)
+Textos, respuestas de privacidad y clasificación, notas para el revisor y pasos de publicación oculta (Unlisted)
+en `docs/tienda/app-store.md`; capturas de iPhone 6,9" en `docs/tienda/capturas/ios-6.9/`. Política de privacidad
+actualizada en el sitio (notificaciones, borrado de cuenta, proveedores reales). Play queda para después de los
+14 días de prueba cerrada que exige Google a las cuentas personales.
+
+### Falta (cuentas y contenido — no es código) (histórico, ver arriba)
 1. Apple Developer Program, $99/año.
 2. Google Play Console, $25 pago único.
 3. Privacy policy pública (obligatoria en ambas tiendas — la app pide cámara y tiene login). No existe todavía.
@@ -75,7 +81,7 @@ Funciona: los builds de producción llegan a TestFlight solos.
 - **Builds:** #13, #14 y #16 (2026-10-23/27) y #17 (2026-11-03, fix de sesión en iOS) terminaron y se subieron. Los #9 a #12 fallaban porque el perfil de aprovisionamiento no tenía Push Notifications. Ya se regeneró con Push, así que ese error no debería volver.
 - **Estado del envío a Apple:** la CLI de EAS no tiene un comando para verlo. Se ve en el link "Submission details" que imprime el build, o en el dashboard de EAS.
 - **Cambios solo de JS:** no hace falta build. `npx eas-cli update --channel production --environment production --platform all --message "..."` les llega a los builds instalados con la misma `runtimeVersion` (política `appVersion`: `1.0.0` hasta el build 17 con SDK 57, `1.1.0` desde el paso a SDK 58; un update solo les llega a los builds de su misma versión). El teléfono lo baja al abrir la app y lo aplica en la apertura siguiente. En modo no interactivo `--environment` es obligatorio.
-- **Variable de EAS `EXPO_PUBLIC_API_BASE_URL` en `production`:** verificada el 2026-11-03, apunta a `https://inglobal.51.91.253.54.sslip.io`. `development` y `preview` no se revisaron.
+- **Variable de EAS `EXPO_PUBLIC_API_BASE_URL` en `production`:** cambiada el 2026-11-13 a `https://www.gruasinglobal.com`. `development` y `preview` no se revisaron.
 - **Otros pendientes menores:** `npm uninstall -g expo-cli`; probar push y control remoto de TV en dispositivos reales; el entorno test de Coolify (`inglobal-test…`) devolvía 503.
 
 Avisos (2026-10-26): el ícono chico de Android (`assets/images/notification-icon.png`, silueta blanca 96x96 del emblema) y el color `#1C357F` se configuran en el plugin `expo-notifications` de `app.json`; son configuración nativa, así que se ven recién en un build nuevo. En iOS el aviso muestra el ícono de la app. El formato del texto lo arma el backend (`lib/notificaciones.ts` en inglobal-site);

@@ -63,6 +63,10 @@ function nowMinutes(): number {
   return n.getHours() * 60 + n.getMinutes()
 }
 type Positioned = { key: string; ev: EventoAgenda; top: number; height: number; lane: number; lanes: number }
+// Más de MAX_CARRILES servicios a la vez en un teléfono dejaban columnas de pocos píxeles con el texto
+// cortado letra por letra. Se muestran los dos primeros carriles y una tarjeta "+N más" que abre el día en Semana.
+const MAX_CARRILES = 3
+type Desborde = { key: string; dayStr: string; top: number; height: number; cantidad: number }
 
 export default function AgendaScreen() {
   const router = useRouter()
@@ -530,7 +534,7 @@ export default function AgendaScreen() {
   // en sí cruza medianoche (hora_fin <= hora_inicio, turno nocturno) es siempre una
   // sola card continua de punta a punta hasta finDiaEfectivo — mismo criterio que
   // getEstadoVisual — tenga o no fecha_hasta puesta.
-  const positioned = useMemo<Positioned[]>(() => {
+  const { positioned, desbordes } = useMemo<{ positioned: Positioned[]; desbordes: Desborde[] }>(() => {
     const dayIndex = new Map(days.map((d, i) => [toDateInput(d), i]))
     const windowStartStr = toDateInput(windowStart)
     const windowEndStr = toDateInput(windowEnd)
@@ -558,7 +562,7 @@ export default function AgendaScreen() {
       hora_fin: `${s.finDia}T${s.horaFin}`,
     }))
     const layout = layoutDayEvents(withKeys)
-    const cards = withKeys.map((s) => {
+    const todas = withKeys.map((s) => {
       const slot = layout.get(s)!
       const startMin = toMinutes(s.horaInicio)
       const endMin = toMinutes(s.horaFin)
@@ -571,16 +575,41 @@ export default function AgendaScreen() {
       const endDayIdx = dayIdx + diasHastaFin
       const top = Math.max(0, dayIdx * DAY_HEIGHT + (startMin / 60) * PX_PER_HOUR)
       const bottom = Math.min(days.length * DAY_HEIGHT, endDayIdx * DAY_HEIGHT + (endMin / 60) * PX_PER_HOUR)
-      return { key: `${s.ev.id}-${s.dayStr}`, ev: s.ev, top, height: Math.max(bottom - top, MIN_CARD_HEIGHT), lane: slot.lane, lanes: slot.lanes }
+      return {
+        key: `${s.ev.id}-${s.dayStr}`, ev: s.ev, top, height: Math.max(bottom - top, MIN_CARD_HEIGHT),
+        lane: slot.lane, lanes: slot.lanes, cluster: slot.cluster, dayStr: s.dayStr,
+      }
     })
+    const visibles: Positioned[] = []
+    const ocultas = new Map<number, Desborde & { bottom: number }>()
+    for (const c of todas) {
+      if (c.lanes <= MAX_CARRILES) {
+        visibles.push(c)
+      } else if (c.lane < MAX_CARRILES - 1) {
+        visibles.push({ ...c, lanes: MAX_CARRILES })
+      } else {
+        const d = ocultas.get(c.cluster)
+        if (!d) {
+          ocultas.set(c.cluster, { key: `mas-${c.cluster}`, dayStr: c.dayStr, top: c.top, height: 0, bottom: c.top + c.height, cantidad: 1 })
+        } else {
+          d.top = Math.min(d.top, c.top)
+          d.bottom = Math.max(d.bottom, c.top + c.height)
+          d.cantidad++
+        }
+      }
+    }
+    const cards = visibles
     // MIN_CARD_HEIGHT puede estirar un evento corto sobre el siguiente del mismo carril:
     // se recorta al inicio de ese siguiente (con un piso para que siga siendo tocable).
-    return cards.map((c) => {
-      const next = cards
-        .filter((o) => o !== c && o.lane === c.lane && o.top > c.top && o.top < c.top + c.height)
-        .reduce<number | null>((min, o) => (min === null || o.top < min ? o.top : min), null)
-      return next === null ? c : { ...c, height: Math.max(next - c.top - 2, 24) }
-    })
+    return {
+      positioned: cards.map((c) => {
+        const next = cards
+          .filter((o) => o !== c && o.lane === c.lane && o.top > c.top && o.top < c.top + c.height)
+          .reduce<number | null>((min, o) => (min === null || o.top < min ? o.top : min), null)
+        return next === null ? c : { ...c, height: Math.max(next - c.top - 2, 24) }
+      }),
+      desbordes: [...ocultas.values()].map(({ bottom, ...d }) => ({ ...d, height: Math.max(bottom - d.top, MIN_CARD_HEIGHT) })),
+    }
   }, [eventos, days, windowStart, windowEnd])
 
   // ponytail: la grilla de horas (24 * days.length filas) no depende de eventos/foco/tick,
@@ -798,6 +827,22 @@ export default function AgendaScreen() {
                   </Pressable>
                 )
               })}
+              {desbordes.map(({ key, dayStr, top, height, cantidad }) => (
+                <Pressable
+                  key={key}
+                  onPress={() => {
+                    setFocused(new Date(`${dayStr}T12:00:00`))
+                    setViewMode('week')
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ver ${cantidad} servicios más`}
+                  className="absolute bg-igb-yellow/15 border border-igb-yellow rounded-lg items-center justify-center px-1"
+                  style={{ top, height, left: `${((MAX_CARRILES - 1) * 100) / MAX_CARRILES}%`, width: `${100 / MAX_CARRILES}%` }}
+                >
+                  <Text className="text-base font-bold text-igb-on-surface">+{cantidad}</Text>
+                  <Text className="text-[11px] text-igb-secondary text-center">más</Text>
+                </Pressable>
+              ))}
             </View>
           </View>
         </ScrollView>
