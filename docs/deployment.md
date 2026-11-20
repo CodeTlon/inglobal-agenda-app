@@ -52,7 +52,13 @@ Esto es lo que hay activo hoy. Publica el JS a los servers de Expo, se abre desd
 - ✅ Permiso `RECORD_AUDIO` sacado (Android y iOS) — no se usa audio en la app, `expo-camera` lo pedía por defecto (`recordAudioAndroid`, aparte de `microphonePermission` que es solo iOS).
 - ✅ `npx expo-doctor` → 18/18 checks OK.
 
-### Falta (cuentas y contenido — no es código)
+### Ficha y capturas (2026-11-20)
+Textos, respuestas de privacidad y clasificación, notas para el revisor y pasos de publicación oculta (Unlisted)
+en `docs/tienda/app-store.md`; capturas de iPhone 6,9" en `docs/tienda/capturas/ios-6.9/`. Política de privacidad
+actualizada en el sitio (notificaciones, borrado de cuenta, proveedores reales). Play queda para después de los
+14 días de prueba cerrada que exige Google a las cuentas personales.
+
+### Falta (cuentas y contenido — no es código) (histórico, ver arriba)
 1. Apple Developer Program, $99/año.
 2. Google Play Console, $25 pago único.
 3. Privacy policy pública (obligatoria en ambas tiendas — la app pide cámara y tiene login). No existe todavía.
