@@ -87,9 +87,11 @@ La cámara solo lee el QR de la TV y no guarda imágenes (no se declara).
 
 ## Información para la revisión de la app
 
-- **Cuenta de demostración:** crear una cuenta dedicada en https://www.gruasinglobal.com/dashboard/usuarios
-  (por ejemplo `revision-apple@gruasinglobal.com`) y cargarla en "Sign-in required". Borrarla o cambiarle la
-  contraseña cuando Apple apruebe. Ojo: la app no tiene roles, así que esa cuenta ve la agenda real.
+- **Cuenta de demostración:** ya existe en producción la cuenta `...+applereview@gmail.com` (de la revisión
+  anterior; ver `inglobal-site/.ai/context/PENDIENTES.md`). Cargar ese mail y su contraseña en "Sign-in
+  required" (la contraseña no se guarda en el repo; si nadie la tiene, cambiarla desde
+  https://www.gruasinglobal.com/dashboard/usuarios). Desactivarla cuando Apple apruebe. Ojo: la app no tiene
+  roles, así que esa cuenta ve la agenda real.
 - **Notas para el revisor** (pegar en inglés):
 
 ```
