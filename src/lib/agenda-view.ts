@@ -212,6 +212,8 @@ export function getEstadoVisual(evento: EventoAgenda, now = new Date()): string 
 export interface DayLayoutSlot {
   lane: number
   lanes: number
+  /** Identifica el grupo de eventos solapados (mismo valor = mismo cluster). */
+  cluster: number
 }
 
 /**
@@ -229,6 +231,7 @@ export function layoutDayEvents<T extends { hora_inicio: string; hora_fin?: stri
 
   let cluster: T[] = []
   let clusterEnd = ''
+  let clusterId = 0
 
   function flushCluster() {
     if (cluster.length === 0) return
@@ -246,7 +249,8 @@ export function layoutDayEvents<T extends { hora_inicio: string; hora_fin?: stri
       laneOf.set(ev, lane)
     }
     const lanes = laneEnds.length
-    for (const ev of cluster) layout.set(ev, { lane: laneOf.get(ev)!, lanes })
+    for (const ev of cluster) layout.set(ev, { lane: laneOf.get(ev)!, lanes, cluster: clusterId })
+    clusterId++
     cluster = []
     clusterEnd = ''
   }
