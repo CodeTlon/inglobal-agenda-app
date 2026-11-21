@@ -16,6 +16,7 @@
     },
     "android": {
       "package": "com.gruasinglobal.agenda",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#1C357F",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
