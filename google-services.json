@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "660682060129",
+    "project_id": "inglobal-agenda-app",
+    "storage_bucket": "inglobal-agenda-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:660682060129:android:320d1f29dafab80ca2d520",
+        "android_client_info": {
+          "package_name": "com.gruasinglobal.agenda"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyANlThRa6nmGdUSlYq_MzwX-c-UhucgASI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
