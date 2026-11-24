@@ -44,3 +44,15 @@ acepta capturas más altas que 2:1, por eso no sirven las de iPhone).
 4. Pasar el link de suscripción a los testers: cada uno acepta e instala. Los 14 días corren desde que hay 12
    suscriptos.
 5. Al día 14: Panel → "Solicitar acceso a producción" (preguntas sobre la prueba) y luego publicar en producción.
+
+## Estado (2026-11-23)
+
+- La app ya existe en Play Console (cuenta CodeTlon Córdoba), con la ficha, los gráficos y "Contenido de la app"
+  completos desde agosto. El 2026-11-23 se actualizaron la política de privacidad y las URLs de borrado
+  (`www.gruasinglobal.com/politica-de-privacidad`), y en "Seguridad de los datos" se agregaron Nombre, Fotos y
+  Otro contenido generado por usuarios.
+- Prueba cerrada "Alpha": país Argentina y verificadores = lista **LISTA** (12 cuentas). Falta crear la versión:
+  subir a mano el AAB de producción (versionCode 3, build EAS `276d5635`, ~90 MB), notas de la versión y
+  enviar a revisión. Los 14 días corren cuando los 12 aceptan la invitación.
+- Acceso para el revisor: cuenta `playreview@gruasinglobal.com` (cargada en agosto). Confirmar que exista en
+  producción y que la contraseña cargada en Play siga valiendo.
